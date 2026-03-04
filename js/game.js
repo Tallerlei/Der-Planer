@@ -150,8 +150,8 @@ function createVehicle(catalogId, homeCityId) {
 
 // ── Staff factory ────────────────────────────────────────────
 function randomName(role) {
-  const male = Math.random() > 0.45;
-  const first = male
+  const isMale = Math.random() > 0.45;
+  const first = isMale
     ? pick(DATA.FIRST_NAMES_M)
     : pick(DATA.FIRST_NAMES_F);
   const last = pick(DATA.LAST_NAMES);
@@ -586,7 +586,7 @@ function gameTick() {
   // Advance time
   GS.time.totalMinutes += MINUTES_PER_TICK;
   GS.time.minute = (GS.time.minute + MINUTES_PER_TICK) % 60;
-  if (GS.time.minute === 0 || GS.time.totalMinutes % 60 === 0) {
+  if (GS.time.minute === 0) {
     GS.time.hour = (GS.time.hour + 1) % 24;
   }
 
