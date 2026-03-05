@@ -2,133 +2,309 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Der Planer</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #1a1a2e;
-      color: #eaeaea;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    header {
-      width: 100%;
-      background: #16213e;
-      padding: 1rem 2rem;
-      text-align: center;
-      border-bottom: 2px solid #0f3460;
-    }
-
-    header h1 {
-      font-size: 2rem;
-      color: #e94560;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-    }
-
-    header p {
-      font-size: 0.9rem;
-      color: #a8a8b3;
-      margin-top: 0.25rem;
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2rem;
-      padding: 2rem;
-      width: 100%;
-      max-width: 900px;
-    }
-
-    #game-container {
-      width: 100%;
-      background: #16213e;
-      border: 2px solid #0f3460;
-      border-radius: 8px;
-      padding: 2rem;
-      text-align: center;
-    }
-
-    #game-container h2 {
-      color: #e94560;
-      margin-bottom: 1rem;
-    }
-
-    #game-container p {
-      color: #a8a8b3;
-      line-height: 1.6;
-    }
-
-    .btn {
-      display: inline-block;
-      margin-top: 1.5rem;
-      padding: 0.75rem 2rem;
-      background: #e94560;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn:hover {
-      background: #c73652;
-    }
-
-    footer {
-      width: 100%;
-      text-align: center;
-      padding: 1rem;
-      color: #a8a8b3;
-      font-size: 0.8rem;
-      border-top: 1px solid #0f3460;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>Der Planer: Reloaded</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <header>
-    <h1>Der Planer</h1>
-    <p>Das alte Spiel in neuem Gewand</p>
-  </header>
 
-  <main>
-    <div id="game-container">
-      <h2>Willkommen bei Der Planer</h2>
-      <p>
-        Das Spiel befindet sich gerade im Aufbau. Schau bald wieder vorbei!
-      </p>
-      <button class="btn" onclick="startGame()">Spiel starten</button>
+<!-- ═══════════════════════════════════════════════════
+     APP SHELL
+     ═══════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Status bar (hidden until game starts) -->
+  <div id="status-bar">
+    <div class="status-item">
+      <span class="label">🏢</span>
+      <span class="value" id="sb-company">–</span>
     </div>
-  </main>
+    <div class="status-item">
+      <span class="label">💰</span>
+      <span class="value money" id="sb-money">–</span>
+    </div>
+    <div class="status-item">
+      <span class="label">⭐</span>
+      <span class="value reputation" id="sb-reputation">–</span>
+    </div>
+    <div class="status-item">
+      <span class="label">🚛</span>
+      <span class="value" id="sb-vehicles">–</span>
+    </div>
+    <div class="status-item">
+      <span class="label">⛽</span>
+      <span class="value" id="sb-fuel">–</span>
+    </div>
+    <div class="status-item">
+      <span class="label">📅</span>
+      <span class="value" id="sb-date">–</span>
+    </div>
+    <div class="speed-controls">
+      <span class="label" style="margin-right:.25rem">⏩</span>
+      <button class="speed-btn active" data-speed="0" title="Pause">⏸</button>
+      <button class="speed-btn" data-speed="1"  title="Normalgeschwindigkeit">1×</button>
+      <button class="speed-btn" data-speed="5"  title="Schnell">5×</button>
+      <button class="speed-btn" data-speed="30" title="Sehr schnell">30×</button>
+    </div>
+  </div>
 
-  <footer>
-    <p>&copy; 2026 Der Planer</p>
-  </footer>
+  <!-- Main layout -->
+  <div id="main-layout" style="display:none">
 
-  <script>
-    function startGame() {
-      const container = document.getElementById('game-container');
-      container.innerHTML = `
-        <h2>Spiel gestartet!</h2>
-        <p>Hier entsteht bald das eigentliche Spiel. Bleib gespannt!</p>
-        <button class="btn" onclick="location.reload()">Zurück zum Menü</button>
-      `;
-    }
-  </script>
+    <!-- Sidebar navigation -->
+    <nav id="sidebar">
+      <button class="nav-btn" data-screen="office"    onclick="showScreen('office')"    title="Büro">
+        🏢<span class="nav-label">Büro</span>
+      </button>
+      <button class="nav-btn" data-screen="fleet"     onclick="showScreen('fleet')"     title="Fuhrpark">
+        🚛<span class="nav-label">Fuhrpark</span>
+      </button>
+      <button class="nav-btn" data-screen="orders"    onclick="showScreen('orders')"    title="Aufträge">
+        📋<span class="nav-label">Aufträge</span>
+        <span class="nav-badge" id="badge-orders">0</span>
+      </button>
+      <button class="nav-btn" data-screen="routes"    onclick="showScreen('routes')"    title="Routenplanung">
+        🗺️<span class="nav-label">Route</span>
+      </button>
+      <button class="nav-btn" data-screen="personnel" onclick="showScreen('personnel')" title="Personal">
+        👥<span class="nav-label">Personal</span>
+      </button>
+      <button class="nav-btn" data-screen="finance"   onclick="showScreen('finance')"   title="Finanzen">
+        💰<span class="nav-label">Finanzen</span>
+      </button>
+      <button class="nav-btn" data-screen="map"       onclick="showScreen('map')"       title="Karte">
+        🗺️<span class="nav-label">Karte</span>
+      </button>
+    </nav>
+
+    <!-- Screens -->
+    <div id="screens">
+
+      <!-- ═══ OFFICE ═══ -->
+      <div id="screen-office" class="screen">
+        <div class="office-header">
+          <h2>🏢 Ihr Büro</h2>
+          <p id="office-date"></p>
+        </div>
+        <div id="office-rooms" class="office-grid"></div>
+      </div>
+
+      <!-- ═══ FLEET ═══ -->
+      <div id="screen-fleet" class="screen">
+        <div class="page-header">
+          <h2>🚛 <span>Fuhrpark</span></h2>
+        </div>
+        <div class="flex gap-sm" style="margin-bottom:1rem">
+          <button class="fleet-tab btn btn-secondary active" id="fleet-tab-mine">Mein Fuhrpark</button>
+          <button class="fleet-tab btn btn-secondary"        id="fleet-tab-buy">Fahrzeuge kaufen</button>
+        </div>
+        <div id="fleet-list"   class="card-grid card-grid-2"></div>
+        <div id="catalog-list" class="card-grid card-grid-2" style="display:none"></div>
+      </div>
+
+      <!-- ═══ ORDERS ═══ -->
+      <div id="screen-orders" class="screen">
+        <div class="page-header">
+          <h2>📋 <span>Aufträge</span></h2>
+        </div>
+        <div class="order-tabs">
+          <div class="order-tab active" id="otab-available" data-tab="available">
+            📞 Verfügbar
+            <span class="badge badge-info" id="badge-avail">0</span>
+          </div>
+          <div class="order-tab" id="otab-active" data-tab="active">🚛 Aktiv</div>
+          <div class="order-tab" id="otab-completed" data-tab="completed">✅ Abgeschlossen</div>
+        </div>
+        <div id="order-list-available" class="card-grid card-grid-2"></div>
+        <div id="order-list-active"    class="card-grid card-grid-2" style="display:none"></div>
+        <div id="order-list-completed" class="card-grid card-grid-2" style="display:none"></div>
+      </div>
+
+      <!-- ═══ ROUTE PLANNER ═══ -->
+      <div id="screen-routes" class="screen">
+        <div class="page-header">
+          <h2>🗺️ <span>Routenplanung</span></h2>
+          <button id="btn-dispatch" class="btn btn-primary">🚀 Route starten</button>
+        </div>
+        <p class="text-sm text-muted" style="margin-bottom:1rem">
+          Planen Sie Mehrpunkt-Routen: Klicken Sie Städte auf der Karte an, um Stopps hinzuzufügen.
+          Fahrzeuge steuern automatisch Abholung und Lieferung an.
+        </p>
+        <div class="route-layout">
+          <div class="route-panel">
+            <div id="route-vehicle-panel"></div>
+            <div class="card-header" style="margin-top:.5rem">📍 Stopps</div>
+            <div id="route-stops" class="route-stops"></div>
+            <div id="route-summary" class="route-summary"></div>
+          </div>
+          <canvas id="map-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- ═══ PERSONNEL ═══ -->
+      <div id="screen-personnel" class="screen">
+        <div class="page-header">
+          <h2>👥 <span>Personalmanagement</span></h2>
+        </div>
+        <div class="card-header" style="margin-bottom:.75rem">Aktuelle Mitarbeiter</div>
+        <div id="staff-list" class="card-grid card-grid-2" style="margin-bottom:1.5rem"></div>
+
+        <div class="card-header" style="margin-bottom:.75rem">
+          Einstellungsmarkt
+          <button class="btn btn-ghost btn-sm" onclick="generateHireCandidates();renderPersonnel()">🔄 Kandidaten aktualisieren</button>
+        </div>
+        <div id="hire-list" class="card-grid card-grid-2"></div>
+      </div>
+
+      <!-- ═══ FINANCE ═══ -->
+      <div id="screen-finance" class="screen">
+        <div class="page-header">
+          <h2>💰 <span>Finanzen</span></h2>
+        </div>
+        <div id="finance-kpis" class="kpi-grid"></div>
+
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-header">📈 Kreditoptionen</div>
+          <div id="loan-list" class="card-grid card-grid-3"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">📄 Letzte Transaktionen</div>
+          <div id="transaction-list" class="transaction-list"></div>
+        </div>
+      </div>
+
+      <!-- ═══ MAP ═══ -->
+      <div id="screen-map" class="screen">
+        <div class="page-header">
+          <h2>🗺️ <span>Europakarte</span></h2>
+        </div>
+        <div class="map-layout">
+          <canvas id="map-screen-canvas"></canvas>
+          <div>
+            <div class="map-legend card" style="margin-bottom:1rem">
+              <div class="card-header">Legende</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div> Großstadt / Hub</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.5)"></div> Stadt</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div> Fahrzeug (unterwegs)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div> Fahrzeug (Problem)</div>
+            </div>
+            <div class="card">
+              <div class="card-header">Flotte</div>
+              <div id="fleet-on-map" class="fleet-on-map"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /screens -->
+  </div><!-- /main-layout -->
+
+  <!-- ═══ MAIN MENU (shown by default) ═══ -->
+  <div id="screen-menu" class="screen active">
+    <div class="menu-logo">
+      <h1>Der Planer</h1>
+      <p>Reloaded &mdash; Europas führende Speditionssimulation</p>
+    </div>
+
+    <div class="menu-panel">
+      <div class="menu-tabs">
+        <div class="menu-tab active" data-tab="new">Neues Spiel</div>
+        <div class="menu-tab"        data-tab="info">Info</div>
+      </div>
+
+      <!-- New game pane -->
+      <div class="menu-pane" id="pane-new">
+        <div class="menu-form">
+          <div class="form-group">
+            <label class="form-label">Unternehmensname</label>
+            <input id="company-name" class="form-control" type="text"
+                   placeholder="z. B. Rhein-Trans GmbH" maxlength="40" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Schwierigkeitsgrad</label>
+            <div class="difficulty-grid">
+              <div class="diff-option" data-diff="leicht">
+                <span class="diff-icon">🌱</span>
+                <span class="diff-name">Leicht</span>
+                <span class="diff-hint">100.000 €</span>
+              </div>
+              <div class="diff-option selected" data-diff="normal">
+                <span class="diff-icon">⚖️</span>
+                <span class="diff-name">Normal</span>
+                <span class="diff-hint">50.000 €</span>
+              </div>
+              <div class="diff-option" data-diff="schwer">
+                <span class="diff-icon">🔥</span>
+                <span class="diff-name">Schwer</span>
+                <span class="diff-hint">25.000 €</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Spielmodus</label>
+            <div class="mode-grid">
+              <div class="mode-option selected" data-mode="story">
+                <span class="mode-title">📖 Story-Modus</span>
+                <span class="mode-desc">Schrittweise wachsende Herausforderungen, Pressekonferenzen und persönliche Ereignisse</span>
+              </div>
+              <div class="mode-option" data-mode="sandbox">
+                <span class="mode-title">🏖️ Sandbox</span>
+                <span class="mode-desc">Freies Spiel ohne Zeitdruck – bauen Sie Ihr Imperium in Ihrem Tempo</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary w-full" onclick="startNewGame()">▶ Spiel starten</button>
+          <button class="btn btn-secondary w-full" id="btn-continue"
+                  style="display:none" onclick="loadAndContinue()">📂 Spiel fortsetzen</button>
+        </div>
+      </div>
+
+      <!-- Info pane -->
+      <div class="menu-pane" id="pane-info" style="display:none">
+        <p style="margin-bottom:.75rem;line-height:1.6">
+          <strong>Der Planer: Reloaded</strong> ist eine Wirtschaftssimulation, in der Sie ein
+          Speditionsunternehmen von einem kleinen Regionalbetrieb zur internationalen Logistikgruppe aufbauen.
+        </p>
+        <ul style="padding-left:1.25rem;line-height:2;font-size:.85rem;color:var(--text-muted)">
+          <li>🚛 Fuhrpark mit 8 Fahrzeugtypen (Kleintransporter bis Schwerlastzug)</li>
+          <li>🗺️ Mehrpunkt-Routenplanung mit über 40 europäischen Städten</li>
+          <li>📋 Dynamisches Auftragssystem (Telefon, Fax, Online)</li>
+          <li>👥 Personalmanagement: Fahrer, Mechaniker, Buchhalter u.v.m.</li>
+          <li>💰 Vollständiges Finanzsystem mit Krediten und Buchführung</li>
+          <li>📰 Marktdynamik: Kraftstoffpreise, Wirtschaftslage, Wetterereignisse</li>
+          <li>💾 Automatisches Speichern im Browser</li>
+        </ul>
+        <p style="margin-top:.75rem;font-size:.75rem;color:var(--text-muted)">
+          Inspiriert vom Original &ldquo;Der Planer&rdquo; (1994, Greenwood Entertainment)
+        </p>
+      </div>
+    </div>
+  </div><!-- /screen-menu -->
+
+</div><!-- /app -->
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Global modal -->
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">–</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+
 </body>
 </html>
