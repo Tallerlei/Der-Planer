@@ -88,7 +88,8 @@ xdg-open index.html   # Linux
 start index.html      # Windows
 ```
 
-Alternativ ist das Spiel über **GitHub Pages** direkt im Browser spielbar.
+Alternativ ist das Spiel über **GitHub Pages** direkt im Browser spielbar:
+**▶ [https://tallerlei.github.io/Der-Planer/](https://tallerlei.github.io/Der-Planer/)**
 
 ---
 
@@ -117,4 +118,4 @@ Der Spielstand wird automatisch per `localStorage` gespeichert und beim nächste
 | Build-System     | keines – direktes Öffnen im Browser  |
 | Persistenz       | Browser `localStorage`               |
 | Grafik           | HTML5 Canvas (Karten & Routen)       |
-| Deployment       | GitHub Pages                         |
+| Deployment       | [GitHub Pages](https://tallerlei.github.io/Der-Planer/) |
