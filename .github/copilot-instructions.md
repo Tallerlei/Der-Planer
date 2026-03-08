@@ -36,7 +36,20 @@ Konkret bedeutet das:
 - Geänderte Zahlen (Städte, Fahrzeugtypen, Mitarbeiterrollen usw.) → Zahlen in README anpassen.
 - Neue Dateien in `js/` oder `css/` → Projektstruktur-Abschnitt aktualisieren.
 
-### 3. Features vollständig auflisten
+### 3. Versionsnummer pflegen
+
+> **Jede inhaltliche Änderung am Spiel erfordert eine Anpassung der Versionsnummer.**
+
+Die Versionsnummer ist als Konstante `APP_VERSION` am Anfang von `js/game.js` definiert und wird im Info-Screen des Spiels angezeigt.
+
+Versionsschema: `MAJOR.MINOR.PATCH` (Semantic Versioning)
+- **PATCH** erhöhen bei Bugfixes und kleinen Korrekturen.
+- **MINOR** erhöhen bei neuen Features oder sichtbaren Änderungen an bestehenden Features.
+- **MAJOR** erhöhen bei grundlegenden Überarbeitungen der Spielstruktur.
+
+Die aktuelle Versionsnummer muss außerdem im Abschnitt **🔖 Version** der `README.md` aktuell gehalten werden.
+
+### 4. Features vollständig auflisten
 
 Jedes spielrelevante Feature muss im README unter **✨ Features** dokumentiert sein.
 Die aktuelle Feature-Liste umfasst:
