@@ -27,7 +27,8 @@ const GS = {
   speed: 1,        // ticks per real second (1/5/30)
   tickMs: 1000,    // real ms per tick (adjusted by speed)
 
-  company: { name: 'Meine Spedition', mode: 'story', difficulty: 'normal', hqCity: 'frankfurt' },
+  company: { name: 'Meine Spedition', mode: 'story', difficulty: 'normal', hqCity: 'frankfurt',
+             werbevertrag_aktiv: false, werbevertrag_booster: 0.0, reputationTier: 3 },
 
   time: { day: 1, month: 3, year: 1994, hour: 8, minute: 0, totalMinutes: 0 },
 
@@ -272,13 +273,69 @@ function addTransaction(desc, amount) {
 }
 
 // ── Order generation ─────────────────────────────────────────
+// Reputation tier helpers
+function getReputationTier(rep) {
+  if (rep <= 20) return 1;
+  if (rep <= 40) return 2;
+  if (rep <= 60) return 3;
+  if (rep <= 80) return 4;
+  return 5;
+}
+const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
+
+// Check whether any idle vehicle with driver can fulfil this order
+function canFulfillOrder(order) {
+  const idleVehicles = GS.vehicles.filter(v => v.status === 'idle' && v.driverId);
+  if (idleVehicles.length === 0) {
+    return { feasible: false, reason: 'Kein Fahrzeug mit Fahrer verfügbar' };
+  }
+  for (const v of idleVehicles) {
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    if (!cat) continue;
+    const meetsReqs = order.requirements.every(req => cat.requirements.includes(req));
+    if (meetsReqs && cat.capacity >= order.weight) return { feasible: true, reason: '' };
+  }
+  // Determine why – missing requirements or insufficient capacity?
+  const reqOk = idleVehicles.filter(v => {
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    return cat && order.requirements.every(req => cat.requirements.includes(req));
+  });
+  if (reqOk.length === 0) {
+    const reqLabel = order.requirements
+      .map(r => ({ cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' }[r] || r)
+      ).join(', ');
+    return { feasible: false, reason: `Kein Fahrzeug mit ${reqLabel}` };
+  }
+  const maxCap = Math.max(...reqOk.map(v => {
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    return cat ? cat.capacity : 0;
+  }));
+  return {
+    feasible: false,
+    reason: `Maximale Fahrzeugkapazität: ${fmt.weight(maxCap)} – Auftrag benötigt: ${fmt.weight(order.weight)}`,
+  };
+}
+
 function generateOrders() {
   const diff = DATA.DIFFICULTY[GS.company.difficulty];
   const volMod = GS.market.orderVolumeMod * diff.orderFrequency;
-  const count = Math.round(rand(1, 3) * volMod);
+
+  // Variable A: cap available pool at fleet size × 2.5
+  const usableVehicles = Math.max(1, GS.vehicles.filter(v => v.status !== 'broken').length);
+  const maxAvailable = Math.ceil(usableVehicles * 2.5);
+  if (GS.orders.available.length >= maxAvailable) return;
+  const canGenerate = maxAvailable - GS.orders.available.length;
+  const count = Math.min(canGenerate, Math.round(rand(1, 3) * volMod));
+  if (count <= 0) return;
+
+  // Variable B: max order weight scaled by reputation tier
+  const repTier = getReputationTier(GS.company.reputation || 50);
+  const tierMaxWeight = REP_TIER_MAX_WEIGHT[repTier];
+  const eligibleTemplates = DATA.ORDER_TEMPLATES.filter(t => t.minWeight <= tierMaxWeight);
+  if (eligibleTemplates.length === 0) return;
 
   for (let i = 0; i < count; i++) {
-    const template = pick(DATA.ORDER_TEMPLATES);
+    const template = pick(eligibleTemplates);
     const client   = pick(DATA.CLIENTS);
 
     // Pick origin & destination from cities
@@ -288,7 +345,7 @@ function generateOrders() {
     do { destC = pick(DATA.CITIES); } while (destC.id === originC.id);
 
     const dist    = getDistance(originC.id, destC.id);
-    const weight  = rand(template.minWeight, template.maxWeight);
+    const weight  = rand(template.minWeight, Math.min(template.maxWeight, tierMaxWeight));
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
     const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
 
@@ -335,6 +392,77 @@ function generateOrders() {
   if ($('order-list-available')) renderOrders();
 }
 
+// Inject orders specifically showcasing a new reputation tier
+function injectTierOrders(tier, count) {
+  const diff = DATA.DIFFICULTY[GS.company.difficulty];
+  const tierMaxWeight = REP_TIER_MAX_WEIGHT[tier];
+  const prevMaxWeight = tier > 1 ? REP_TIER_MAX_WEIGHT[tier - 1] : 0;
+  // Prefer templates whose weight range overlaps the new tier's exclusive range
+  const tierTemplates = DATA.ORDER_TEMPLATES.filter(t =>
+    t.minWeight <= tierMaxWeight && t.maxWeight > prevMaxWeight
+  );
+  if (tierTemplates.length === 0) return;
+
+  for (let i = 0; i < count; i++) {
+    const template = pick(tierTemplates);
+    const client   = pick(DATA.CLIENTS);
+    const origins  = DATA.CITIES.filter(c => c.country === 'DE');
+    const originC  = pick(origins);
+    let destC;
+    do { destC = pick(DATA.CITIES); } while (destC.id === originC.id);
+
+    const dist   = getDistance(originC.id, destC.id);
+    const minW   = Math.max(template.minWeight, prevMaxWeight + 1);
+    const maxW   = Math.min(template.maxWeight, tierMaxWeight);
+    const weight = rand(minW, maxW);
+    const valueMod = GS.market.orderValueMod * diff.orderFrequency;
+    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
+
+    const r = Math.random();
+    const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
+
+    const order = {
+      id: uid(),
+      clientId: client.id,
+      clientName: client.name,
+      industry: client.industry,
+      origin: originC.id,
+      destination: destC.id,
+      cargoDesc: template.cargo,
+      cargoType: template.type,
+      weight,
+      requirements: [...template.requirements],
+      value: baseVal,
+      penalty: Math.round(baseVal * 0.1 * diff.orderPenaltyMod),
+      bonus: Math.round(baseVal * 0.08),
+      deadlineDays: rand(2, 5),
+      isUrgent: false,
+      expiresInDays: 2,
+      receivedMinute: GS.time.totalMinutes,
+      channel,
+      status: 'available',
+      vehicleId: null,
+      acceptedMinute: null,
+      completedMinute: null,
+      finalValue: null,
+    };
+    GS.orders.available.push(order);
+  }
+  updateOrderBadge();
+  if ($('order-list-available')) renderOrders();
+}
+
+// Check if reputation crossed into a new tier and react
+function checkReputationTierChange(oldRep, newRep) {
+  const oldTier = getReputationTier(oldRep);
+  const newTier = getReputationTier(newRep);
+  if (newTier > oldTier) {
+    injectTierOrders(newTier, 2);
+    showToast(`⭐ Bekanntheitsgrad Stufe ${newTier} erreicht – neue Aufträge verfügbar!`, 'success');
+  }
+  GS.company.reputationTier = newTier;
+}
+
 // ── Order lifecycle ──────────────────────────────────────────
 function acceptOrder(orderId, vehicleId) {
   const idx = GS.orders.available.findIndex(o => o.id === orderId);
@@ -353,6 +481,12 @@ function acceptOrder(orderId, vehicleId) {
       const reqLabel = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' }[req] || req;
       showToast(`Fahrzeug erfüllt nicht: ${reqLabel}`, 'danger'); return;
     }
+  }
+
+  // Capacity validation
+  if (cat.capacity < order.weight) {
+    showToast(`Fahrzeug zu klein: Kapazität ${fmt.weight(cat.capacity)} – Auftrag benötigt ${fmt.weight(order.weight)}`, 'danger');
+    return;
   }
 
   GS.orders.available.splice(idx, 1);
@@ -396,6 +530,32 @@ function declineOrder(orderId) {
   order.status = 'declined';
   GS.orders.declined.unshift(order);
   showToast('Auftrag abgelehnt.', 'warning');
+  updateOrderBadge();
+  if ($('order-list-available')) renderOrders();
+}
+
+function declineUnfulfillableOrders() {
+  const unfulfillable = GS.orders.available.filter(o => !canFulfillOrder(o).feasible);
+  if (unfulfillable.length === 0) { showToast('Alle Aufträge sind erfüllbar.', 'info'); return; }
+  openModal(
+    'Aufträge ablehnen',
+    `<p>${unfulfillable.length} Aufträge ablehnen, die nicht erfüllbar sind?</p>
+     <div class="flex gap-sm" style="margin-top:1rem">
+       <button class="btn btn-danger" onclick="confirmDeclineUnfulfillable()">Ablehnen</button>
+       <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+     </div>`
+  );
+}
+
+function confirmDeclineUnfulfillable() {
+  closeModal();
+  const unfulfillable = GS.orders.available.filter(o => !canFulfillOrder(o).feasible);
+  unfulfillable.forEach(o => {
+    GS.orders.available.splice(GS.orders.available.indexOf(o), 1);
+    o.status = 'declined';
+    GS.orders.declined.unshift(o);
+  });
+  showToast(`${unfulfillable.length} Aufträge abgelehnt.`, 'warning');
   updateOrderBadge();
   if ($('order-list-available')) renderOrders();
 }
@@ -562,8 +722,10 @@ function completeOrder(order, vehicle) {
   addTransaction(`Lieferung: ${order.clientName} (${getCityName(order.origin)}→${getCityName(order.destination)})`, finalValue);
 
   // Reputation effect
-  if (minutesTaken <= deadlineMin) GS.company.reputation = Math.min(100, (GS.company.reputation || 50) + 2);
-  else GS.company.reputation = Math.max(0, (GS.company.reputation || 50) - 3);
+  const oldRep = GS.company.reputation || 50;
+  if (minutesTaken <= deadlineMin) GS.company.reputation = Math.min(100, oldRep + 2);
+  else GS.company.reputation = Math.max(0, oldRep - 3);
+  checkReputationTierChange(oldRep, GS.company.reputation);
 
   updateStatusBar();
 }
@@ -875,11 +1037,20 @@ function updateStatusBar() {
 }
 
 function updateOrderBadge() {
+  // Sidebar badge
   const badge = $('badge-orders');
-  if (!badge) return;
-  const n = GS.orders.available.length;
-  badge.textContent = n;
-  badge.classList.toggle('visible', n > 0);
+  if (badge) {
+    const n = GS.orders.available.length;
+    badge.textContent = n;
+    badge.classList.toggle('visible', n > 0);
+  }
+  // Tab badges in the orders screen
+  const ba = $('badge-avail');
+  if (ba) ba.textContent = GS.orders.available.length;
+  const bact = $('badge-active');
+  if (bact) bact.textContent = GS.orders.active.length;
+  const bcomp = $('badge-completed');
+  if (bcomp) bcomp.textContent = GS.orders.completed.length;
 }
 
 // ── Screen navigation ────────────────────────────────────────
@@ -923,11 +1094,14 @@ function startNewGame() {
   const mode  = document.querySelector('.mode-option.selected')?.dataset.mode || 'story';
   const diffConfig = DATA.DIFFICULTY[diff];
 
-  GS.company.name       = name;
-  GS.company.difficulty = diff;
-  GS.company.mode       = mode;
-  GS.company.reputation = 50;
-  GS.company.hqCity     = 'frankfurt';
+  GS.company.name               = name;
+  GS.company.difficulty         = diff;
+  GS.company.mode               = mode;
+  GS.company.reputation         = 50;
+  GS.company.hqCity             = 'frankfurt';
+  GS.company.reputationTier     = getReputationTier(50);
+  GS.company.werbevertrag_aktiv  = false;
+  GS.company.werbevertrag_booster = 0.0;
 
   GS.finance.balance    = diffConfig.startMoney;
   GS.market.fuelPrice   = diffConfig.fuelPriceBase;
@@ -979,6 +1153,9 @@ function loadAndContinue() {
   if (!GS.ui.mapZoom)      GS.ui.mapZoom      = 1;
   if (!GS.ui.mapCenter)    GS.ui.mapCenter    = { x: 400, y: 260 };
   if (!GS.company.hqCity)  GS.company.hqCity  = 'frankfurt';
+  if (GS.company.werbevertrag_aktiv  === undefined) GS.company.werbevertrag_aktiv  = false;
+  if (GS.company.werbevertrag_booster === undefined) GS.company.werbevertrag_booster = 0.0;
+  if (!GS.company.reputationTier) GS.company.reputationTier = getReputationTier(GS.company.reputation || 50);
   GS.started = true;
   $('status-bar').classList.add('visible');
   $('sidebar').classList.add('visible');
@@ -1028,6 +1205,7 @@ function renderOffice() {
     { icon: '💰', name: 'Buchhaltung',       desc: fmt.money(GS.finance.balance),   screen: 'finance',   badge: null },
     { icon: '🗺️', name: 'Karte',            desc: `${activeVehicles} unterwegs`,   screen: 'map',       badge: null },
     { icon: '📰', name: 'Markt & Ereignisse', desc: `${events} aktive Ereignisse`,  screen: null, action: 'events', badge: events || null },
+    { icon: '📣', name: 'Marketing',          desc: 'Werbeverträge',               screen: 'marketing', badge: null },
     { icon: '⚙️', name: 'Einstellungen',    desc: 'Speichern & Optionen',           screen: null, action: 'settings', badge: null },
     { icon: '📊', name: 'Statistiken',       desc: `${GS.stats.ordersCompleted} Aufträge`, screen: null, action: 'stats', badge: null },
   ];
@@ -1274,6 +1452,7 @@ function buyVehicle(catalogId) {
 
 // ── Orders screen ────────────────────────────────────────────
 function renderOrders() {
+  updateOrderBadge();
   const tab = GS.ui.orderTab;
   let orders = [];
   if (tab === 'available') orders = GS.orders.available;
@@ -1301,7 +1480,8 @@ function renderOrders() {
     return `<option value="${v.id}">${v.name} (${fmt.weight(cat.capacity)})</option>`;
   }).join('');
 
-  el.innerHTML = orders.map(o => {
+  let unfulfillableCount = 0;
+  const cards = orders.map(o => {
     const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || { icon: '📦', label: o.cargoType };
     const ch = { phone: '📞 Telefon', fax: '📠 Fax', online: '🌐 Online' }[o.channel] || o.channel;
     const urgentBadge = o.isUrgent ? `<span class="badge badge-danger urgent-badge" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>` : '';
@@ -1315,16 +1495,33 @@ function renderOrders() {
         ⏱ noch ${hoursLeft}h</span>`;
     }
 
+    // Feasibility icon (available tab only)
+    let feasibilityIcon = '';
+    let acceptDisabled = false;
+    if (tab === 'available') {
+      const { feasible, reason } = canFulfillOrder(o);
+      if (feasible) {
+        feasibilityIcon = `<span title="Auftrag erfüllbar" style="color:#3fb950;font-size:1rem;flex-shrink:0">✔</span>`;
+      } else {
+        feasibilityIcon = `<span title="${reason}" style="color:#f85149;font-size:1rem;flex-shrink:0;cursor:help">✘</span>`;
+        acceptDisabled = true;
+        unfulfillableCount++;
+      }
+    }
+
     return `
     <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
       <div class="order-card-header">
-        <div>
-          <div class="order-route">
-            <span class="city">${getCityName(o.origin)}</span>
-            <span class="arrow">→</span>
-            <span class="city">${getCityName(o.destination)}</span>
+        <div style="display:flex;align-items:flex-start;gap:.4rem">
+          ${feasibilityIcon}
+          <div>
+            <div class="order-route">
+              <span class="city">${getCityName(o.origin)}</span>
+              <span class="arrow">→</span>
+              <span class="city">${getCityName(o.destination)}</span>
+            </div>
+            <div class="text-sm text-muted mt-sm">${o.clientName}</div>
           </div>
-          <div class="text-sm text-muted mt-sm">${o.clientName}</div>
         </div>
         <div style="text-align:right">
           <div class="order-value">${fmt.money(o.value)}</div>
@@ -1349,7 +1546,7 @@ function renderOrders() {
           ${vOpts}
         </select>
         <button class="btn btn-success btn-sm"
-                title="Auftrag annehmen: +${TIME_COSTS.assignOrder} Min"
+                ${acceptDisabled ? 'disabled title="Kein geeignetes Fahrzeug verfügbar"' : `title="Auftrag annehmen: +${TIME_COSTS.assignOrder} Min"`}
                 onclick="acceptOrder('${o.id}', $('vsel-${o.id}').value)">✓ Annehmen</button>
         <button class="btn btn-danger btn-sm"  onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       </div>` : ''}
@@ -1373,6 +1570,17 @@ function renderOrders() {
       </div>` : ''}
     </div>`;
   }).join('');
+
+  // Append "reject unfulfillable" button for the available tab when there are unfulfillable orders
+  const rejectBtn = (tab === 'available' && unfulfillableCount > 0)
+    ? `<div style="grid-column:1/-1;margin-top:.5rem">
+         <button class="btn btn-warning" onclick="declineUnfulfillableOrders()">
+           ✗ Nicht erfüllbare Aufträge ablehnen (${unfulfillableCount})
+         </button>
+       </div>`
+    : '';
+
+  el.innerHTML = cards + rejectBtn;
 }
 
 function switchOrderTab(tab) {
