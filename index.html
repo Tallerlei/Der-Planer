@@ -179,16 +179,29 @@
       <div id="screen-map" class="screen">
         <div class="page-header">
           <h2>🗺️ <span>Europakarte</span></h2>
+          <div class="map-zoom-controls">
+            <button id="map-zoom-in"  class="btn btn-secondary btn-sm" onclick="setMapZoom(2)" title="Regionalansicht (Zoom +)">＋</button>
+            <button id="map-zoom-out" class="btn btn-secondary btn-sm" onclick="setMapZoom(1)" title="Totale (Zoom –)">－</button>
+          </div>
         </div>
-        <div class="map-layout">
-          <canvas id="map-screen-canvas"></canvas>
-          <div>
+        <div class="map-screen-layout">
+          <div class="map-canvas-wrap">
+            <canvas id="map-screen-canvas"></canvas>
+          </div>
+          <div class="map-sidebar">
             <div class="map-legend card" style="margin-bottom:1rem">
               <div class="card-header">Legende</div>
+              <div class="legend-item"><div class="legend-line legend-autobahn"></div> Autobahn</div>
+              <div class="legend-item"><div class="legend-line legend-national"></div> Bundesstraße</div>
               <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div> Großstadt / Hub</div>
               <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.5)"></div> Stadt</div>
+              <div class="legend-item"><div class="legend-diamond"></div> Autobahnkreuz</div>
               <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div> Fahrzeug (unterwegs)</div>
               <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div> Fahrzeug (Problem)</div>
+            </div>
+            <div class="card" style="margin-bottom:1rem">
+              <div class="card-header">Schnellnavigation</div>
+              <div id="map-quick-nav" class="map-quick-nav"></div>
             </div>
             <div class="card">
               <div class="card-header">Flotte</div>
