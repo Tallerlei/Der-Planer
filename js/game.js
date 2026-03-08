@@ -124,11 +124,75 @@ function routeDistance(stops) {
   return total;
 }
 
+// ── Road-network shortest path (Dijkstra) ────────────────────
+function findShortestPath(fromId, toId) {
+  if (fromId === toId) return [fromId];
+
+  // Build adjacency list from road connections
+  const adj = {};
+  for (const [a, b, dist] of DATA.CONNECTIONS) {
+    if (!adj[a]) adj[a] = [];
+    if (!adj[b]) adj[b] = [];
+    adj[a].push({ id: b, dist });
+    adj[b].push({ id: a, dist });
+  }
+
+  const dist  = {};
+  const prev  = {};
+  const queue = [];
+  for (const c of DATA.CITIES) dist[c.id] = Infinity;
+  dist[fromId] = 0;
+  queue.push({ id: fromId, d: 0 });
+
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.d - b.d);
+    const { id: cur, d: curD } = queue.shift();
+    if (curD > dist[cur]) continue;  // stale entry
+    if (cur === toId) break;
+    for (const { id: nb, dist: w } of (adj[cur] || [])) {
+      const nd = dist[cur] + w;
+      if (nd < dist[nb]) {
+        dist[nb] = nd;
+        prev[nb] = cur;
+        queue.push({ id: nb, d: nd });
+      }
+    }
+  }
+
+  if (dist[toId] === Infinity) return [fromId, toId]; // no road path, fallback
+
+  const path = [];
+  let cur = toId;
+  while (cur !== undefined) {
+    path.unshift(cur);
+    cur = prev[cur];
+  }
+  return path;
+}
+
+// Expand key waypoints into a full multi-hop route following the road network.
+// keyWaypoints: [{cityId, action, orderId?}, ...]
+function buildRouteStops(keyWaypoints) {
+  if (keyWaypoints.length === 0) return [];
+  const result = [keyWaypoints[0]];
+  for (let i = 1; i < keyWaypoints.length; i++) {
+    const path = findShortestPath(keyWaypoints[i - 1].cityId, keyWaypoints[i].cityId);
+    // Add intermediate transit stops (skip first city – already in result)
+    for (let j = 1; j < path.length - 1; j++) {
+      result.push({ cityId: path[j], action: 'transit' });
+    }
+    result.push(keyWaypoints[i]);
+  }
+  return result;
+}
+
 // ── Vehicle factory ──────────────────────────────────────────
 function createVehicle(catalogId, homeCityId) {
   const cat = DATA.VEHICLES.find(v => v.id === catalogId);
   if (!cat) return null;
   const num = GS.vehicles.filter(v => v.catalogId === catalogId).length + 1;
+  const homeCityIdResolved = homeCityId || 'frankfurt';
+  const homeCity = cityById[homeCityIdResolved];
   return {
     id: uid(),
     catalogId,
@@ -138,8 +202,8 @@ function createVehicle(catalogId, homeCityId) {
     odometer: 0,
     driverId: null,
     status: 'idle',    // idle | driving | maintenance | broken
-    homeCity: homeCityId || 'frankfurt',
-    currentCity: homeCityId || 'frankfurt',
+    homeCity: homeCityIdResolved,
+    currentCity: homeCityIdResolved,
     route: {
       stops: [],
       currentStopIndex: 0,
@@ -147,7 +211,8 @@ function createVehicle(catalogId, homeCityId) {
       totalDistance: 0,
       coveredDistance: 0,
     },
-    position: { x: 0, y: 0 },
+    position: homeCity ? { x: homeCity.x, y: homeCity.y } : { x: 0, y: 0 },
+    refuelPauseMinutes: 0,  // remaining minutes of a refueling stop
   };
 }
 
@@ -296,27 +361,25 @@ function acceptOrder(orderId, vehicleId) {
   order.acceptedMinute = GS.time.totalMinutes;
   GS.orders.active.push(order);
 
-  // Set up vehicle route: home → origin → destination → home
+  // Set up vehicle route following road network: current → pickup → delivery → home
   vehicle.status = 'driving';
+  const keyWaypoints = [
+    { cityId: vehicle.currentCity, action: 'depart' },
+    { cityId: order.origin,        action: 'pickup',   orderId: order.id },
+    { cityId: order.destination,   action: 'delivery', orderId: order.id },
+    { cityId: vehicle.homeCity,    action: 'return' },
+  ];
+  const expandedStops = buildRouteStops(keyWaypoints)
+    .filter((s, i, arr) => i === 0 || s.cityId !== arr[i - 1].cityId);
+
   vehicle.route = {
-    stops: [
-      { cityId: vehicle.currentCity, action: 'depart' },
-      { cityId: order.origin,       action: 'pickup',   orderId: order.id },
-      { cityId: order.destination,  action: 'delivery', orderId: order.id },
-      { cityId: vehicle.homeCity,   action: 'return' },
-    ],
+    stops: expandedStops,
     currentStopIndex: 0,
     progressPct: 0,
-    totalDistance: 0,
+    totalDistance: routeDistance(expandedStops),
     coveredDistance: 0,
   };
 
-  // Remove degenerate stops (same city)
-  vehicle.route.stops = vehicle.route.stops.filter((s, i, arr) =>
-    i === 0 || s.cityId !== arr[i-1].cityId
-  );
-
-  vehicle.route.totalDistance = routeDistance(vehicle.route.stops);
   updatePositionForVehicle(vehicle);
 
   showToast(`Auftrag angenommen: ${order.clientName}`, 'success');
@@ -354,7 +417,12 @@ function expireOrders() {
 // ── Vehicle movement ─────────────────────────────────────────
 function updatePositionForVehicle(v) {
   const stops = v.route.stops;
-  if (!stops || stops.length === 0) return;
+  if (!stops || stops.length === 0) {
+    // Vehicle is idle – snap to its current city
+    const c = cityById[v.currentCity];
+    if (c) { v.position.x = c.x; v.position.y = c.y; }
+    return;
+  }
   const idx = v.route.currentStopIndex;
   if (idx >= stops.length - 1) {
     const c = cityById[stops[stops.length - 1].cityId];
@@ -382,6 +450,29 @@ function tickVehicles(minutesPassed) {
     let remainingMinutes = minutesPassed;
 
     while (remainingMinutes > 0 && v.status === 'driving') {
+      // ── Handle active refueling stop ─────────────────────────
+      if ((v.refuelPauseMinutes || 0) > 0) {
+        const pause = Math.min(v.refuelPauseMinutes, remainingMinutes);
+        remainingMinutes -= pause;
+        v.refuelPauseMinutes -= pause;
+        if (v.refuelPauseMinutes <= 0) {
+          // Refueling complete
+          const litres = cat.fuelCapacity - v.fuel;
+          const cost = litres * GS.market.fuelPrice;
+          addTransaction(`Tankstopp ${v.name}`, -cost);
+          v.fuel = cat.fuelCapacity;
+          showToast(`⛽ ${v.name}: Getankt`, 'info');
+        }
+        continue;
+      }
+
+      // ── Auto-refuel when fuel is low (< 15 % capacity) ───────
+      if (v.fuel < cat.fuelCapacity * REFUEL_THRESHOLD) {
+        v.refuelPauseMinutes = REFUEL_DURATION_MINUTES;
+        showToast(`⛽ ${v.name}: Tankstopp (${REFUEL_DURATION_MINUTES} Min)`, 'info');
+        continue;
+      }
+
       const idx  = v.route.currentStopIndex;
       const from = stops[idx];
       const to   = stops[idx + 1];
@@ -391,21 +482,17 @@ function tickVehicles(minutesPassed) {
       const legKmDone = (v.route.progressPct / 100) * legDist;
       const legRemaining = legDist - legKmDone;
       const kmThisTick = kmPerMinute * remainingMinutes;
+      // Only consume fuel/odometer for km actually driven this iteration
+      const kmActual = Math.min(kmThisTick, legRemaining);
 
-      // Fuel consumption
-      const fuelUsed = (kmThisTick / 100) * cat.fuelConsumption;
+      // Fuel consumption (only for actual km driven)
+      const fuelUsed = (kmActual / 100) * cat.fuelConsumption;
       v.fuel = Math.max(0, v.fuel - fuelUsed);
-      v.odometer += kmThisTick;
-      GS.stats.kmDriven += kmThisTick;
+      v.odometer += kmActual;
+      GS.stats.kmDriven += kmActual;
 
       // Health degradation (per 10 000 km roughly 1 point)
-      v.health = Math.max(0, v.health - kmThisTick * 0.0001);
-
-      if (v.fuel <= 0) {
-        v.status = 'broken';
-        showToast(`${v.name} hat keinen Kraftstoff mehr!`, 'danger');
-        break;
-      }
+      v.health = Math.max(0, v.health - kmActual * 0.0001);
 
       if (kmThisTick >= legRemaining) {
         // Arrive at next stop
@@ -423,7 +510,7 @@ function tickVehicles(minutesPassed) {
           break;
         }
       } else {
-        v.route.progressPct = ((legKmDone + kmThisTick) / legDist) * 100;
+        v.route.progressPct = ((legKmDone + kmActual) / legDist) * 100;
         remainingMinutes = 0;
       }
     }
@@ -433,7 +520,7 @@ function tickVehicles(minutesPassed) {
 }
 
 function processStopAction(v, stop) {
-  if (!stop.action || stop.action === 'depart' || stop.action === 'return') return;
+  if (!stop.action || stop.action === 'depart' || stop.action === 'return' || stop.action === 'transit') return;
 
   const order = GS.orders.active.find(o => o.id === stop.orderId);
   if (!order) return;
@@ -595,6 +682,10 @@ const TIME_COSTS = {
   refreshCand:   5,   // Refreshing the hire candidate pool
 };
 
+// Automatic refueling parameters
+const REFUEL_THRESHOLD        = 0.15;  // Trigger a stop when fuel < 15 % of capacity
+const REFUEL_DURATION_MINUTES = 15;    // Duration of an automatic refueling stop (game-minutes)
+
 // Render throttle: passive ticks update the DOM at most this often (ms)
 const RENDER_THROTTLE_MS = 950;
 
@@ -742,6 +833,12 @@ function loadGame() {
     if (!raw) return false;
     const saved = JSON.parse(raw);
     Object.assign(GS, saved);
+    // Migrate vehicles from older saves
+    GS.vehicles.forEach(v => {
+      if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
+      // Fix position if stuck at origin (old saves had {0,0})
+      updatePositionForVehicle(v);
+    });
     return true;
   } catch (e) { return false; }
 }
@@ -1393,8 +1490,14 @@ function renderRouteSummary() {
   const stops = GS.ui.routeStops;
   if (stops.length < 2) { el.innerHTML = '<div class="text-muted text-sm">Mindestens 2 Stopps benötigt.</div>'; return; }
 
-  const dist    = routeDistance(stops);
+  // Compute the actual road-network distance using expanded route
   const v       = GS.vehicles.find(v => v.id === GS.ui.routeVehicleId);
+  const keyWaypoints = v
+    ? [{ cityId: v.currentCity, action: 'depart' }, ...stops]
+    : stops;
+  const expandedStops = buildRouteStops(keyWaypoints)
+    .filter((s, i, arr) => i === 0 || s.cityId !== arr[i - 1].cityId);
+  const dist    = routeDistance(expandedStops);
   const cat     = v ? DATA.VEHICLES.find(c => c.id === v.catalogId) : null;
   const hours   = cat ? Math.round(dist / cat.speed) : '?';
   const fuel    = cat ? Math.round(dist / 100 * cat.fuelConsumption) : '?';
@@ -1420,11 +1523,13 @@ function dispatchRoute() {
   if (!v || v.status !== 'idle') { showToast('Fahrzeug nicht verfügbar.', 'warning'); return; }
   if (!v.driverId) { showToast('Kein Fahrer zugewiesen.', 'warning'); return; }
 
-  // Add departure stop
-  const fullStops = [
+  // Expand route through road network
+  const keyWaypoints = [
     { cityId: v.currentCity, action: 'depart' },
     ...stops,
-  ].filter((s, i, arr) => i === 0 || s.cityId !== arr[i-1].cityId);
+  ];
+  const fullStops = buildRouteStops(keyWaypoints)
+    .filter((s, i, arr) => i === 0 || s.cityId !== arr[i - 1].cityId);
 
   v.status = 'driving';
   v.route  = {

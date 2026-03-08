@@ -24,8 +24,9 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 ### 🚛 Fuhrparkmanagement
 - **8 Fahrzeugtypen**: vom kleinen Transporter (2 t) bis zum Schwerlastzug (60 t).
 - Kaufe, warte und verkaufe Fahrzeuge (MAN, Volvo, Scania, DAF, Mercedes Actros u. a.).
-- Fahrzeuge können in den Zuständen *untätig*, *fahrend*, *Wartung* oder *defekt* sein.
+- Fahrzeuge können in den Zuständen *untätig*, *fahrend* oder *Wartung* sein.
 - Treibstoffverbrauch und Verschleiß werden realistisch simuliert.
+- **Automatische Tankstopps**: Sinkt der Kraftstoffstand unter 15 %, hält das Fahrzeug selbständig an einer Tankstelle (15 Min. Verzögerung); die Kraftstoffkosten werden automatisch verbucht.
 
 ### 📦 Auftragsystem
 - **25 fiktive Kunden** aus verschiedenen Branchen (Lebensmittel, Chemie, Bau, Medizin, Automobil …).
@@ -36,7 +37,8 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 ### 🗺️ Routenplaner & Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
 - Plane Multi-Punkt-Routen mit automatischer Abholungs- und Lieferlogik.
-- Verfolge deine Flotte in Echtzeit auf der Europakarte.
+- **Straßennetz-Routing**: Fahrzeuge folgen dem realen Straßennetz (Dijkstra-Algorithmus) statt direkter Luftlinien – mit automatisch eingefügten Transitstopps über Autobahnkreuze.
+- Verfolge deine Flotte in Echtzeit auf der Europakarte; Fahrzeuge starten und enden stets am richtigen Standort.
 - **Straßentypen-Visualisierung**: Autobahnen als breite, blaue Linien mit weißer Mittellinie; Bundesstraßen als gelbe Linien (nur in Zoom-Stufe 2 sichtbar).
 - **Autobahnkreuz-Markierungen**: Knotenpunkte mit 3+ Autobahnverbindungen werden als blaue Rauten hervorgehoben.
 - **Zwei Zoom-Stufen**: *Totale* (Zoom 1) zeigt nur Autobahnen und Hauptstädte; *Regionalansicht* (Zoom 2) zeigt alle Straßentypen, Auftragsziele (📦/🏁) und das HQ-Icon.
