@@ -274,6 +274,7 @@ function addTransaction(desc, amount) {
 
 // ── Order generation ─────────────────────────────────────────
 // Reputation tier helpers
+// Tiers 1–5 map to Bekanntheitsgrad bands 0–20 / 21–40 / 41–60 / 61–80 / 81–100
 function getReputationTier(rep) {
   if (rep <= 20) return 1;
   if (rep <= 40) return 2;
@@ -281,7 +282,14 @@ function getReputationTier(rep) {
   if (rep <= 80) return 4;
   return 5;
 }
+// Max order weight (kg) per reputation tier: 3 t / 8 t / 15 t / 26 t / unlimited
 const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
+
+// Max available orders = fleet size × this multiplier (rounded up)
+const ORDER_POOL_MULTIPLIER = 2.5;
+
+// Human-readable labels for special vehicle requirements (reused in multiple places)
+const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' };
 
 // Check whether any idle vehicle with driver can fulfil this order
 function canFulfillOrder(order) {
@@ -302,8 +310,8 @@ function canFulfillOrder(order) {
   });
   if (reqOk.length === 0) {
     const reqLabel = order.requirements
-      .map(r => ({ cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' }[r] || r)
-      ).join(', ');
+      .map(r => REQ_LABELS[r] || r)
+      .join(', ');
     return { feasible: false, reason: `Kein Fahrzeug mit ${reqLabel}` };
   }
   const maxCap = Math.max(...reqOk.map(v => {
@@ -320,9 +328,9 @@ function generateOrders() {
   const diff = DATA.DIFFICULTY[GS.company.difficulty];
   const volMod = GS.market.orderVolumeMod * diff.orderFrequency;
 
-  // Variable A: cap available pool at fleet size × 2.5
+  // Variable A: cap available pool at fleet size × ORDER_POOL_MULTIPLIER
   const usableVehicles = Math.max(1, GS.vehicles.filter(v => v.status !== 'broken').length);
-  const maxAvailable = Math.ceil(usableVehicles * 2.5);
+  const maxAvailable = Math.ceil(usableVehicles * ORDER_POOL_MULTIPLIER);
   if (GS.orders.available.length >= maxAvailable) return;
   const canGenerate = maxAvailable - GS.orders.available.length;
   const count = Math.min(canGenerate, Math.round(rand(1, 3) * volMod));
@@ -478,7 +486,7 @@ function acceptOrder(orderId, vehicleId) {
   const cat = DATA.VEHICLES.find(v => v.id === vehicle.catalogId);
   for (const req of order.requirements) {
     if (!cat.requirements.includes(req)) {
-      const reqLabel = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' }[req] || req;
+      const reqLabel = REQ_LABELS[req] || req;
       showToast(`Fahrzeug erfüllt nicht: ${reqLabel}`, 'danger'); return;
     }
   }
@@ -1501,9 +1509,9 @@ function renderOrders() {
     if (tab === 'available') {
       const { feasible, reason } = canFulfillOrder(o);
       if (feasible) {
-        feasibilityIcon = `<span title="Auftrag erfüllbar" style="color:#3fb950;font-size:1rem;flex-shrink:0">✔</span>`;
+        feasibilityIcon = `<span class="order-feasibility-ok" title="Auftrag erfüllbar">✔</span>`;
       } else {
-        feasibilityIcon = `<span title="${reason}" style="color:#f85149;font-size:1rem;flex-shrink:0;cursor:help">✘</span>`;
+        feasibilityIcon = `<span class="order-feasibility-err" title="${reason}">✘</span>`;
         acceptDisabled = true;
         unfulfillableCount++;
       }
@@ -1512,7 +1520,7 @@ function renderOrders() {
     return `
     <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
       <div class="order-card-header">
-        <div style="display:flex;align-items:flex-start;gap:.4rem">
+        <div class="order-header-left">
           ${feasibilityIcon}
           <div>
             <div class="order-route">
@@ -1573,7 +1581,7 @@ function renderOrders() {
 
   // Append "reject unfulfillable" button for the available tab when there are unfulfillable orders
   const rejectBtn = (tab === 'available' && unfulfillableCount > 0)
-    ? `<div style="grid-column:1/-1;margin-top:.5rem">
+    ? `<div class="order-reject-all">
          <button class="btn btn-warning" onclick="declineUnfulfillableOrders()">
            ✗ Nicht erfüllbare Aufträge ablehnen (${unfulfillableCount})
          </button>
