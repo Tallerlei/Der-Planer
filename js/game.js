@@ -3,6 +3,8 @@
    DER PLANER: RELOADED – Game Engine
    ============================================================ */
 
+const APP_VERSION = '1.0.0';
+
 // ── Helpers ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const fmt = {
@@ -2496,6 +2498,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (hasSave()) {
     $('btn-continue') && ($('btn-continue').style.display = 'inline-flex');
   }
+
+  // Version display in info pane
+  const vEl = $('info-version');
+  if (vEl) vEl.textContent = APP_VERSION;
 
   // Menu tabs
   document.querySelectorAll('.menu-tab').forEach(t => {
