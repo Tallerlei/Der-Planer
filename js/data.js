@@ -337,7 +337,8 @@ const DATA = {
       fuelPriceBase: 1.45,
       orderFrequency: 1.5,
       competitorActivity: 0.3,
-      eventProbabilityMod: 0.5
+      eventProbabilityMod: 0.5,
+      timeCostMod: 0.6    // 60% time-cost reduction for beginners (40% of base cost)
     },
     normal: {
       label: 'Normal',
@@ -346,7 +347,8 @@ const DATA = {
       fuelPriceBase: 1.65,
       orderFrequency: 1.0,
       competitorActivity: 0.7,
-      eventProbabilityMod: 1.0
+      eventProbabilityMod: 1.0,
+      timeCostMod: 1.0
     },
     schwer: {
       label: 'Schwer',
@@ -355,7 +357,8 @@ const DATA = {
       fuelPriceBase: 1.85,
       orderFrequency: 0.75,
       competitorActivity: 1.0,
-      eventProbabilityMod: 1.5
+      eventProbabilityMod: 1.5,
+      timeCostMod: 1.5    // 50% time-cost increase for experts
     }
   },
 

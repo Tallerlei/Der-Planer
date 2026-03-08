@@ -73,6 +73,7 @@ const GS = {
     lastOrderCheckMin: 0,
     lastEventCheckMin: 0,
     lastSalaryDay: 1,
+    lastRenderMs: 0,         // timestamp of last DOM render (for throttle)
   },
 
   // Notifications queue
@@ -233,6 +234,7 @@ function generateOrders() {
     else channel = 'online';
 
     const deadlineDays = rand(2, 5);
+    const isUrgent = Math.random() < 0.15;  // 15% chance of urgent order
 
     const order = {
       id: uid(),
@@ -245,10 +247,11 @@ function generateOrders() {
       cargoType: template.type,
       weight,
       requirements: [...template.requirements],
-      value: baseVal,
+      value: isUrgent ? Math.round(baseVal * 1.4) : baseVal,  // urgent pays 40% more
       penalty: Math.round(baseVal * 0.1 * DATA.DIFFICULTY[GS.company.difficulty].orderPenaltyMod),
       bonus: Math.round(baseVal * 0.08),
-      deadlineDays,
+      deadlineDays: isUrgent ? 1 : deadlineDays,
+      isUrgent,
       expiresInDays: rand(1, 2),
       receivedMinute: GS.time.totalMinutes,
       channel,
@@ -315,6 +318,7 @@ function acceptOrder(orderId, vehicleId) {
   updatePositionForVehicle(vehicle);
 
   showToast(`Auftrag angenommen: ${order.clientName}`, 'success');
+  advanceGameTime(TIME_COSTS.assignOrder, 'Auftragsübernahme');
   updateOrderBadge();
   if ($('order-list-available')) renderOrders();
   if ($('fleet-list'))           renderFleet();
@@ -571,28 +575,63 @@ function processMonthEnd() {
   }
 }
 
-// ── Game loop ────────────────────────────────────────────────
-let loopInterval = null;
-const MINUTES_PER_TICK = 30;  // Each tick = 30 game-minutes
+// ── Action time costs ────────────────────────────────────────
+// Base time costs (in game-minutes) for player actions.
+// The actual cost is scaled by the difficulty's timeCostMod.
+const TIME_COSTS = {
+  navigate:      5,   // Switching rooms / screens
+  assignOrder:  30,   // Accepting/assigning an order to a vehicle
+  dispatchRoute: 30,  // Dispatching a multi-stop route
+  hireStaff:    15,   // Hiring a new employee
+  fireStaff:    15,   // Firing an employee
+  buyVehicle:   15,   // Buying a vehicle from the catalog
+  sellVehicle:  15,   // Selling a vehicle
+  maintenance:  30,   // Sending a vehicle to maintenance
+  repair:       15,   // Repairing a broken vehicle
+  assignDriver: 10,   // Assigning a driver to a vehicle
+  takeLoan:     15,   // Taking out a loan
+  refreshCand:   5,   // Refreshing the hire candidate pool
+};
 
-function startLoop() {
-  if (loopInterval) clearInterval(loopInterval);
-  loopInterval = setInterval(gameTick, Math.round(1000 / GS.speed));
-}
+// Render throttle: passive ticks update the DOM at most this often (ms)
+const RENDER_THROTTLE_MS = 950;
 
-function gameTick() {
-  if (GS.paused) return;
+// Toast display timings (ms) – must align with CSS animation durations
+const TOAST_DISPLAY_MS  = 2200;  // how long the toast is fully visible
+const TOAST_FADE_MS     = 400;   // fade-out duration (matches CSS)
+// Clock-flash animation duration in CSS is 0.65 s (650 ms)
+const CLOCK_FLASH_MS    = 650;
 
-  // Advance time
-  GS.time.totalMinutes += MINUTES_PER_TICK;
-  GS.time.minute = (GS.time.minute + MINUTES_PER_TICK) % 60;
-  if (GS.time.minute === 0) {
-    GS.time.hour = (GS.time.hour + 1) % 24;
+// ── Central time advancement ─────────────────────────────────
+/**
+ * Advances game time by `minutes` game-minutes.
+ * When `label` is provided the call is treated as a player action:
+ *   – the difficulty timeCostMod is applied to `minutes`
+ *   – an animated "+X Min" notification is shown
+ *   – the clock in the status bar flashes
+ */
+function advanceGameTime(minutes, label) {
+  if (!GS.started) return;
+
+  // Apply difficulty modifier only for labelled (player-action) advances
+  let actualMinutes = minutes;
+  if (label) {
+    const mod = (DATA.DIFFICULTY[GS.company.difficulty] || {}).timeCostMod || 1.0;
+    actualMinutes = Math.max(1, Math.round(minutes * mod));
   }
 
-  // Day rollover
-  const minutesInDay = GS.time.totalMinutes % 1440;
-  if (minutesInDay < MINUTES_PER_TICK) {
+  const prevTotal = GS.time.totalMinutes;
+  GS.time.totalMinutes += actualMinutes;
+
+  // Recompute time-of-day
+  const totalMinInDay = GS.time.totalMinutes % 1440;
+  GS.time.hour   = Math.floor(totalMinInDay / 60);
+  GS.time.minute = totalMinInDay % 60;
+
+  // Handle day / month / year rollovers
+  const prevDayNum = Math.floor(prevTotal / 1440);
+  const newDayNum  = Math.floor(GS.time.totalMinutes / 1440);
+  for (let d = prevDayNum + 1; d <= newDayNum; d++) {
     GS.time.day++;
     const daysInMonth = [0,31,28,31,30,31,30,31,31,30,31,30,31];
     if (GS.time.day > daysInMonth[GS.time.month]) {
@@ -601,23 +640,22 @@ function gameTick() {
       if (GS.time.month > 12) { GS.time.month = 1; GS.time.year++; }
       processMonthEnd();
     }
-
-    // Daily: expire old available orders
+  }
+  if (newDayNum > prevDayNum) {
     expireOrders();
-    // Daily save
     autoSave();
   }
 
-  // Tick vehicles
-  tickVehicles(MINUTES_PER_TICK);
+  // Move vehicles
+  tickVehicles(actualMinutes);
 
-  // Generate orders every 2-4 game hours
+  // Generate orders at intervals (2–4 game hours)
   if (GS.time.totalMinutes - GS.ui.lastOrderCheckMin >= rand(120, 240)) {
     GS.ui.lastOrderCheckMin = GS.time.totalMinutes;
     generateOrders();
   }
 
-  // Market events once per day roughly
+  // Market events roughly once per day
   if (GS.time.totalMinutes - GS.ui.lastEventCheckMin >= 1440) {
     GS.ui.lastEventCheckMin = GS.time.totalMinutes;
     checkMarketEvents();
@@ -625,13 +663,62 @@ function gameTick() {
 
   updateStatusBar();
 
-  // Refresh active screen
-  const screen = GS.ui.currentScreen;
-  if (screen === 'fleet')    renderFleet();
-  if (screen === 'orders')   renderOrders();
-  if (screen === 'map')      renderMapScreen();
-  if (screen === 'finance')  renderFinance();
-  if (screen === 'office')   renderOffice();
+  // Visual feedback for player actions
+  if (label) {
+    showTimeAdvance(actualMinutes, label);
+  }
+
+  // Throttle passive (no-label) screen renders to max once per second
+  const now = Date.now();
+  const shouldRender = label || !GS.ui.lastRenderMs || (now - GS.ui.lastRenderMs) >= RENDER_THROTTLE_MS;
+  if (shouldRender) {
+    GS.ui.lastRenderMs = now;
+    const screen = GS.ui.currentScreen;
+    if (screen === 'fleet')    renderFleet();
+    if (screen === 'orders')   renderOrders();
+    if (screen === 'map')      renderMapScreen();
+    if (screen === 'finance')  renderFinance();
+    if (screen === 'office')   renderOffice();
+  }
+}
+
+// Show an animated "+X Min" badge and flash the clock
+function showTimeAdvance(minutes, label) {
+  // Flash the date/time element in the status bar
+  const dateEl = $('sb-date');
+  if (dateEl) {
+    dateEl.classList.remove('time-flash');
+    // Force reflow so the animation restarts
+    void dateEl.offsetWidth;
+    dateEl.classList.add('time-flash');
+    setTimeout(() => dateEl.classList.remove('time-flash'), CLOCK_FLASH_MS);
+  }
+
+  // Show a small time-advance toast
+  const container = $('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = 'toast time-advance';
+  el.innerHTML = `<span class="ta-icon">⏰</span> <strong>+${minutes} Min</strong> <span class="ta-label">${label}</span>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('fade-out');
+    setTimeout(() => el.remove(), TOAST_FADE_MS);
+  }, TOAST_DISPLAY_MS);
+}
+
+// ── Game loop ────────────────────────────────────────────────
+let loopInterval = null;
+const MINUTES_PER_TICK = 1;  // Background: 1 game-minute per tick (real-time interval depends on speed setting)
+
+function startLoop() {
+  if (loopInterval) clearInterval(loopInterval);
+  loopInterval = setInterval(gameTick, Math.round(1000 / GS.speed));
+}
+
+function gameTick() {
+  if (GS.paused) return;
+  advanceGameTime(MINUTES_PER_TICK); // no label → passive background tick
 }
 
 // ── Speed control ────────────────────────────────────────────
@@ -720,6 +807,16 @@ function showScreen(name) {
   }
 }
 
+/**
+ * Player-initiated navigation that costs 5 game minutes.
+ * Use this for sidebar buttons and office-room tiles.
+ * Programmatic navigation (after dispatching, buying, etc.) still uses showScreen().
+ */
+function navigateToScreen(name) {
+  showScreen(name);
+  if (GS.started) advanceGameTime(TIME_COSTS.navigate, 'Bildschirmwechsel');
+}
+
 // ── GAME INIT ────────────────────────────────────────────────
 function startNewGame() {
   const name  = $('company-name').value.trim() || 'Meine Spedition';
@@ -798,6 +895,13 @@ function generateHireCandidates() {
   }
 }
 
+// Player-triggered candidate refresh (costs time)
+function refreshCandidates() {
+  generateHireCandidates();
+  if (GS.started) advanceGameTime(TIME_COSTS.refreshCand, 'Kandidatensuche');
+  renderPersonnel();
+}
+
 // ─────────────────────────────────────────────────────────────
 // SCREEN RENDERERS
 // ─────────────────────────────────────────────────────────────
@@ -825,10 +929,13 @@ function renderOffice() {
   ];
 
   el.innerHTML = rooms.map(r => `
-    <div class="office-room" onclick="${r.screen ? `showScreen('${r.screen}')` : `officeAction('${r.action}')`}">
+    <div class="office-room"
+         title="${r.screen ? `Wechsel zu: ${r.name} (+${TIME_COSTS.navigate} Min)` : r.name}"
+         onclick="${r.screen ? `navigateToScreen('${r.screen}')` : `officeAction('${r.action}')`}">
       <span class="room-icon">${r.icon}</span>
       <span class="room-name">${r.name}</span>
       <span class="room-desc">${r.desc}</span>
+      ${r.screen ? `<span class="room-time-cost">+${TIME_COSTS.navigate} Min</span>` : ''}
       ${r.badge ? `<span class="room-badge">${r.badge}</span>` : ''}
     </div>
   `).join('');
@@ -934,14 +1041,14 @@ function renderFleet() {
           <option value="">Fahrer auswählen…</option>
           ${driverOpts}
         </select>
-        <button class="btn btn-secondary btn-sm" onclick="assignDriver('${v.id}')">Zuweisen</button>
+        <button class="btn btn-secondary btn-sm" title="Fahrer zuweisen: +${TIME_COSTS.assignDriver} Min" onclick="assignDriver('${v.id}')">Zuweisen</button>
       </div>` : ''}
 
       <div class="vehicle-actions">
-        ${v.status === 'idle' ? `<button class="btn btn-secondary btn-sm" onclick="openRouteForVehicle('${v.id}')">🗺️ Route planen</button>` : ''}
-        ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
-        ${v.status === 'broken' ? `<button class="btn btn-danger btn-sm" onclick="repairVehicle('${v.id}')">🔧 Reparieren</button>` : ''}
-        ${v.status === 'idle' ? `<button class="btn btn-danger btn-sm" onclick="sellVehicle('${v.id}')">💰 Verkaufen</button>` : ''}
+        ${v.status === 'idle' ? `<button class="btn btn-secondary btn-sm" title="Route planen: +${TIME_COSTS.navigate} Min" onclick="openRouteForVehicle('${v.id}')">🗺️ Route planen</button>` : ''}
+        ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" title="Wartung: +${TIME_COSTS.maintenance} Min" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
+        ${v.status === 'broken' ? `<button class="btn btn-danger btn-sm" title="Reparieren: +${TIME_COSTS.repair} Min" onclick="repairVehicle('${v.id}')">🔧 Reparieren</button>` : ''}
+        ${v.status === 'idle' ? `<button class="btn btn-danger btn-sm" title="Verkaufen: +${TIME_COSTS.sellVehicle} Min" onclick="sellVehicle('${v.id}')">💰 Verkaufen</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -962,6 +1069,7 @@ function assignDriver(vehicleId) {
   vehicle.driverId = driverId;
   driver.vehicleId = vehicleId;
   showToast(`${driver.name} fährt jetzt ${vehicle.name}`, 'success');
+  advanceGameTime(TIME_COSTS.assignDriver, 'Fahrerzuweisung');
   renderFleet();
 }
 
@@ -974,6 +1082,7 @@ function sendToMaintenance(vehicleId) {
   v.status = 'maintenance';
   addTransaction(`Wartung: ${v.name}`, -cost);
   v.health = 100;
+  advanceGameTime(TIME_COSTS.maintenance, 'Wartungsauftrag');
   setTimeout(() => {
     v.status = 'idle';
     showToast(`${v.name} ist wieder einsatzbereit.`, 'success');
@@ -993,6 +1102,7 @@ function repairVehicle(vehicleId) {
   v.health = 80;
   v.fuel   = cat.fuelCapacity;
   showToast(`${v.name} repariert!`, 'success');
+  advanceGameTime(TIME_COSTS.repair, 'Fahrzeugreparatur');
   renderFleet();
 }
 
@@ -1011,6 +1121,7 @@ function sellVehicle(vehicleId) {
     GS.vehicles = GS.vehicles.filter(x => x.id !== vehicleId);
     addTransaction(`Fahrzeugverkauf: ${v.name}`, salePrice);
     showToast(`${v.name} verkauft für ${fmt.money(salePrice)}`, 'success');
+    advanceGameTime(TIME_COSTS.sellVehicle, 'Fahrzeugverkauf');
     renderFleet();
   }
 }
@@ -1033,7 +1144,7 @@ function renderCatalog() {
         ${cat.requirements.length ? `<div class="catalog-spec-item"><span class="spec-key">Anforderungen:</span> ${cat.requirements.join(', ')}</div>` : ''}
       </div>
       <div class="catalog-price">${fmt.money(cat.purchasePrice)}</div>
-      <button class="btn btn-primary w-full mt-sm" onclick="buyVehicle('${cat.id}')">Kaufen</button>
+      <button class="btn btn-primary w-full mt-sm" title="Fahrzeug kaufen: +${TIME_COSTS.buyVehicle} Min" onclick="buyVehicle('${cat.id}')">Kaufen</button>
     </div>
   `).join('');
 }
@@ -1048,6 +1159,7 @@ function buyVehicle(catalogId) {
   GS.vehicles.push(v);
   addTransaction(`Fahrzeugkauf: ${cat.name}`, -cat.purchasePrice);
   showToast(`${cat.name} gekauft!`, 'success');
+  advanceGameTime(TIME_COSTS.buyVehicle, 'Fahrzeugkauf');
   // Switch to my fleet tab
   document.querySelectorAll('.fleet-tab').forEach(t => t.classList.remove('active'));
   $('fleet-tab-mine') && $('fleet-tab-mine').classList.add('active');
@@ -1088,6 +1200,7 @@ function renderOrders() {
   el.innerHTML = orders.map(o => {
     const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || { icon: '📦', label: o.cargoType };
     const ch = { phone: '📞 Telefon', fax: '📠 Fax', online: '🌐 Online' }[o.channel] || o.channel;
+    const urgentBadge = o.isUrgent ? `<span class="badge badge-danger urgent-badge" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>` : '';
 
     let deadlineHtml = '';
     if (tab === 'available') {
@@ -1099,7 +1212,7 @@ function renderOrders() {
     }
 
     return `
-    <div class="order-card">
+    <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
       <div class="order-card-header">
         <div>
           <div class="order-route">
@@ -1111,6 +1224,7 @@ function renderOrders() {
         </div>
         <div style="text-align:right">
           <div class="order-value">${fmt.money(o.value)}</div>
+          ${urgentBadge}
           ${deadlineHtml}
         </div>
       </div>
@@ -1119,7 +1233,7 @@ function renderOrders() {
         <span>${ct.icon} ${o.cargoDesc}</span>
         <span>⚖️ ${fmt.weight(o.weight)}</span>
         <span>${ch}</span>
-        <span>📅 Frist: ${o.deadlineDays} Tage</span>
+        <span>${o.isUrgent ? '🔴' : '📅'} Frist: ${o.deadlineDays} ${o.deadlineDays === 1 ? 'Tag' : 'Tage'}</span>
         <span>🎁 Bonus: ${fmt.money(o.bonus)}</span>
         ${o.requirements.length ? `<span>⚠️ ${o.requirements.join(', ')}</span>` : ''}
       </div>
@@ -1130,7 +1244,9 @@ function renderOrders() {
           <option value="">Fahrzeug wählen…</option>
           ${vOpts}
         </select>
-        <button class="btn btn-success btn-sm" onclick="acceptOrder('${o.id}', $('vsel-${o.id}').value)">✓ Annehmen</button>
+        <button class="btn btn-success btn-sm"
+                title="Auftrag annehmen: +${TIME_COSTS.assignOrder} Min"
+                onclick="acceptOrder('${o.id}', $('vsel-${o.id}').value)">✓ Annehmen</button>
         <button class="btn btn-danger btn-sm"  onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       </div>` : ''}
 
@@ -1172,7 +1288,7 @@ function switchOrderTab(tab) {
 function openRouteForVehicle(vehicleId) {
   GS.ui.routeVehicleId = vehicleId;
   GS.ui.routeStops = [];
-  showScreen('routes');
+  navigateToScreen('routes');
 }
 
 function renderRoutePlanner() {
@@ -1282,6 +1398,7 @@ function renderRouteSummary() {
     <div class="route-summary-row"><span class="rs-label">Fahrzeit (ca.)</span><span class="rs-value">${hours}h</span></div>
     <div class="route-summary-row"><span class="rs-label">Kraftstoffkosten</span><span class="rs-value">${typeof fuelCost === 'number' ? fmt.money(fuelCost) : '?'}</span></div>
     <div class="route-summary-row"><span class="rs-label">Stopps</span><span class="rs-value">${stops.length}</span></div>
+    <div class="route-summary-row time-cost-row"><span class="rs-label">⏰ Zeitaufwand</span><span class="rs-value time-cost">+${TIME_COSTS.dispatchRoute} Min</span></div>
   `;
 }
 
@@ -1315,6 +1432,7 @@ function dispatchRoute() {
   GS.ui.routeStops = [];
   showToast(`${v.name} ist losgefahren!`, 'success');
   showScreen('fleet');
+  advanceGameTime(TIME_COSTS.dispatchRoute, 'Routendisposition');
 }
 
 // Route map (mini)
@@ -1368,7 +1486,7 @@ function renderPersonnel() {
           </div>
 
           <div class="flex gap-sm">
-            <button class="btn btn-danger btn-sm" onclick="fireStaff('${s.id}')">Entlassen</button>
+            <button class="btn btn-danger btn-sm" title="Entlassen: +${TIME_COSTS.fireStaff} Min" onclick="fireStaff('${s.id}')">Entlassen</button>
           </div>
         </div>`;
       }).join('');
@@ -1391,7 +1509,7 @@ function renderPersonnel() {
       </div>
       <div style="text-align:right">
         <div class="text-sm font-bold">${fmt.money(c.salary)}/Mo</div>
-        <button class="btn btn-success btn-sm mt-sm" onclick="hireStaff('${c.id}')">Einstellen</button>
+        <button class="btn btn-success btn-sm mt-sm" title="Einstellen: +${TIME_COSTS.hireStaff} Min" onclick="hireStaff('${c.id}')">Einstellen</button>
       </div>
     </div>`;
   }).join('');
@@ -1412,6 +1530,7 @@ function fireStaff(staffId) {
   addTransaction(`Abfindung: ${s.name}`, -severance);
   GS.staff = GS.staff.filter(x => x.id !== staffId);
   showToast(`${s.name} entlassen.`, 'warning');
+  advanceGameTime(TIME_COSTS.fireStaff, 'Entlassung');
   renderPersonnel();
 }
 
@@ -1421,6 +1540,7 @@ function hireStaff(candidateId) {
   GS.staff.push(c);
   GS.hireCandidates = GS.hireCandidates.filter(x => x.id !== candidateId);
   showToast(`${c.name} eingestellt!`, 'success');
+  advanceGameTime(TIME_COSTS.hireStaff, 'Einstellung');
   renderPersonnel();
 }
 
@@ -1490,6 +1610,7 @@ function takeLoan(amount, rate, months) {
   if (confirm(`Kredit über ${fmt.money(amount)} aufnehmen?`)) {
     addTransaction(`Kreditaufnahme (${months} Monate)`, amount);
     showToast(`Kredit über ${fmt.money(amount)} erhalten!`, 'success');
+    advanceGameTime(TIME_COSTS.takeLoan, 'Kreditaufnahme');
     renderFinance();
   }
 }
