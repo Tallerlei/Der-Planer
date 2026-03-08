@@ -37,6 +37,12 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
 - Plane Multi-Punkt-Routen mit automatischer Abholungs- und Lieferlogik.
 - Verfolge deine Flotte in Echtzeit auf der Europakarte.
+- **Straßentypen-Visualisierung**: Autobahnen als breite, blaue Linien mit weißer Mittellinie; Bundesstraßen als gelbe Linien (nur in Zoom-Stufe 2 sichtbar).
+- **Autobahnkreuz-Markierungen**: Knotenpunkte mit 3+ Autobahnverbindungen werden als blaue Rauten hervorgehoben.
+- **Zwei Zoom-Stufen**: *Totale* (Zoom 1) zeigt nur Autobahnen und Hauptstädte; *Regionalansicht* (Zoom 2) zeigt alle Straßentypen, Auftragsziele (📦/🏁) und das HQ-Icon.
+- Wechsel zwischen Zoom-Stufen per **+/–-Schaltflächen** oder **Mausrad**; Zoom-Stufe und Kartenposition werden im Spielstand gespeichert.
+- **Schnellnavigation** in der Seitenleiste: Ein Klick auf Firmenzentrale, Auftragsziele oder Fahrzeuge zentriert die Karte sofort in Zoom-Stufe 2 auf den gewünschten Punkt.
+- **Fahrzeug-Info-Panel**: Ein Klick auf ein Fahrzeug-Icon öffnet ein Panel mit Fahrer, Auftrag, Ziel und Status; bei mehreren überlappenden Fahrzeugen erscheint ein Auswahlmenü.
 
 ### 👥 Personalverwaltung
 - **7 Mitarbeiterrollen**: LKW-Fahrer (€ 2.400/Monat), Mechaniker, Buchhalter, Telefonistin, Manager, Rechtsanwältin u. a.
