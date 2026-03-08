@@ -54,26 +54,26 @@
 
     <!-- Sidebar navigation -->
     <nav id="sidebar">
-      <button class="nav-btn" data-screen="office"    onclick="showScreen('office')"    title="Büro">
+      <button class="nav-btn" data-screen="office"    onclick="navigateToScreen('office')"    title="Büro (+5 Min)">
         🏢<span class="nav-label">Büro</span>
       </button>
-      <button class="nav-btn" data-screen="fleet"     onclick="showScreen('fleet')"     title="Fuhrpark">
+      <button class="nav-btn" data-screen="fleet"     onclick="navigateToScreen('fleet')"     title="Fuhrpark (+5 Min)">
         🚛<span class="nav-label">Fuhrpark</span>
       </button>
-      <button class="nav-btn" data-screen="orders"    onclick="showScreen('orders')"    title="Aufträge">
+      <button class="nav-btn" data-screen="orders"    onclick="navigateToScreen('orders')"    title="Aufträge (+5 Min)">
         📋<span class="nav-label">Aufträge</span>
         <span class="nav-badge" id="badge-orders">0</span>
       </button>
-      <button class="nav-btn" data-screen="routes"    onclick="showScreen('routes')"    title="Routenplanung">
+      <button class="nav-btn" data-screen="routes"    onclick="navigateToScreen('routes')"    title="Routenplanung (+5 Min)">
         🗺️<span class="nav-label">Route</span>
       </button>
-      <button class="nav-btn" data-screen="personnel" onclick="showScreen('personnel')" title="Personal">
+      <button class="nav-btn" data-screen="personnel" onclick="navigateToScreen('personnel')" title="Personal (+5 Min)">
         👥<span class="nav-label">Personal</span>
       </button>
-      <button class="nav-btn" data-screen="finance"   onclick="showScreen('finance')"   title="Finanzen">
+      <button class="nav-btn" data-screen="finance"   onclick="navigateToScreen('finance')"   title="Finanzen (+5 Min)">
         💰<span class="nav-label">Finanzen</span>
       </button>
-      <button class="nav-btn" data-screen="map"       onclick="showScreen('map')"       title="Karte">
+      <button class="nav-btn" data-screen="map"       onclick="navigateToScreen('map')"       title="Karte (+5 Min)">
         🗺️<span class="nav-label">Karte</span>
       </button>
     </nav>
@@ -125,7 +125,7 @@
       <div id="screen-routes" class="screen">
         <div class="page-header">
           <h2>🗺️ <span>Routenplanung</span></h2>
-          <button id="btn-dispatch" class="btn btn-primary">🚀 Route starten</button>
+          <button id="btn-dispatch" class="btn btn-primary" title="Route starten: +30 Min">🚀 Route starten</button>
         </div>
         <p class="text-sm text-muted" style="margin-bottom:1rem">
           Planen Sie Mehrpunkt-Routen: Klicken Sie Städte auf der Karte an, um Stopps hinzuzufügen.
@@ -152,7 +152,7 @@
 
         <div class="card-header" style="margin-bottom:.75rem">
           Einstellungsmarkt
-          <button class="btn btn-ghost btn-sm" onclick="generateHireCandidates();renderPersonnel()">🔄 Kandidaten aktualisieren</button>
+          <button class="btn btn-ghost btn-sm" title="Kandidaten aktualisieren: +5 Min" onclick="refreshCandidates()">🔄 Kandidaten aktualisieren</button>
         </div>
         <div id="hire-list" class="card-grid card-grid-2"></div>
       </div>
