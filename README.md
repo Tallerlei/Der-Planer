@@ -32,7 +32,11 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **25 fiktive Kunden** aus verschiedenen Branchen (Lebensmittel, Chemie, Bau, Medizin, Automobil …).
 - **10 Frachttypen**: Allgemeingut, Kühlware, Gefahrgut, Schwerlast, Kraftstoff u. v. m.
 - Aufträge haben eine Verfallszeit (2 Spieltage) und dynamische Preise je nach Frachttyp und Schwierigkeitsgrad.
-- Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs.
+- Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
+- **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; ein Tooltip erklärt den Grund (z. B. fehlende Kapazität oder fehlende Sonderzulassung).
+- **Fahrzeugkapazitäts-Validierung**: Beim Annehmen eines Auftrags wird sichergestellt, dass das ausgewählte Fahrzeug die Auftragsmenge transportieren kann; nicht erfüllbare Aufträge deaktivieren den „Annehmen"-Button.
+- **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
+- **Auftragsvolumen skaliert mit Fuhrpark und Bekanntheitsgrad**: Die maximale Anzahl gleichzeitig verfügbarer Aufträge berechnet sich aus der Fuhrparkgröße (Fahrzeuge × 2,5); die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
 
 ### 🗺️ Routenplaner & Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
@@ -55,6 +59,10 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Vollständiges Finanzsystem mit Einnahmen, Ausgaben, Transaktionsprotokoll und KPIs.
 - **Kreditsystem** mit variablen Zinssätzen.
 - Monatliche Kosten: Gehälter, Kraftstoff, Fahrzeugwartung.
+
+### 📣 Marketing *(in Vorbereitung)*
+- Neuer Bürobereich für Werbeverträge (Zeitungsanzeigen, Radio-Spots, Sponsoring).
+- Aktive Werbeverträge beschleunigen den Bekanntheitsgrad-Aufbau und sorgen so für mehr und größere Aufträge.
 
 ### 📈 Marktereignisse
 - **8 dynamische Ereignisse**: Kraftstoffpreissprünge, Streiks, Rezessionen, Konjunkturbooms, Winterstürme, Autobahnstaus, Umweltvorschriften u. a.
