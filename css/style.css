@@ -75,6 +75,7 @@ html, body {
 .status-item .value.danger { color: var(--danger); }
 
 .speed-controls { display: flex; gap: 0.25rem; align-items: center; }
+.sb-version { font-size: .65rem; color: var(--text-muted); opacity: .6; margin-left: .25rem; white-space: nowrap; }
 .speed-btn {
   background: var(--surface2);
   border: 1px solid var(--border);

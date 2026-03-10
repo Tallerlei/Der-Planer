@@ -1,12 +1,10 @@
 import { $, fmt } from '../utils.js';
 import { DATA } from '../data.js';
-import { GS, cityById } from '../state.js';
+import { GS, cityById, getCityName } from '../state.js';
 import { TIME_COSTS, REQ_LABELS } from '../constants.js';
 import { canFulfillOrder } from '../game/orders.js';
 import { acceptOrder, declineOrder, declineUnfulfillableOrders } from '../game/engine.js';
 import { updateOrderBadge } from './statusbar.js';
-
-function getCityName(id) { return cityById[id] ? cityById[id].name : id; }
 
 export function renderOrders() {
   updateOrderBadge();

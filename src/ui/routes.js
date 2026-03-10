@@ -1,6 +1,6 @@
 import { $, fmt } from '../utils.js';
 import { DATA } from '../data.js';
-import { GS, getCityName } from '../state.js';
+import { GS, getCityName, cityById } from '../state.js';
 import { TIME_COSTS } from '../constants.js';
 import { buildRouteStops, routeDistance } from '../routing.js';
 import { updatePositionForVehicle } from '../game/vehicles.js';

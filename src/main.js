@@ -118,9 +118,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn) btn.style.display = 'inline-flex';
   }
 
-  // Version display
+  // Version display (info pane + status bar)
   const vEl = document.getElementById('info-version');
   if (vEl) vEl.textContent = APP_VERSION;
+  const sbV = document.getElementById('sb-version');
+  if (sbV) sbV.textContent = `v${APP_VERSION}`;
 
   // Menu tabs
   document.querySelectorAll('.menu-tab').forEach(t => {
