@@ -3,7 +3,7 @@
    DER PLANER: RELOADED – Game Engine
    ============================================================ */
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -216,6 +216,7 @@ function createVehicle(catalogId, homeCityId) {
     },
     position: homeCity ? { x: homeCity.x, y: homeCity.y } : { x: 0, y: 0 },
     refuelPauseMinutes: 0,  // remaining minutes of a refueling stop
+    orderQueue: [],          // order IDs waiting to start after current delivery
   };
 }
 
@@ -293,36 +294,28 @@ const ORDER_POOL_MULTIPLIER = 2.5;
 // Human-readable labels for special vehicle requirements (reused in multiple places)
 const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' };
 
-// Check whether any idle vehicle with driver can fulfil this order
+// Check whether any vehicle with driver can fulfil this order (idle or already driving – for queuing)
 function canFulfillOrder(order) {
-  const idleVehicles = GS.vehicles.filter(v => v.status === 'idle' && v.driverId);
-  if (idleVehicles.length === 0) {
+  const assignableVehicles = GS.vehicles.filter(v =>
+    (v.status === 'idle' || v.status === 'driving') && v.driverId
+  );
+  if (assignableVehicles.length === 0) {
     return { feasible: false, reason: 'Kein Fahrzeug mit Fahrer verfügbar' };
   }
-  for (const v of idleVehicles) {
+  // Requirements check – capacity is no longer a hard blocker (multi-trip handles large orders)
+  for (const v of assignableVehicles) {
     const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
     if (!cat) continue;
     const meetsReqs = order.requirements.every(req => cat.requirements.includes(req));
-    if (meetsReqs && cat.capacity >= order.weight) return { feasible: true, reason: '' };
+    if (meetsReqs) return { feasible: true, reason: '' };
   }
-  // Determine why – missing requirements or insufficient capacity?
-  const reqOk = idleVehicles.filter(v => {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    return cat && order.requirements.every(req => cat.requirements.includes(req));
-  });
-  if (reqOk.length === 0) {
-    const reqLabel = order.requirements
-      .map(r => REQ_LABELS[r] || r)
-      .join(', ');
-    return { feasible: false, reason: `Kein Fahrzeug mit ${reqLabel}` };
-  }
-  const maxCap = Math.max(...reqOk.map(v => {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    return cat ? cat.capacity : 0;
-  }));
+  // No vehicle meets cargo requirements
+  const reqLabel = order.requirements.map(r => REQ_LABELS[r] || r).join(', ');
   return {
     feasible: false,
-    reason: `Maximale Fahrzeugkapazität: ${fmt.weight(maxCap)} – Auftrag benötigt: ${fmt.weight(order.weight)}`,
+    reason: order.requirements.length
+      ? `Kein Fahrzeug mit ${reqLabel}`
+      : 'Kein geeignetes Fahrzeug verfügbar',
   };
 }
 
@@ -380,6 +373,8 @@ function generateOrders() {
       cargoDesc: template.cargo,
       cargoType: template.type,
       weight,
+      remainingWeight: weight,   // decreases with each delivered trip
+      tripsCompleted: 0,         // number of trips already made for this order
       requirements: [...template.requirements],
       value: isUrgent ? Math.round(baseVal * 1.4) : baseVal,  // urgent pays 40% more
       penalty: Math.round(baseVal * 0.1 * DATA.DIFFICULTY[GS.company.difficulty].orderPenaltyMod),
@@ -481,10 +476,12 @@ function acceptOrder(orderId, vehicleId) {
 
   const vehicle = GS.vehicles.find(v => v.id === vehicleId);
   if (!vehicle) { showToast('Kein Fahrzeug ausgewählt.', 'warning'); return; }
-  if (vehicle.status !== 'idle') { showToast('Fahrzeug ist nicht verfügbar.', 'warning'); return; }
+  if (vehicle.status !== 'idle' && vehicle.status !== 'driving') {
+    showToast('Fahrzeug ist nicht verfügbar.', 'warning'); return;
+  }
   if (!vehicle.driverId) { showToast('Dem Fahrzeug ist kein Fahrer zugewiesen.', 'warning'); return; }
 
-  // Check requirements
+  // Check requirements (capacity is no longer required – multiple trips handle large orders)
   const cat = DATA.VEHICLES.find(v => v.id === vehicle.catalogId);
   for (const req of order.requirements) {
     if (!cat.requirements.includes(req)) {
@@ -493,19 +490,33 @@ function acceptOrder(orderId, vehicleId) {
     }
   }
 
-  // Capacity validation
-  if (cat.capacity < order.weight) {
-    showToast(`Fahrzeug zu klein: Kapazität ${fmt.weight(cat.capacity)} – Auftrag benötigt ${fmt.weight(order.weight)}`, 'danger');
-    return;
-  }
-
   GS.orders.available.splice(idx, 1);
   order.status = 'accepted';
   order.vehicleId = vehicleId;
   order.acceptedMinute = GS.time.totalMinutes;
   GS.orders.active.push(order);
 
-  // Set up vehicle route following road network: current → pickup → delivery → home
+  if (vehicle.status === 'idle') {
+    // Start immediately
+    startOrderForVehicle(vehicle, order);
+    showToast(`Auftrag angenommen: ${order.clientName}`, 'success');
+  } else {
+    // Vehicle is already driving – queue the order
+    vehicle.orderQueue = vehicle.orderQueue || [];
+    vehicle.orderQueue.push(order.id);
+    const pos = vehicle.orderQueue.length;
+    showToast(`Auftrag in Warteschlange (Position ${pos}): ${order.clientName}`, 'success');
+  }
+
+  advanceGameTime(TIME_COSTS.assignOrder, 'Auftragsübernahme');
+  updateOrderBadge();
+  if ($('order-list-available')) renderOrders();
+  if ($('fleet-list'))           renderFleet();
+}
+
+// Build and assign a route for the given vehicle to execute the given order.
+// Handles multi-trip: each call covers one trip (vehicle capacity worth of cargo).
+function startOrderForVehicle(vehicle, order) {
   vehicle.status = 'driving';
   const keyWaypoints = [
     { cityId: vehicle.currentCity, action: 'depart' },
@@ -525,12 +536,6 @@ function acceptOrder(orderId, vehicleId) {
   };
 
   updatePositionForVehicle(vehicle);
-
-  showToast(`Auftrag angenommen: ${order.clientName}`, 'success');
-  advanceGameTime(TIME_COSTS.assignOrder, 'Auftragsübernahme');
-  updateOrderBadge();
-  if ($('order-list-available')) renderOrders();
-  if ($('fleet-list'))           renderFleet();
 }
 
 function declineOrder(orderId) {
@@ -698,7 +703,24 @@ function processStopAction(v, stop) {
   if (stop.action === 'pickup') {
     showToast(`${v.name}: Ware abgeholt in ${getCityName(stop.cityId)}`, 'info');
   } else if (stop.action === 'delivery') {
-    completeOrder(order, v);
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    const remaining = order.remainingWeight !== undefined ? order.remainingWeight : order.weight;
+    const deliveredWeight = Math.min(cat.capacity, remaining);
+    order.remainingWeight = Math.max(0, remaining - deliveredWeight);
+    order.tripsCompleted  = (order.tripsCompleted || 0) + 1;
+
+    if (order.remainingWeight <= 0) {
+      // All cargo delivered – complete the order
+      completeOrder(order, v);
+    } else {
+      // More cargo to deliver – re-queue this order for another trip
+      showToast(
+        `${v.name}: Teillieferung ${fmt.weight(deliveredWeight)} – noch ${fmt.weight(order.remainingWeight)} ausstehend`,
+        'info'
+      );
+      v.orderQueue = v.orderQueue || [];
+      v.orderQueue.unshift(order.id);
+    }
   }
 }
 
@@ -754,6 +776,17 @@ function arriveAtFinalStop(v) {
     addTransaction(`Kraftstoff ${v.name}`, -cost);
     v.fuel = cat.fuelCapacity;
   }
+
+  // Process next order in queue (if any)
+  v.orderQueue = v.orderQueue || [];
+  if (v.orderQueue.length > 0) {
+    const nextOrderId = v.orderQueue.shift();
+    const nextOrder = GS.orders.active.find(o => o.id === nextOrderId);
+    if (nextOrder) {
+      startOrderForVehicle(v, nextOrder);
+    }
+  }
+
   if ($('fleet-list')) renderFleet();
 }
 
@@ -1008,8 +1041,14 @@ function loadGame() {
     // Migrate vehicles from older saves
     GS.vehicles.forEach(v => {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
+      if (v.orderQueue === undefined) v.orderQueue = [];
       // Fix position if stuck at origin (old saves had {0,0})
       updatePositionForVehicle(v);
+    });
+    // Migrate orders from older saves
+    [...GS.orders.available, ...GS.orders.active].forEach(o => {
+      if (o.remainingWeight === undefined) o.remainingWeight = o.weight;
+      if (o.tripsCompleted  === undefined) o.tripsCompleted  = 0;
     });
     return true;
   } catch (e) { return false; }
@@ -1305,6 +1344,11 @@ function renderFleet() {
           <span class="stat-label">km-Stand</span>
           <span class="stat-value">${fmt.km(Math.round(v.odometer))}</span>
         </div>
+        ${(v.orderQueue && v.orderQueue.length > 0) ? `
+        <div class="vehicle-stat">
+          <span class="stat-label">Warteschlange</span>
+          <span class="stat-value">${v.orderQueue.length} ${v.orderQueue.length !== 1 ? 'Aufträge' : 'Auftrag'}</span>
+        </div>` : ''}
       </div>
 
       <div>
@@ -1484,10 +1528,15 @@ function renderOrders() {
     return;
   }
 
-  const idleVehicles = GS.vehicles.filter(v => v.status === 'idle' && v.driverId);
-  const vOpts = idleVehicles.map(v => {
+  const assignableVehicles = GS.vehicles.filter(v =>
+    (v.status === 'idle' || v.status === 'driving') && v.driverId
+  );
+  const vOpts = assignableVehicles.map(v => {
     const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    return `<option value="${v.id}">${v.name} (${fmt.weight(cat.capacity)})</option>`;
+    const queueInfo = v.status === 'driving'
+      ? ` [+${(v.orderQueue || []).length + 1}. in Warteschlange]`
+      : '';
+    return `<option value="${v.id}">${v.name} (${fmt.weight(cat.capacity)})${queueInfo}</option>`;
   }).join('');
 
   let unfulfillableCount = 0;
@@ -1549,7 +1598,7 @@ function renderOrders() {
         ${o.requirements.length ? `<span>⚠️ ${o.requirements.join(', ')}</span>` : ''}
       </div>
 
-      ${tab === 'available' && idleVehicles.length > 0 ? `
+      ${tab === 'available' && assignableVehicles.length > 0 ? `
       <div class="order-actions">
         <select class="form-control" id="vsel-${o.id}" style="flex:1">
           <option value="">Fahrzeug wählen…</option>
@@ -1561,7 +1610,7 @@ function renderOrders() {
         <button class="btn btn-danger btn-sm"  onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       </div>` : ''}
 
-      ${tab === 'available' && idleVehicles.length === 0 ? `
+      ${tab === 'available' && assignableVehicles.length === 0 ? `
       <div class="text-sm text-muted">Kein verfügbares Fahrzeug mit Fahrer. Fahrzeug und Fahrer kaufen/einstellen.</div>
       <button class="btn btn-danger btn-sm" onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       ` : ''}
@@ -1570,6 +1619,7 @@ function renderOrders() {
       <div class="order-meta">
         <span>🚛 ${o.vehicleId ? (GS.vehicles.find(v=>v.id===o.vehicleId)||{}).name || 'Unbekannt' : '-'}</span>
         <span>Status: Unterwegs</span>
+        ${(o.remainingWeight !== undefined && o.remainingWeight < o.weight) ? `<span>📦 Geliefert: ${fmt.weight(o.weight - o.remainingWeight)} / ${fmt.weight(o.weight)} (${o.tripsCompleted} ${o.tripsCompleted !== 1 ? 'Fahrten' : 'Fahrt'})</span>` : ''}
       </div>` : ''}
 
       ${tab === 'completed' ? `
