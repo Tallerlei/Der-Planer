@@ -94,21 +94,28 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ## 🚀 Spielen
 
-Da das Spiel ohne Build-Schritt auskommt, reicht es, `index.html` im Browser zu öffnen:
+Das Spiel ist direkt über **GitHub Pages** im Browser spielbar:
+**▶ [https://tallerlei.github.io/Der-Planer/](https://tallerlei.github.io/Der-Planer/)**
+
+Für lokale Entwicklung:
 
 ```bash
 # Repository klonen
 git clone https://github.com/Tallerlei/Der-Planer.git
 cd Der-Planer
 
-# index.html direkt im Browser öffnen
-open index.html       # macOS
-xdg-open index.html   # Linux
-start index.html      # Windows
-```
+# Abhängigkeiten installieren
+npm install
 
-Alternativ ist das Spiel über **GitHub Pages** direkt im Browser spielbar:
-**▶ [https://tallerlei.github.io/Der-Planer/](https://tallerlei.github.io/Der-Planer/)**
+# Entwicklungsserver starten
+npm run dev
+
+# Build erstellen
+npm run build
+
+# Tests ausführen
+npm test
+```
 
 ---
 
@@ -116,25 +123,56 @@ Alternativ ist das Spiel über **GitHub Pages** direkt im Browser spielbar:
 
 ```
 Der-Planer/
-├── index.html        # Haupt-HTML-Datei und Spiel-UI (Single Page Application)
+├── index.html          # Haupt-HTML-Datei und Spiel-UI (Single Page Application)
 ├── css/
-│   └── style.css     # Dunkles Theme, Layout, Komponenten (~800 Zeilen)
-└── js/
-    ├── data.js       # Statische Spieldaten (Fahrzeuge, Städte, Kunden, Ereignisse …)
-    └── game.js       # Spiellogik, Game-Loop, Rendering (~1800 Zeilen)
+│   └── style.css       # Dunkles Theme, Layout, Komponenten
+├── src/
+│   ├── main.js         # Einstiegspunkt – DOM-Init, window-Globals
+│   ├── data.js         # Statische Spieldaten (Fahrzeuge, Städte, Kunden, Ereignisse …)
+│   ├── utils.js        # Reine Hilfsfunktionen (rand, fmt, pick, uid)
+│   ├── constants.js    # Spielkonstanten (APP_VERSION, TIME_COSTS, …)
+│   ├── state.js        # Spielzustand (GS) und Stadtverzeichnis
+│   ├── routing.js      # Dijkstra-Wegfindung, Routenberechnung
+│   ├── game/
+│   │   ├── engine.js   # Spielschleife, advanceGameTime, Koordination
+│   │   ├── vehicles.js # Fahrzeugfabrik und Bewegungslogik
+│   │   ├── orders.js   # Reine Auftragslogik (canFulfillOrder, getReputationTier)
+│   │   ├── finance.js  # Transaktionen, Buchführung
+│   │   ├── staff.js    # Personalverwaltung
+│   │   ├── events.js   # Marktereignisse
+│   │   └── save.js     # localStorage-Persistenz
+│   ├── ui/
+│   │   ├── statusbar.js    # Statusleiste und Auftrags-Badges
+│   │   ├── notifications.js # Toast-Meldungen
+│   │   ├── modal.js        # Modal-Dialog
+│   │   ├── screens.js      # Bildschirmnavigation
+│   │   ├── fleet.js        # Fuhrpark-Screen
+│   │   ├── orders_ui.js    # Auftrags-Screen
+│   │   ├── routes.js       # Routenplaner-Screen
+│   │   ├── personnel.js    # Personal-Screen
+│   │   ├── finance_ui.js   # Finanz-Screen
+│   │   ├── office.js       # Büro-Screen
+│   │   └── map.js          # Karte (Canvas-Rendering)
+│   └── __tests__/
+│       ├── utils.test.js       # Tests für Hilfsfunktionen
+│       ├── routing.test.js     # Tests für Wegfindungsalgorithmus
+│       ├── constants.test.js   # Tests für Spielkonstanten
+│       └── orders.test.js      # Tests für Auftragslogik
+├── vite.config.js      # Vite-Konfiguration
+└── package.json        # npm-Skripte und Abhängigkeiten
 ```
 
-Das Spiel ist reines **Vanilla JavaScript** – kein Framework, kein Build-Tool, keine Abhängigkeiten.
 Der Spielstand wird automatisch per `localStorage` gespeichert und beim nächsten Besuch wiederhergestellt.
 
 ---
 
 ## 🛠️ Technischer Überblick
 
-| Merkmal          | Details                              |
-|------------------|--------------------------------------|
-| Sprache          | HTML5, CSS3, Vanilla JavaScript (ES6)|
-| Build-System     | keines – direktes Öffnen im Browser  |
-| Persistenz       | Browser `localStorage`               |
-| Grafik           | HTML5 Canvas (Karten & Routen)       |
-| Deployment       | [GitHub Pages](https://tallerlei.github.io/Der-Planer/) |
+| Merkmal          | Details                                           |
+|------------------|---------------------------------------------------|
+| Sprache          | HTML5, CSS3, Vanilla JavaScript (ES Modules)      |
+| Build-System     | [Vite](https://vitejs.dev/) – schneller Dev-Server und Bundles |
+| Test-Framework   | [Vitest](https://vitest.dev/) – 38 Unit-Tests     |
+| Persistenz       | Browser `localStorage`                            |
+| Grafik           | HTML5 Canvas (Karten & Routen)                    |
+| Deployment       | [GitHub Pages](https://tallerlei.github.io/Der-Planer/) via GitHub Actions |
