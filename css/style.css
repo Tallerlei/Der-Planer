@@ -645,6 +645,7 @@ tr:hover td { background: var(--surface2); }
 .order-feasibility-ok  { color: var(--success); font-size: 1rem; flex-shrink: 0; }
 .order-feasibility-err { color: var(--danger);  font-size: 1rem; flex-shrink: 0; cursor: help; }
 .order-header-left     { display: flex; align-items: flex-start; gap: 0.4rem; }
+.order-rejection-hint  { font-size: 0.82rem; color: var(--warning); }
 
 .order-reject-all { grid-column: 1 / -1; margin-top: 0.5rem; }
 

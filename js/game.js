@@ -3,7 +3,7 @@
    DER PLANER: RELOADED – Game Engine
    ============================================================ */
 
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -1552,27 +1552,31 @@ function renderOrders() {
 
     // Feasibility icon (available tab only)
     let feasibilityIcon = '';
-    let acceptDisabled = false;
+    let rejectionReason = '';
     if (tab === 'available') {
       const { feasible, reason } = canFulfillOrder(o);
       if (feasible) {
         feasibilityIcon = `<span class="order-feasibility-ok" title="Auftrag erfüllbar">✔</span>`;
       } else {
         feasibilityIcon = `<span class="order-feasibility-err" title="${reason}">✘</span>`;
-        acceptDisabled = true;
+        rejectionReason = reason;
         unfulfillableCount++;
       }
     }
 
-    // Build per-order vehicle options, restoring the previously selected vehicle
+    // Build per-order vehicle options – only vehicles that also meet the order's requirements.
+    // Use a single reduce pass to avoid looking up the vehicle catalog twice per vehicle.
     const savedVehicleId = GS.ui.orderVehicleSelection[o.id] || '';
-    const vOptsForOrder = assignableVehicles.map(v => {
+    const { eligibleVehicles, vOptsForOrder } = assignableVehicles.reduce((acc, v) => {
       const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+      if (!cat || !o.requirements.every(req => cat.requirements.includes(req))) return acc;
+      acc.eligibleVehicles.push(v);
       const queueInfo = v.status === 'driving'
-        ? ` [+${(v.orderQueue || []).length + 1}. in Warteschlange]`
+        ? ` [Warteschlange: Position ${(v.orderQueue || []).length + 1}]`
         : '';
-      return `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}</option>`;
-    }).join('');
+      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}</option>`;
+      return acc;
+    }, { eligibleVehicles: [], vOptsForOrder: '' });
 
     return `
     <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
@@ -1604,20 +1608,20 @@ function renderOrders() {
         ${o.requirements.length ? `<span>⚠️ ${o.requirements.join(', ')}</span>` : ''}
       </div>
 
-      ${tab === 'available' && assignableVehicles.length > 0 ? `
+      ${tab === 'available' && eligibleVehicles.length > 0 ? `
       <div class="order-actions">
         <select class="form-control" id="vsel-${o.id}" style="flex:1" onchange="saveOrderVehicleSelection('${o.id}', this.value)">
           <option value="">Fahrzeug wählen…</option>
           ${vOptsForOrder}
         </select>
         <button class="btn btn-success btn-sm"
-                ${acceptDisabled ? 'disabled title="Kein geeignetes Fahrzeug verfügbar"' : `title="Auftrag annehmen: +${TIME_COSTS.assignOrder} Min"`}
+                title="Auftrag annehmen: +${TIME_COSTS.assignOrder} Min"
                 onclick="acceptOrder('${o.id}', $('vsel-${o.id}').value)">✓ Annehmen</button>
         <button class="btn btn-danger btn-sm"  onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       </div>` : ''}
 
-      ${tab === 'available' && assignableVehicles.length === 0 ? `
-      <div class="text-sm text-muted">Kein verfügbares Fahrzeug mit Fahrer. Fahrzeug und Fahrer kaufen/einstellen.</div>
+      ${tab === 'available' && eligibleVehicles.length === 0 ? `
+      <div class="order-rejection-hint">⚠ ${rejectionReason}</div>
       <button class="btn btn-danger btn-sm" onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       ` : ''}
 
