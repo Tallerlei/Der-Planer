@@ -16,7 +16,7 @@ const DATA = {
       capacity: 2000,
       fuelCapacity: 70,
       fuelConsumption: 10,   // L / 100 km
-      speed: 90,             // avg km/h
+      speed: 160,             // avg km/h
       purchasePrice: 28000,
       maintenanceCostPerMonth: 150,
       description: 'Ideal für Kurzstrecken und Paketzustellungen.',
