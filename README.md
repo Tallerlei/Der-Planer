@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.1.2**
+> 🔖 **Version: 1.2.0**
 
 ---
 
@@ -37,7 +37,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
 - **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; ein Tooltip erklärt den Grund (z. B. fehlende Sonderzulassung).
 - **Mehrtransport-Aufträge**: Übersteigt das Auftragsgewicht die Fahrzeugkapazität, werden automatisch mehrere Fahrten durchgeführt – pro Fahrt wird die maximale Nutzlast vom verbleibenden Transportvolumen abgezogen.
-- **Fahrzeug-Warteschlange**: Aufträge können auch einem bereits fahrenden Fahrzeug als Folgeauftrag zugewiesen werden. Das Fahrzeug arbeitet seine Auftragsliste nach der Rückkehr zum Heimatstandort nacheinander ab. Im Fuhrpark wird die Warteschlangenlänge angezeigt.
+- **Fahrzeug-Warteschlange**: Aufträge können auch einem bereits fahrenden Fahrzeug als Folgeauftrag zugewiesen werden. Nach der Lieferung fährt das Fahrzeug direkt zum nächsten Abholort, ohne einen Umweg über den Heimatstandort (HQ) zu machen. Nur wenn keine Folgeaufträge vorliegen, kehrt das Fahrzeug zum HQ zurück. Im Fuhrpark wird die Warteschlangenlänge angezeigt.
 - **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
 - **Auftragsvolumen skaliert mit Fuhrpark und Bekanntheitsgrad**: Die maximale Anzahl gleichzeitig verfügbarer Aufträge berechnet sich aus der Fuhrparkgröße (Fahrzeuge × 2,5); die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
 
