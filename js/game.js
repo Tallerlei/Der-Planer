@@ -3,7 +3,7 @@
    DER PLANER: RELOADED – Game Engine
    ============================================================ */
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -79,6 +79,7 @@ const GS = {
     lastRenderMs: 0,         // timestamp of last DOM render (for throttle)
     mapZoom: 1,              // 1 = Totale, 2 = Regionalansicht
     mapCenter: { x: 400, y: 260 },  // view center in data coordinates
+    orderVehicleSelection: {},       // { orderId: vehicleId } - persists dropdown state across re-renders
   },
 
   // Notifications queue
@@ -509,6 +510,7 @@ function acceptOrder(orderId, vehicleId) {
   }
 
   advanceGameTime(TIME_COSTS.assignOrder, 'Auftragsübernahme');
+  delete GS.ui.orderVehicleSelection[orderId];
   updateOrderBadge();
   if ($('order-list-available')) renderOrders();
   if ($('fleet-list'))           renderFleet();
@@ -544,6 +546,7 @@ function declineOrder(orderId) {
   const order = GS.orders.available.splice(idx, 1)[0];
   order.status = 'declined';
   GS.orders.declined.unshift(order);
+  delete GS.ui.orderVehicleSelection[orderId];
   showToast('Auftrag abgelehnt.', 'warning');
   updateOrderBadge();
   if ($('order-list-available')) renderOrders();
@@ -1531,13 +1534,6 @@ function renderOrders() {
   const assignableVehicles = GS.vehicles.filter(v =>
     (v.status === 'idle' || v.status === 'driving') && v.driverId
   );
-  const vOpts = assignableVehicles.map(v => {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    const queueInfo = v.status === 'driving'
-      ? ` [+${(v.orderQueue || []).length + 1}. in Warteschlange]`
-      : '';
-    return `<option value="${v.id}">${v.name} (${fmt.weight(cat.capacity)})${queueInfo}</option>`;
-  }).join('');
 
   let unfulfillableCount = 0;
   const cards = orders.map(o => {
@@ -1567,6 +1563,16 @@ function renderOrders() {
         unfulfillableCount++;
       }
     }
+
+    // Build per-order vehicle options, restoring the previously selected vehicle
+    const savedVehicleId = GS.ui.orderVehicleSelection[o.id] || '';
+    const vOptsForOrder = assignableVehicles.map(v => {
+      const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+      const queueInfo = v.status === 'driving'
+        ? ` [+${(v.orderQueue || []).length + 1}. in Warteschlange]`
+        : '';
+      return `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}</option>`;
+    }).join('');
 
     return `
     <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
@@ -1600,9 +1606,9 @@ function renderOrders() {
 
       ${tab === 'available' && assignableVehicles.length > 0 ? `
       <div class="order-actions">
-        <select class="form-control" id="vsel-${o.id}" style="flex:1">
+        <select class="form-control" id="vsel-${o.id}" style="flex:1" onchange="saveOrderVehicleSelection('${o.id}', this.value)">
           <option value="">Fahrzeug wählen…</option>
-          ${vOpts}
+          ${vOptsForOrder}
         </select>
         <button class="btn btn-success btn-sm"
                 ${acceptDisabled ? 'disabled title="Kein geeignetes Fahrzeug verfügbar"' : `title="Auftrag annehmen: +${TIME_COSTS.assignOrder} Min"`}
@@ -1654,6 +1660,11 @@ function switchOrderTab(tab) {
     if (el) el.style.display = (t === tab) ? '' : 'none';
   });
   renderOrders();
+}
+
+// Persist vehicle selection for an order so it survives re-renders during ticks
+function saveOrderVehicleSelection(orderId, vehicleId) {
+  GS.ui.orderVehicleSelection[orderId] = vehicleId;
 }
 
 // ── Route planner ────────────────────────────────────────────
