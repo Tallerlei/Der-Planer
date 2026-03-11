@@ -9,7 +9,7 @@ import {
   refreshCandidates,
 } from './game/engine.js';
 import { showToast } from './ui/notifications.js';
-import { closeModal, openEventsModal, openSettingsModal, openStatsModal } from './ui/modal.js';
+import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
 import { renderFleet, renderCatalog, assignDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle } from './ui/fleet.js';
 import { renderOrders, switchOrderTab, saveOrderVehicleSelection } from './ui/orders_ui.js';
@@ -82,6 +82,7 @@ Object.assign(window, {
   openEventsModal,
   openSettingsModal,
   openStatsModal,
+  openLogModal,
   closeModal,
 
   setMapZoom,

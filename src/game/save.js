@@ -13,6 +13,7 @@ export function loadGame() {
     if (!raw) return false;
     const saved = JSON.parse(raw);
     Object.assign(GS, saved);
+    if (!Array.isArray(GS.messageLog)) GS.messageLog = [];
     GS.vehicles.forEach(v => {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
       if (v.orderQueue === undefined) v.orderQueue = [];

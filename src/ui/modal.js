@@ -50,3 +50,17 @@ export function openStatsModal() {
     </div>`;
   openModal('Unternehmensstatistik', html);
 }
+
+export function openLogModal() {
+  const entries = GS.messageLog.slice().reverse();
+  const html = entries.length === 0
+    ? '<div class="text-muted text-sm">Noch keine Meldungen aufgezeichnet.</div>'
+    : `<div class="log-list">${entries.map(e => {
+        const time = `${fmt.date(e.t.day, e.t.month, e.t.year)} ${String(e.t.hour).padStart(2,'0')}:${String(e.t.minute).padStart(2,'0')}`;
+        return `<div class="log-entry log-${e.type}">
+          <span class="log-time">${time}</span>
+          <span class="log-msg">${e.msg}</span>
+        </div>`;
+      }).join('')}</div>`;
+  openModal('📋 Meldungsprotokoll', html);
+}
