@@ -3,7 +3,7 @@
    DER PLANER: RELOADED – Game Engine
    ============================================================ */
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -84,6 +84,9 @@ const GS = {
 
   // Notifications queue
   notifications: [],
+
+  // Persistent message log (newest last; capped at 200 entries)
+  messageLog: [],
 
   // Pending press conference event
   pressConference: null,
@@ -1053,6 +1056,8 @@ function loadGame() {
       if (o.remainingWeight === undefined) o.remainingWeight = o.weight;
       if (o.tripsCompleted  === undefined) o.tripsCompleted  = 0;
     });
+    // Migrate message log from older saves
+    if (!Array.isArray(GS.messageLog)) GS.messageLog = [];
     return true;
   } catch (e) { return false; }
 }
@@ -1069,6 +1074,17 @@ function showToast(msg, type = 'info') {
   toast.innerHTML = `<div class="toast-message">${msg}</div>`;
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 4000);
+
+  // Persist in message log
+  if (GS.started) {
+    GS.messageLog.push({
+      t: { day: GS.time.day, month: GS.time.month, year: GS.time.year,
+           hour: GS.time.hour, minute: GS.time.minute },
+      msg,
+      type,
+    });
+    if (GS.messageLog.length > 200) GS.messageLog.shift();
+  }
 }
 
 // ── Status bar ───────────────────────────────────────────────
@@ -1258,6 +1274,7 @@ function renderOffice() {
     { icon: '🗺️', name: 'Karte',            desc: `${activeVehicles} unterwegs`,   screen: 'map',       badge: null },
     { icon: '📰', name: 'Markt & Ereignisse', desc: `${events} aktive Ereignisse`,  screen: null, action: 'events', badge: events || null },
     { icon: '📣', name: 'Marketing',          desc: 'Werbeverträge',               screen: 'marketing', badge: null },
+    { icon: '📋', name: 'Meldungsprotokoll',  desc: `${GS.messageLog.length} Einträge`, screen: null, action: 'log', badge: null },
     { icon: '⚙️', name: 'Einstellungen',    desc: 'Speichern & Optionen',           screen: null, action: 'settings', badge: null },
     { icon: '📊', name: 'Statistiken',       desc: `${GS.stats.ordersCompleted} Aufträge`, screen: null, action: 'stats', badge: null },
   ];
@@ -1283,6 +1300,7 @@ function officeAction(action) {
   if (action === 'events')   openEventsModal();
   if (action === 'settings') openSettingsModal();
   if (action === 'stats')    openStatsModal();
+  if (action === 'log')      openLogModal();
 }
 
 // ── Fleet screen ─────────────────────────────────────────────
@@ -2529,6 +2547,20 @@ function openStatsModal() {
       </table>
     </div>`;
   openModal('Unternehmensstatistik', html);
+}
+
+function openLogModal() {
+  const entries = GS.messageLog.slice().reverse();
+  const html = entries.length === 0
+    ? '<div class="text-muted text-sm">Noch keine Meldungen aufgezeichnet.</div>'
+    : `<div class="log-list">${entries.map(e => {
+        const time = `${fmt.date(e.t.day, e.t.month, e.t.year)} ${String(e.t.hour).padStart(2,'0')}:${String(e.t.minute).padStart(2,'0')}`;
+        return `<div class="log-entry log-${e.type}">
+          <span class="log-time">${time}</span>
+          <span class="log-msg">${e.msg}</span>
+        </div>`;
+      }).join('')}</div>`;
+  openModal('📋 Meldungsprotokoll', html);
 }
 
 function openModal(title, bodyHtml) {
