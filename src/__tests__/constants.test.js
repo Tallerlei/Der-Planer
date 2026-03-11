@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   APP_VERSION, TIME_COSTS, REFUEL_THRESHOLD, REFUEL_DURATION_MINUTES,
   RENDER_THROTTLE_MS, TOAST_DISPLAY_MS, ORDER_POOL_MULTIPLIER, MINUTES_PER_TICK,
-  REP_TIER_MAX_WEIGHT, REQ_LABELS,
+  REP_TIER_MAX_WEIGHT, REQ_LABELS, FLEET_COMPATIBLE_ORDER_RATIO,
 } from '../constants.js';
 
 describe('APP_VERSION', () => {
@@ -58,5 +58,13 @@ describe('REQ_LABELS', () => {
     expect(REQ_LABELS).toHaveProperty('cooling');
     expect(REQ_LABELS).toHaveProperty('adr');
     expect(REQ_LABELS).toHaveProperty('heavy_load');
+  });
+});
+
+describe('FLEET_COMPATIBLE_ORDER_RATIO', () => {
+  it('is a number between 0 and 1', () => {
+    expect(typeof FLEET_COMPATIBLE_ORDER_RATIO).toBe('number');
+    expect(FLEET_COMPATIBLE_ORDER_RATIO).toBeGreaterThan(0);
+    expect(FLEET_COMPATIBLE_ORDER_RATIO).toBeLessThanOrEqual(1);
   });
 });

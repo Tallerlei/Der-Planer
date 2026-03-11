@@ -10,6 +10,24 @@ export function getReputationTier(rep) {
   return 5;
 }
 
+/**
+ * Returns the fleet's maximum vehicle capacity and the set of special
+ * requirements that can be met by at least one non-broken vehicle.
+ * Used by generateOrders() to guarantee single-trip feasible orders.
+ */
+export function getFleetCapabilities() {
+  const fleetVehicles = GS.vehicles.filter(v => v.status !== 'broken');
+  let maxCapacity = 0;
+  const metReqs = new Set();
+  for (const v of fleetVehicles) {
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    if (!cat) continue;
+    if (cat.capacity > maxCapacity) maxCapacity = cat.capacity;
+    for (const r of cat.requirements) metReqs.add(r);
+  }
+  return { maxCapacity, metReqs };
+}
+
 export function canFulfillOrder(order) {
   const assignableVehicles = GS.vehicles.filter(v =>
     (v.status === 'idle' || v.status === 'driving') && v.driverId
