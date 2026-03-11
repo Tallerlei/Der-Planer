@@ -196,6 +196,10 @@ export function tickVehicles(minutesPassed) {
 
         processStopAction(v, to);
 
+        // If processStopAction replaced the route (next order started directly),
+        // break so the new route takes effect from the next iteration
+        if (v.route.stops !== stops) break;
+
         if (v.route.currentStopIndex >= stops.length - 1) {
           arriveAtFinalStop(v);
           break;
@@ -225,6 +229,7 @@ export function processStopAction(v, stop) {
     order.remainingWeight = Math.max(0, remaining - deliveredWeight);
     order.tripsCompleted  = (order.tripsCompleted || 0) + 1;
 
+    v.orderQueue = v.orderQueue || [];
     if (order.remainingWeight <= 0) {
       completeOrder(order, v);
     } else {
@@ -232,8 +237,19 @@ export function processStopAction(v, stop) {
         `${v.name}: Teillieferung ${fmt.weight(deliveredWeight)} – noch ${fmt.weight(order.remainingWeight)} ausstehend`,
         'info'
       );
-      v.orderQueue = v.orderQueue || [];
       v.orderQueue.unshift(order.id);
+    }
+
+    // After delivery: if queued orders exist, start next order directly
+    // without returning to HQ first
+    if (v.orderQueue.length > 0) {
+      const nextOrderId = v.orderQueue.shift();
+      const nextOrder = GS.orders.active.find(o => o.id === nextOrderId);
+      if (nextOrder) {
+        startOrderForVehicle(v, nextOrder);
+      } else {
+        showToast(`${v.name}: Nächster Auftrag nicht mehr verfügbar`, 'warning');
+      }
     }
   }
 }
