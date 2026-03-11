@@ -2,7 +2,11 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
+<<<<<<< copilot/update-order-generation-system
+> 🔖 **Version: 1.3.0**
+=======
 > 🔖 **Version: 1.2.1**
+>>>>>>> main
 
 ---
 
@@ -34,14 +38,18 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **25 fiktive Kunden** aus verschiedenen Branchen (Lebensmittel, Chemie, Bau, Medizin, Automobil …).
 - **10 Frachttypen**: Allgemeingut, Kühlware, Gefahrgut, Schwerlast, Kraftstoff u. v. m.
 - Aufträge haben eine Verfallszeit (2 Spieltage) und dynamische Preise je nach Frachttyp und Schwierigkeitsgrad.
+- **Fuhrpark-adaptives Auftragssystem**: Auftragsgewichte passen sich an die aktuelle Gesamtkapazität des Fuhrparks an. Normale Aufträge bleiben innerhalb der Flottenkapazität; 15 % der Aufträge sind **Großaufträge** (🏋️) mit höherem Gewicht und +50 % Vergütung.
+- **Warenklassen mit Vergütungsfaktoren**: Jede Ware gehört einer Klasse an, die die Basispauschale multipliziert – Standardware (×1,0), Kühlware (×1,4), Sperrgut (×1,2), Gefahrgut (×1,8). Eilaufträge (⚡) erhalten den Faktor 1,5.
+- **Distanzbasierte Vergütungsformel**: `Basispauschale × Distanzfaktor × Warenfaktor × Marktmodifikator × Zufallsspanne ±20 %`
+- **Kundenbindungsbonus**: Kunden mit einem Ansehen ≥ 75 bieten 5 % bessere Konditionen.
 - **Automatischer Auftragsablauf**: Verfallene Aufträge werden automatisch entfernt und senken die Reputation beim jeweiligen Auftraggeber um −3 Punkte.
 - **Kundenstatus (Kundenansehen)**: Jeder Auftraggeber hat ein eigenes Ansehen (0–100, Start: 50), das in den Auftragskarten als Sternbewertung angezeigt wird. Erfüllte Aufträge erhöhen das Ansehen – mit **sinkenden Zuwächsen** je höher der Wert bereits ist.
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
-- **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; ein Tooltip erklärt den Grund (z. B. fehlende Sonderzulassung).
+- **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; technisch nicht erfüllbare Aufträge (z. B. Kühlware ohne Kühllaster) erscheinen **ausgegraut** und geben dem Spieler Investitionsanreize.
 - **Mehrtransport-Aufträge**: Übersteigt das Auftragsgewicht die Fahrzeugkapazität, werden automatisch mehrere Fahrten durchgeführt – pro Fahrt wird die maximale Nutzlast vom verbleibenden Transportvolumen abgezogen.
 - **Fahrzeug-Warteschlange**: Aufträge können auch einem bereits fahrenden Fahrzeug als Folgeauftrag zugewiesen werden. Nach der Lieferung fährt das Fahrzeug direkt zum nächsten Abholort, ohne einen Umweg über den Heimatstandort (HQ) zu machen. Nur wenn keine Folgeaufträge vorliegen, kehrt das Fahrzeug zum HQ zurück. Im Fuhrpark wird die Warteschlangenlänge angezeigt.
 - **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
-- **Auftragsvolumen skaliert mit Fuhrpark und Bekanntheitsgrad**: Die maximale Anzahl gleichzeitig verfügbarer Aufträge berechnet sich aus der Fuhrparkgröße (Fahrzeuge × 2,5); die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
+- **Auftragsvolumen skaliert mit Bekanntheitsgrad**: Die Auftragsgeneration läuft ohne obere Mengenbegrenzung – die Verfallszeit (1–2 Spieltage) reguliert den Pool natürlich. Die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
 
 ### 🗺️ Routenplaner & Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).

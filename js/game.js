@@ -3,7 +3,7 @@
    DER PLANER: RELOADED – Game Engine
    ============================================================ */
 
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -362,13 +362,17 @@ function generateOrders() {
   const diff = DATA.DIFFICULTY[GS.company.difficulty];
   const volMod = GS.market.orderVolumeMod * diff.orderFrequency;
 
-  // Variable A: cap available pool at fleet size × ORDER_POOL_MULTIPLIER
-  const usableVehicles = Math.max(1, GS.vehicles.filter(v => v.status !== 'broken').length);
-  const maxAvailable = Math.ceil(usableVehicles * ORDER_POOL_MULTIPLIER);
-  if (GS.orders.available.length >= maxAvailable) return;
-  const canGenerate = maxAvailable - GS.orders.available.length;
-  const count = Math.min(canGenerate, Math.round(rand(1, 3) * volMod));
+  // Generate 1–3 orders per call, scaled by market / difficulty modifiers.
+  // The pool is not capped by fleet size – order expiry provides natural regulation.
+  const count = Math.round(rand(1, 3) * volMod);
   if (count <= 0) return;
+
+  // Fleet capacity stats used for weight scaling
+  const usableVehicles = GS.vehicles.filter(v => v.status !== 'broken');
+  const totalFleetCapacity = usableVehicles.reduce((sum, v) => {
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    return cat ? sum + cat.capacity : sum;
+  }, 0);
 
   // Variable B: max order weight scaled by reputation tier
   const repTier = getReputationTier(GS.company.reputation || 50);
@@ -377,6 +381,9 @@ function generateOrders() {
   if (eligibleTemplates.length === 0) return;
 
   for (let i = 0; i < count; i++) {
+    // Großaufträge (15% chance): weight may exceed single vehicle capacity, higher pay
+    const isLargeOrder = totalFleetCapacity > 0 && Math.random() < 0.15;
+
     const template = pick(eligibleTemplates);
     const client   = pick(DATA.CLIENTS);
 
@@ -386,21 +393,41 @@ function generateOrders() {
     let destC;
     do { destC = pick(DATA.CITIES); } while (destC.id === originC.id);
 
-    const dist    = getDistance(originC.id, destC.id);
-    const weight  = rand(template.minWeight, Math.min(template.maxWeight, tierMaxWeight));
-    const valueMod = GS.market.orderValueMod * diff.orderFrequency;
-    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
+    const dist = getDistance(originC.id, destC.id);
 
-    const channels = ['phone', 'fax', 'online'];
-    const channelWeights = [0.5, 0.25, 0.25];
-    let channel = 'phone';
+    // Weight: normal orders are capped at total fleet capacity; Großaufträge can exceed it
+    const templateMax = Math.min(template.maxWeight, tierMaxWeight);
+    let weightMax = templateMax;
+    if (!isLargeOrder && totalFleetCapacity > 0) {
+      weightMax = Math.min(templateMax, totalFleetCapacity);
+    }
+    const weight = rand(template.minWeight, Math.max(template.minWeight, weightMax));
+
+    // Cargo value factor from cargo type category
+    const cargoTypeDef = DATA.CARGO_TYPES.find(ct => ct.id === template.type);
+    const cargoValueFactor = cargoTypeDef ? cargoTypeDef.valueFactor : 1.0;
+    const cargoCategory    = cargoTypeDef ? cargoTypeDef.category    : 'standard';
+
+    // Client loyalty bonus: high-reputation clients offer slightly better rates
+    const clientRep   = getClientReputation(client.id);
+    const loyaltyBonus = clientRep >= 75 ? 1.05 : 1.0;
+
+    // Formula: basePay × distanceFactor × marketMod × cargoFactor × loyaltyBonus × ±20% variance
+    const valueMod = GS.market.orderValueMod * diff.orderFrequency;
+    const baseVal = Math.round(
+      template.baseValue * (dist / 300) * valueMod * cargoValueFactor * loyaltyBonus * randFloat(0.80, 1.20)
+    );
+
     const r = Math.random();
-    if (r < channelWeights[0]) channel = 'phone';
-    else if (r < channelWeights[0] + channelWeights[1]) channel = 'fax';
-    else channel = 'online';
+    const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
 
     const deadlineDays = rand(2, 5);
-    const isUrgent = Math.random() < 0.15;  // 15% chance of urgent order
+    const isUrgent = Math.random() < 0.15;  // 15% chance of Eilauftrag
+
+    // Eilware factor 1.5 (urgent pays 50% more); Großauftrag adds +50% on top
+    const urgentMult     = isUrgent     ? 1.5 : 1.0;
+    const largeOrderMult = isLargeOrder ? 1.5 : 1.0;
+    const finalValue = Math.round(baseVal * urgentMult * largeOrderMult);
 
     const order = {
       id: uid(),
@@ -411,15 +438,17 @@ function generateOrders() {
       destination: destC.id,
       cargoDesc: template.cargo,
       cargoType: template.type,
+      cargoCategory,                     // 'standard' | 'cooling' | 'bulky' | 'hazmat'
       weight,
-      remainingWeight: weight,   // decreases with each delivered trip
-      tripsCompleted: 0,         // number of trips already made for this order
+      remainingWeight: weight,           // decreases with each delivered trip
+      tripsCompleted: 0,                 // number of trips already made for this order
       requirements: [...template.requirements],
-      value: isUrgent ? Math.round(baseVal * 1.4) : baseVal,  // urgent pays 40% more
-      penalty: Math.round(baseVal * 0.1 * DATA.DIFFICULTY[GS.company.difficulty].orderPenaltyMod),
-      bonus: Math.round(baseVal * 0.08),
-      deadlineDays: isUrgent ? 1 : deadlineDays,
+      value: finalValue,
+      penalty: Math.round(finalValue * 0.1 * DATA.DIFFICULTY[GS.company.difficulty].orderPenaltyMod),
+      bonus: Math.round(finalValue * 0.08),
+      deadlineDays: isUrgent ? 1 : (isLargeOrder ? rand(3, 7) : deadlineDays),
       isUrgent,
+      isLargeOrder,
       expiresInDays: rand(1, 2),
       receivedMinute: GS.time.totalMinutes,
       channel,
@@ -460,7 +489,10 @@ function injectTierOrders(tier, count) {
     const maxW   = Math.min(template.maxWeight, tierMaxWeight);
     const weight = rand(minW, maxW);
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
-    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
+    const cargoTypeDef     = DATA.CARGO_TYPES.find(ct => ct.id === template.type);
+    const cargoValueFactor = cargoTypeDef ? cargoTypeDef.valueFactor : 1.0;
+    const cargoCategory    = cargoTypeDef ? cargoTypeDef.category    : 'standard';
+    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * cargoValueFactor * randFloat(0.80, 1.20));
 
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
@@ -474,13 +506,17 @@ function injectTierOrders(tier, count) {
       destination: destC.id,
       cargoDesc: template.cargo,
       cargoType: template.type,
+      cargoCategory,
       weight,
+      remainingWeight: weight,
+      tripsCompleted: 0,
       requirements: [...template.requirements],
       value: baseVal,
       penalty: Math.round(baseVal * 0.1 * diff.orderPenaltyMod),
       bonus: Math.round(baseVal * 0.08),
       deadlineDays: rand(2, 5),
       isUrgent: false,
+      isLargeOrder: false,
       expiresInDays: 2,
       receivedMinute: GS.time.totalMinutes,
       channel,
@@ -1101,6 +1137,11 @@ function loadGame() {
     [...GS.orders.available, ...GS.orders.active].forEach(o => {
       if (o.remainingWeight === undefined) o.remainingWeight = o.weight;
       if (o.tripsCompleted  === undefined) o.tripsCompleted  = 0;
+      if (o.cargoCategory   === undefined) {
+        const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType);
+        o.cargoCategory = ct ? ct.category : 'standard';
+      }
+      if (o.isLargeOrder === undefined) o.isLargeOrder = false;
     });
     // Migrate message log from older saves
     if (!Array.isArray(GS.messageLog)) GS.messageLog = [];
@@ -1603,9 +1644,17 @@ function renderOrders() {
 
   let unfulfillableCount = 0;
   const cards = orders.map(o => {
-    const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || { icon: '📦', label: o.cargoType };
+    const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || { icon: '📦', label: o.cargoType, category: 'standard' };
     const ch = { phone: '📞 Telefon', fax: '📠 Fax', online: '🌐 Online' }[o.channel] || o.channel;
-    const urgentBadge = o.isUrgent ? `<span class="badge badge-danger urgent-badge" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>` : '';
+    const urgentBadge     = o.isUrgent    ? `<span class="badge badge-danger urgent-badge" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>` : '';
+    const largeOrderBadge = o.isLargeOrder ? `<span class="badge badge-large-order" title="Großauftrag – überdimensionierte Ladung, höhere Vergütung">🏋️ Großauftrag</span>` : '';
+
+    // Cargo category badge for special cargo classes
+    const categoryLabels = { cooling: '🧊 Kühlware', bulky: '🏗️ Sperrgut', hazmat: '☢️ Gefahrgut' };
+    const cargoCategory = o.cargoCategory || ct.category || 'standard';
+    const categoryBadge = categoryLabels[cargoCategory]
+      ? `<span class="badge badge-cargo-category badge-cargo-${cargoCategory}" title="Warenklasse: ${categoryLabels[cargoCategory]}">${categoryLabels[cargoCategory]}</span>`
+      : '';
 
     let deadlineHtml = '';
     if (tab === 'available') {
@@ -1616,11 +1665,13 @@ function renderOrders() {
         ⏱ noch ${hoursLeft}h</span>`;
     }
 
-    // Feasibility icon (available tab only)
+    // Feasibility check (available tab only) – unfulfillable orders are grayed out but visible
     let feasibilityIcon = '';
     let rejectionReason = '';
+    let isFeasible = true;
     if (tab === 'available') {
       const { feasible, reason } = canFulfillOrder(o);
+      isFeasible = feasible;
       if (feasible) {
         feasibilityIcon = `<span class="order-feasibility-ok" title="Auftrag erfüllbar">✔</span>`;
       } else {
@@ -1649,8 +1700,11 @@ function renderOrders() {
     const { stars: clientRepStars, cssClass: clientRepClass } = clientRepDisplay(clientRep);
     const clientRepHtml = `<span class="client-rep-badge ${clientRepClass}" title="Kundenansehen: ${clientRep}/100">${clientRepStars}</span>`;
 
+    // Human-readable requirement labels
+    const reqLabel = o.requirements.map(r => REQ_LABELS[r] || r).join(', ');
+
     return `
-    <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
+    <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}${tab === 'available' && !isFeasible ? ' order-card-unavailable' : ''}">
       <div class="order-card-header">
         <div class="order-header-left">
           ${feasibilityIcon}
@@ -1665,7 +1719,7 @@ function renderOrders() {
         </div>
         <div style="text-align:right">
           <div class="order-value">${fmt.money(o.value)}</div>
-          ${urgentBadge}
+          ${urgentBadge}${largeOrderBadge}${categoryBadge}
           ${deadlineHtml}
         </div>
       </div>
@@ -1676,7 +1730,7 @@ function renderOrders() {
         <span>${ch}</span>
         <span>${o.isUrgent ? '🔴' : '📅'} Frist: ${o.deadlineDays} ${o.deadlineDays === 1 ? 'Tag' : 'Tage'}</span>
         <span>🎁 Bonus: ${fmt.money(o.bonus)}</span>
-        ${o.requirements.length ? `<span>⚠️ ${o.requirements.join(', ')}</span>` : ''}
+        ${reqLabel ? `<span>⚠️ ${reqLabel}</span>` : ''}
       </div>
 
       ${tab === 'available' && eligibleVehicles.length > 0 ? `
