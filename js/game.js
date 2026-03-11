@@ -304,9 +304,15 @@ function changeClientReputation(clientId, delta) {
   GS.clientReputation[clientId] = Math.max(0, Math.min(100, current + delta));
 }
 
-// Diminishing returns: gain decreases as reputation grows (min 1, max 5)
-function clientRepCompletionGain(currentRep) {
-  return Math.max(1, Math.ceil(5 * (100 - currentRep) / 100));
+// Asymmetric scaling for per-client reputation changes.
+// Constants: G_base=8, V_base=12, k=0.6, m=0.5, R_max=100
+// Gain on completion:  ΔR+ = G_base × (1 − R/R_max)^k  → diminishing gain as rep grows, min 1
+// Loss on expiry:      ΔR− = V_base × (R/R_max)^m       → zero loss at rep=0, grows to large at high rep
+function clientRepCompletionGain(R) {
+  return Math.max(1, Math.round(8 * Math.pow(1 - R / 100, 0.6)));
+}
+function clientRepExpiryLoss(R) {
+  return Math.round(12 * Math.pow(R / 100, 0.5));
 }
 
 // Returns { stars, cssClass } for the 5-band visual indicator
@@ -615,7 +621,7 @@ function expireOrders() {
     if (ageMin > order.expiresInDays * 1440) {
       order.status = 'expired';
       GS.orders.declined.unshift(order);
-      changeClientReputation(order.clientId, -3);
+      changeClientReputation(order.clientId, -clientRepExpiryLoss(getClientReputation(order.clientId)));
       expiredCount++;
       return false;
     }
