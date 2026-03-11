@@ -656,6 +656,19 @@ tr:hover td { background: var(--surface2); }
   border-radius: 20px;
 }
 
+.client-rep-badge {
+  font-size: 0.7rem;
+  letter-spacing: -0.05em;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  cursor: default;
+}
+.client-rep-badge.rep-very-low  { color: #f85149; }
+.client-rep-badge.rep-low       { color: #e3a04a; }
+.client-rep-badge.rep-mid       { color: #d2a520; }
+.client-rep-badge.rep-high      { color: #7ee787; }
+.client-rep-badge.rep-very-high { color: #3fb950; }
+
 /* ══════════════════════════════════════════════════════════
    SCREEN: ROUTE PLANNER
    ══════════════════════════════════════════════════════════ */

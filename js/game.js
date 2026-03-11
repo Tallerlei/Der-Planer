@@ -93,6 +93,9 @@ const GS = {
 
   // Pool of hire candidates
   hireCandidates: [],
+
+  // Per-client reputation: { [clientId]: 0-100 }, default 50
+  clientReputation: {},
 };
 
 // ── City lookup ──────────────────────────────────────────────
@@ -291,6 +294,38 @@ function getReputationTier(rep) {
 }
 // Max order weight (kg) per reputation tier: 3 t / 8 t / 15 t / 26 t / unlimited
 const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
+
+// ── Per-client reputation helpers ────────────────────────────
+function getClientReputation(clientId) {
+  if (!GS.clientReputation) GS.clientReputation = {};
+  return GS.clientReputation[clientId] !== undefined ? GS.clientReputation[clientId] : 50;
+}
+
+function changeClientReputation(clientId, delta) {
+  if (!GS.clientReputation) GS.clientReputation = {};
+  const current = getClientReputation(clientId);
+  GS.clientReputation[clientId] = Math.max(0, Math.min(100, current + delta));
+}
+
+// Asymmetric scaling for per-client reputation changes.
+// Constants: G_base=8, V_base=12, k=0.6, m=0.5, R_max=100
+// Gain on completion:  ΔR+ = G_base × (1 − R/R_max)^k  → diminishing gain as rep grows, min 1
+// Loss on expiry:      ΔR− = V_base × (R/R_max)^m       → zero loss at rep=0, grows to large at high rep
+function clientRepCompletionGain(R) {
+  return Math.max(1, Math.round(8 * Math.pow(1 - R / 100, 0.6)));
+}
+function clientRepExpiryLoss(R) {
+  return Math.round(12 * Math.pow(R / 100, 0.5));
+}
+
+// Returns { stars, cssClass } for the 5-band visual indicator
+function clientRepDisplay(rep) {
+  if (rep <= 20) return { stars: '★☆☆☆☆', cssClass: 'rep-very-low' };
+  if (rep <= 40) return { stars: '★★☆☆☆', cssClass: 'rep-low' };
+  if (rep <= 60) return { stars: '★★★☆☆', cssClass: 'rep-mid' };
+  if (rep <= 80) return { stars: '★★★★☆', cssClass: 'rep-high' };
+  return { stars: '★★★★★', cssClass: 'rep-very-high' };
+}
 
 // Max available orders = fleet size × this multiplier (rounded up)
 const ORDER_POOL_MULTIPLIER = 2.5;
@@ -583,15 +618,21 @@ function confirmDeclineUnfulfillable() {
 
 function expireOrders() {
   const now = GS.time.totalMinutes;
+  let expiredCount = 0;
   GS.orders.available = GS.orders.available.filter(order => {
     const ageMin = now - order.receivedMinute;
     if (ageMin > order.expiresInDays * 1440) {
       order.status = 'expired';
       GS.orders.declined.unshift(order);
+      changeClientReputation(order.clientId, -clientRepExpiryLoss(getClientReputation(order.clientId)));
+      expiredCount++;
       return false;
     }
     return true;
   });
+  if (expiredCount > 0) {
+    showToast(`⌛ ${expiredCount} Auftrag${expiredCount > 1 ? 'e' : ''} abgelaufen – Kundenreputation gesunken.`, 'warning');
+  }
   updateOrderBadge();
 }
 
@@ -764,6 +805,11 @@ function completeOrder(order, vehicle) {
   if (minutesTaken <= deadlineMin) GS.company.reputation = Math.min(100, oldRep + 2);
   else GS.company.reputation = Math.max(0, oldRep - 3);
   checkReputationTierChange(oldRep, GS.company.reputation);
+
+  // Per-client reputation effect
+  const clientRep = getClientReputation(order.clientId);
+  const gain = clientRepCompletionGain(clientRep);
+  changeClientReputation(order.clientId, gain);
 
   updateStatusBar();
 }
@@ -1181,6 +1227,7 @@ function startNewGame() {
   GS.finance.transactions = [];
   GS.market.activeEvents  = [];
   GS.stats = { totalRevenue: 0, totalExpenses: 0, ordersCompleted: 0, ordersFailed: 0, kmDriven: 0 };
+  GS.clientReputation = {};
 
   // Starter equipment
   const starterVan = createVehicle('transit', 'frankfurt');
@@ -1224,6 +1271,7 @@ function loadAndContinue() {
   if (GS.company.werbevertrag_aktiv  === undefined) GS.company.werbevertrag_aktiv  = false;
   if (GS.company.werbevertrag_booster === undefined) GS.company.werbevertrag_booster = 0.0;
   if (!GS.company.reputationTier) GS.company.reputationTier = getReputationTier(GS.company.reputation || 50);
+  if (!GS.clientReputation) GS.clientReputation = {};
   GS.started = true;
   $('status-bar').classList.add('visible');
   $('sidebar').classList.add('visible');
@@ -1596,6 +1644,11 @@ function renderOrders() {
       return acc;
     }, { eligibleVehicles: [], vOptsForOrder: '' });
 
+    // Client reputation badge
+    const clientRep = getClientReputation(o.clientId);
+    const { stars: clientRepStars, cssClass: clientRepClass } = clientRepDisplay(clientRep);
+    const clientRepHtml = `<span class="client-rep-badge ${clientRepClass}" title="Kundenansehen: ${clientRep}/100">${clientRepStars}</span>`;
+
     return `
     <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
       <div class="order-card-header">
@@ -1607,7 +1660,7 @@ function renderOrders() {
               <span class="arrow">→</span>
               <span class="city">${getCityName(o.destination)}</span>
             </div>
-            <div class="text-sm text-muted mt-sm">${o.clientName}</div>
+            <div class="text-sm text-muted mt-sm">${o.clientName} ${clientRepHtml}</div>
           </div>
         </div>
         <div style="text-align:right">
