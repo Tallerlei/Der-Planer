@@ -2,7 +2,11 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
+<<<<<<< copilot/update-order-generation-system
 > 🔖 **Version: 1.3.0**
+=======
+> 🔖 **Version: 1.2.1**
+>>>>>>> main
 
 ---
 
