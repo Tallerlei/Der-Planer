@@ -66,6 +66,7 @@ export const GS = {
   },
 
   notifications: [],
+  messageLog: [],
   pressConference: null,
   hireCandidates: [],
 };

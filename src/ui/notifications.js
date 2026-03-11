@@ -1,4 +1,5 @@
 import { $ } from '../utils.js';
+import { GS } from '../state.js';
 import { TOAST_DISPLAY_MS, TOAST_FADE_MS, CLOCK_FLASH_MS } from '../constants.js';
 
 export function showToast(msg, type = 'info') {
@@ -9,6 +10,16 @@ export function showToast(msg, type = 'info') {
   toast.innerHTML = `<div class="toast-message">${msg}</div>`;
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, TOAST_DISPLAY_MS + TOAST_FADE_MS + 1400);
+
+  if (GS.started) {
+    GS.messageLog.push({
+      t: { day: GS.time.day, month: GS.time.month, year: GS.time.year,
+           hour: GS.time.hour, minute: GS.time.minute },
+      msg,
+      type,
+    });
+    if (GS.messageLog.length > 200) GS.messageLog.shift();
+  }
 }
 
 export function showTimeAdvance(minutes, label) {
