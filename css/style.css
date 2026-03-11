@@ -250,6 +250,11 @@ html, body {
 .badge-danger   { background: rgba(248,81,73,.2);  color: var(--danger); }
 .badge-info     { background: rgba(88,166,255,.2); color: var(--accent2); }
 .badge-neutral  { background: var(--surface2); color: var(--text-muted); }
+.badge-large-order          { background: rgba(240,200,60,.15); color: #f0d060; }
+.badge-cargo-category       { font-size: 0.68rem; }
+.badge-cargo-cooling        { background: rgba(88,200,255,.15); color: #58c8ff; }
+.badge-cargo-bulky          { background: rgba(160,120,60,.15); color: #c8a060; }
+.badge-cargo-hazmat         { background: rgba(248,81,73,.15);  color: #f85149; }
 
 /* ── Forms ────────────────────────────────────────────────── */
 .form-group  { display: flex; flex-direction: column; gap: 0.3rem; }
@@ -1156,6 +1161,11 @@ tr:hover td { background: var(--surface2); }
 .order-card-urgent {
   border-color: rgba(248,81,73,.45) !important;
   background: rgba(248,81,73,.04);
+}
+.order-card-unavailable {
+  opacity: 0.55;
+  border-color: var(--border);
+  filter: grayscale(30%);
 }
 .urgent-badge {
   display: inline-flex;

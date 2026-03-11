@@ -210,17 +210,22 @@ const DATA = {
   ],
 
   // ── Cargo types ─────────────────────────────────────────
+  // Warenklassen mit Vergütungsfaktoren:
+  //   standard  → Faktor 1,0 (Pakete, Möbel, Konsumgüter)
+  //   cooling   → Faktor 1,4 (Kühlware: Lebensmittel, Pharma)
+  //   bulky     → Faktor 1,2 (Sperrgut: Maschinen, Baumaterial)
+  //   hazmat    → Faktor 1,8 (Gefahrgut: Chemikalien, Treibstoff)
   CARGO_TYPES: [
-    { id: 'general',   label: 'Allgemeingut',     icon: '📦', requiresVehicle: [] },
-    { id: 'food',      label: 'Lebensmittel',     icon: '🥗', requiresVehicle: [] },
-    { id: 'cooling',   label: 'Kühlware',         icon: '🧊', requiresVehicle: ['cooling'] },
-    { id: 'building',  label: 'Baustoffe',        icon: '🏗️', requiresVehicle: [] },
-    { id: 'hazmat',    label: 'Gefahrgut',        icon: '☢️', requiresVehicle: ['adr'] },
-    { id: 'fuel',      label: 'Kraftstoff',       icon: '⛽', requiresVehicle: ['adr'] },
-    { id: 'liquid',    label: 'Flüssigkeiten',    icon: '🛢️', requiresVehicle: [] },
-    { id: 'heavy',     label: 'Schwerlast',       icon: '⚓', requiresVehicle: ['heavy_load'] },
-    { id: 'medical',   label: 'Medizingüter',     icon: '💊', requiresVehicle: [] },
-    { id: 'auto',      label: 'Fahrzeugteile',    icon: '🔧', requiresVehicle: [] },
+    { id: 'general',   label: 'Allgemeingut',     icon: '📦', requiresVehicle: [],             category: 'standard', valueFactor: 1.0 },
+    { id: 'food',      label: 'Lebensmittel',     icon: '🥗', requiresVehicle: [],             category: 'standard', valueFactor: 1.0 },
+    { id: 'cooling',   label: 'Kühlware',         icon: '🧊', requiresVehicle: ['cooling'],    category: 'cooling',  valueFactor: 1.4 },
+    { id: 'building',  label: 'Baustoffe',        icon: '🏗️', requiresVehicle: [],             category: 'bulky',    valueFactor: 1.2 },
+    { id: 'hazmat',    label: 'Gefahrgut',        icon: '☢️', requiresVehicle: ['adr'],        category: 'hazmat',   valueFactor: 1.8 },
+    { id: 'fuel',      label: 'Kraftstoff',       icon: '⛽', requiresVehicle: ['adr'],        category: 'hazmat',   valueFactor: 1.8 },
+    { id: 'liquid',    label: 'Flüssigkeiten',    icon: '🛢️', requiresVehicle: [],             category: 'standard', valueFactor: 1.0 },
+    { id: 'heavy',     label: 'Schwerlast',       icon: '⚓', requiresVehicle: ['heavy_load'], category: 'bulky',    valueFactor: 1.2 },
+    { id: 'medical',   label: 'Medizingüter',     icon: '💊', requiresVehicle: [],             category: 'cooling',  valueFactor: 1.4 },
+    { id: 'auto',      label: 'Fahrzeugteile',    icon: '🔧', requiresVehicle: [],             category: 'standard', valueFactor: 1.0 },
   ],
 
   // ── Staff roles ─────────────────────────────────────────
