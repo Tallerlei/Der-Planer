@@ -29,6 +29,11 @@ export function renderOrders() {
     return;
   }
 
+  // Skip DOM rebuild if the user has a vehicle dropdown open – closing it mid-interaction
+  // would make it nearly impossible to accept an order while the game is running.
+  // The order badge has already been updated above; empty-state handling ran before this check.
+  if (el.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
+
   const assignableVehicles = GS.vehicles.filter(v =>
     (v.status === 'idle' || v.status === 'driving') && v.driverId
   );
