@@ -75,6 +75,10 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Einstellbare Spielgeschwindigkeit: **Pause / 1× / 5× / 30×**.
 - Das Spiel läuft in 15-Minuten-Ticks; Fahrzeuge, Aufträge und Ereignisse werden in Echtzeit aktualisiert.
 
+### 💾 Spielstand & Meldungsprotokoll
+- Spielstand wird automatisch per `localStorage` gespeichert und beim nächsten Besuch wiederhergestellt.
+- **Meldungsprotokoll**: Alle Toast-Benachrichtigungen werden persistent im Spielstand gespeichert (bis zu 200 Einträge). Das Protokoll ist über die Schaltfläche 📋 in der Statusleiste oder den Bürobereich *Meldungsprotokoll* jederzeit abrufbar – neueste Einträge zuerst, farbcodiert nach Typ.
+
 ---
 
 ## 🎮 Spielmodi & Schwierigkeitsgrade
