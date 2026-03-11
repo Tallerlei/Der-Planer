@@ -4,7 +4,7 @@ import { fmt, rand, randFloat, pick, uid } from '../utils.js';
 import {
   TIME_COSTS, REFUEL_THRESHOLD, REFUEL_DURATION_MINUTES,
   RENDER_THROTTLE_MS, MINUTES_PER_TICK,
-  ORDER_POOL_MULTIPLIER, REP_TIER_MAX_WEIGHT, REQ_LABELS,
+  ORDER_POOL_MULTIPLIER, MIN_ORDER_POOL, REP_TIER_MAX_WEIGHT, REQ_LABELS,
 } from '../constants.js';
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction } from './finance.js';
@@ -324,10 +324,10 @@ export function generateOrders() {
   const volMod = GS.market.orderVolumeMod * diff.orderFrequency;
 
   const usableVehicles = Math.max(1, GS.vehicles.filter(v => v.status !== 'broken').length);
-  const maxAvailable = Math.ceil(usableVehicles * ORDER_POOL_MULTIPLIER);
+  const maxAvailable = Math.max(MIN_ORDER_POOL, Math.ceil(usableVehicles * ORDER_POOL_MULTIPLIER));
   if (GS.orders.available.length >= maxAvailable) return;
   const canGenerate = maxAvailable - GS.orders.available.length;
-  const count = Math.min(canGenerate, Math.round(rand(1, 3) * volMod));
+  const count = Math.min(canGenerate, Math.round(rand(3, 8) * volMod));
   if (count <= 0) return;
 
   const repTier = getReputationTier(GS.company.reputation || 50);
