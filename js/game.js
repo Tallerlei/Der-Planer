@@ -372,10 +372,6 @@ function generateOrders() {
   if (count <= 0) return;
 
   // Fleet capacity stats used for weight scaling
-  const maxSingleCapacity = usableVehicles.reduce((max, v) => {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    return cat ? Math.max(max, cat.capacity) : max;
-  }, 0);
   const totalFleetCapacity = usableVehicles.reduce((sum, v) => {
     const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
     return cat ? sum + cat.capacity : sum;
