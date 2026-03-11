@@ -362,16 +362,13 @@ function generateOrders() {
   const diff = DATA.DIFFICULTY[GS.company.difficulty];
   const volMod = GS.market.orderVolumeMod * diff.orderFrequency;
 
-  // Variable A: cap available pool at fleet size × ORDER_POOL_MULTIPLIER
-  const usableVehicles = GS.vehicles.filter(v => v.status !== 'broken');
-  const usableCount = Math.max(1, usableVehicles.length);
-  const maxAvailable = Math.ceil(usableCount * ORDER_POOL_MULTIPLIER);
-  if (GS.orders.available.length >= maxAvailable) return;
-  const canGenerate = maxAvailable - GS.orders.available.length;
-  const count = Math.min(canGenerate, Math.round(rand(1, 3) * volMod));
+  // Generate 1–3 orders per call, scaled by market / difficulty modifiers.
+  // The pool is not capped by fleet size – order expiry provides natural regulation.
+  const count = Math.round(rand(1, 3) * volMod);
   if (count <= 0) return;
 
   // Fleet capacity stats used for weight scaling
+  const usableVehicles = GS.vehicles.filter(v => v.status !== 'broken');
   const totalFleetCapacity = usableVehicles.reduce((sum, v) => {
     const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
     return cat ? sum + cat.capacity : sum;
