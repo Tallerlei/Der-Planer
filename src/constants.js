@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3.3';
+export const APP_VERSION = '1.4.0';
 
 export const TIME_COSTS = {
   navigate:      5,
@@ -11,6 +11,7 @@ export const TIME_COSTS = {
   maintenance:  30,
   repair:       15,
   assignDriver: 10,
+  removeDriver: 10,
   takeLoan:     15,
   refreshCand:   5,
 };

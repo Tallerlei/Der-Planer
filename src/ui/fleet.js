@@ -105,6 +105,11 @@ export function renderFleet() {
         <button class="btn btn-secondary btn-sm" title="Fahrer zuweisen: +${TIME_COSTS.assignDriver} Min" onclick="assignDriver('${v.id}')">Zuweisen</button>
       </div>` : ''}
 
+      ${v.status === 'idle' && v.driverId && v.currentCity === GS.company.hqCity ? `
+      <div class="flex gap-sm items-center">
+        <button class="btn btn-warning btn-sm" title="Fahrer entfernen: +${TIME_COSTS.removeDriver} Min" onclick="removeDriver('${v.id}')">👤 Fahrer entfernen</button>
+      </div>` : ''}
+
       <div class="vehicle-actions">
         ${v.status === 'idle' ? `<button class="btn btn-secondary btn-sm" title="Route planen: +${TIME_COSTS.navigate} Min" onclick="openRouteForVehicle('${v.id}')">🗺️ Route planen</button>` : ''}
         ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" title="Wartung: +${TIME_COSTS.maintenance} Min" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
@@ -156,6 +161,19 @@ export function assignDriver(vehicleId) {
   driver.vehicleId = vehicleId;
   showToast(`${driver.name} fährt jetzt ${vehicle.name}`, 'success');
   advanceGameTime(TIME_COSTS.assignDriver, 'Fahrerzuweisung');
+  renderFleet();
+}
+
+export function removeDriver(vehicleId) {
+  const vehicle = GS.vehicles.find(v => v.id === vehicleId);
+  if (!vehicle || !vehicle.driverId) return;
+  if (vehicle.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
+  if (vehicle.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  const driver = GS.staff.find(s => s.id === vehicle.driverId);
+  if (driver) driver.vehicleId = null;
+  vehicle.driverId = null;
+  showToast(`${driver ? driver.name : 'Fahrer'} wurde vom Fahrzeug entfernt.`, 'success');
+  advanceGameTime(TIME_COSTS.removeDriver, 'Fahrerentfernung');
   renderFleet();
 }
 
