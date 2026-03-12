@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.4.0**
+> 🔖 **Version: 1.5.0**
 
 ---
 
@@ -56,10 +56,12 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Verfolge deine Flotte in Echtzeit auf der Europakarte; Fahrzeuge starten und enden stets am richtigen Standort.
 - **Straßentypen-Visualisierung**: Autobahnen als breite, blaue Linien mit weißer Mittellinie; Bundesstraßen als gelbe Linien (nur in Zoom-Stufe 2 sichtbar).
 - **Autobahnkreuz-Markierungen**: Knotenpunkte mit 3+ Autobahnverbindungen werden als blaue Rauten hervorgehoben.
-- **Zwei Zoom-Stufen**: *Totale* (Zoom 1) zeigt nur Autobahnen und Hauptstädte; *Regionalansicht* (Zoom 2) zeigt alle Straßentypen, Auftragsziele (📦/🏁) und das HQ-Icon.
+- **Drei Zoom-Stufen**: *Totale* (Zoom 1) zeigt nur Autobahnen und Hauptstädte; *Regionalansicht* (Zoom 2) zeigt alle Straßentypen, Auftragsziele (📦/🏁) und das HQ-Icon; *Detailansicht* (Zoom 3) für maximale Kartendetails.
 - Wechsel zwischen Zoom-Stufen per **+/–-Schaltflächen** oder **Mausrad**; Zoom-Stufe und Kartenposition werden im Spielstand gespeichert.
+- **Pan-Funktion**: Die Karte lässt sich per Maus-Ziehen (Drag) verschieben.
 - **Schnellnavigation** in der Seitenleiste: Ein Klick auf Firmenzentrale, Auftragsziele oder Fahrzeuge zentriert die Karte sofort in Zoom-Stufe 2 auf den gewünschten Punkt.
-- **Fahrzeug-Info-Panel**: Ein Klick auf ein Fahrzeug-Icon öffnet ein Panel mit Fahrer, Auftrag, Ziel und Status; bei mehreren überlappenden Fahrzeugen erscheint ein Auswahlmenü.
+- **Fahrzeug-Icons**: Fahrzeuge werden auf der Karte mit dem jeweiligen Typ-Icon (🚐 🚛 🚚 u. a.) dargestellt; ausgewählte Fahrzeuge werden golden hervorgehoben.
+- **Fahrzeug-Info-Panel**: Ein Klick auf ein Fahrzeug auf der Karte oder in der Flottenliste öffnet ein seitliches Detailpanel mit Fahrer, Auftrag, Ziel, Gesundheit und Kraftstoff – die Route wird gleichzeitig auf der Karte markiert; bei mehreren überlappenden Fahrzeugen erscheint ein Auswahlmenü.
 
 ### 👥 Personalverwaltung
 - **7 Mitarbeiterrollen**: LKW-Fahrer (€ 2.400/Monat), Mechaniker, Buchhalter, Telefonistin, Manager, Rechtsanwältin u. a.

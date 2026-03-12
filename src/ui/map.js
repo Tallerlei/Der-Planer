@@ -3,12 +3,35 @@ import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { openModal, closeModal } from './modal.js';
 
+const MAP_ZOOM_MAX = 3;
+
+// Pan drag state
+let _panDragging = false;
+let _panStartX = 0;
+let _panStartY = 0;
+let _panStartCenterX = 400;
+let _panStartCenterY = 260;
+let _panMoved = false;
+
+function getSelectedVehicleRouteIds() {
+  if (!GS.ui.selectedVehicleId) return [];
+  const v = GS.vehicles.find(x => x.id === GS.ui.selectedVehicleId);
+  if (!v || !v.route || !v.route.stops.length) return [];
+  return v.route.stops.map(s => s.cityId);
+}
+
 export function renderMapScreen() {
   const canvas = $('map-screen-canvas');
   if (!canvas) return;
-  drawMapOnCanvas(canvas, [], GS.vehicles, { zoom: GS.ui.mapZoom, center: GS.ui.mapCenter });
+  const highlightIds = getSelectedVehicleRouteIds();
+  drawMapOnCanvas(canvas, highlightIds, GS.vehicles, {
+    zoom: GS.ui.mapZoom,
+    center: GS.ui.mapCenter,
+    selectedId: GS.ui.selectedVehicleId,
+  });
   renderFleetOnMap();
   renderQuickNav();
+  renderVehicleSidePanel();
   updateZoomButtons();
 }
 
@@ -16,16 +39,24 @@ export function updateZoomButtons() {
   const btn1 = $('map-zoom-out');
   const btn2 = $('map-zoom-in');
   if (btn1) btn1.disabled = (GS.ui.mapZoom <= 1);
-  if (btn2) btn2.disabled = (GS.ui.mapZoom >= 2);
+  if (btn2) btn2.disabled = (GS.ui.mapZoom >= MAP_ZOOM_MAX);
 }
 
 export function setMapZoom(level, cx, cy) {
-  GS.ui.mapZoom = Math.max(1, Math.min(2, level));
+  GS.ui.mapZoom = Math.max(1, Math.min(MAP_ZOOM_MAX, level));
   if (cx !== undefined && cy !== undefined) {
     GS.ui.mapCenter.x = Math.max(0, Math.min(800, cx));
     GS.ui.mapCenter.y = Math.max(0, Math.min(520, cy));
   }
   renderMapScreen();
+}
+
+export function mapZoomIn() {
+  setMapZoom(GS.ui.mapZoom + 1);
+}
+
+export function mapZoomOut() {
+  setMapZoom(GS.ui.mapZoom - 1);
 }
 
 export function mapJumpTo(dataX, dataY) {
@@ -90,6 +121,11 @@ export function mapJumpToVehicle(vehicleId) {
   mapJumpTo(v.position.x, v.position.y);
 }
 
+export function deselectVehicleOnMap() {
+  GS.ui.selectedVehicleId = null;
+  renderMapScreen();
+}
+
 export function renderFleetOnMap() {
   const el = $('fleet-on-map');
   if (!el) return;
@@ -102,8 +138,9 @@ export function renderFleetOnMap() {
     const loc = v.status === 'driving' && v.route.stops.length
       ? `→ ${getCityName(v.route.stops[v.route.stops.length - 1].cityId)}`
       : getCityName(v.currentCity);
+    const isSelected = GS.ui.selectedVehicleId === v.id;
     return `
-    <div class="map-vehicle-row">
+    <div class="map-vehicle-row${isSelected ? ' selected' : ''}" onclick="selectVehicleOnMap('${v.id}')" style="cursor:pointer">
       <div class="map-vehicle-name">${cat.icon} ${v.name}</div>
       <div class="map-vehicle-info">${loc}</div>
       <div class="progress mt-sm"><div class="progress-bar blue" style="width:${v.route.stops.length ? v.route.progressPct : 0}%"></div></div>
@@ -112,14 +149,36 @@ export function renderFleetOnMap() {
 }
 
 export function openVehicleInfoPanel(vehicleId) {
+  GS.ui.selectedVehicleId = vehicleId;
+  renderMapScreen();
+}
+
+export function renderVehicleSidePanel() {
+  const el = $('map-vehicle-panel');
+  if (!el) return;
+
+  const vehicleId = GS.ui.selectedVehicleId;
+  if (!vehicleId) {
+    el.style.display = 'none';
+    return;
+  }
+
   const v = GS.vehicles.find(x => x.id === vehicleId);
-  if (!v) return;
+  if (!v) {
+    el.style.display = 'none';
+    GS.ui.selectedVehicleId = null;
+    return;
+  }
+
+  el.style.display = '';
+
   const cat    = DATA.VEHICLES.find(c => c.id === v.catalogId);
   const driver = GS.staff.find(s => s.id === v.driverId);
   const activeOrder = GS.orders.active.find(o => o.vehicleId === v.id);
 
   const statusLabels = { idle: 'Bereit', driving: 'Unterwegs', maintenance: 'Wartung', broken: 'Defekt' };
   const statusLabel = statusLabels[v.status] || v.status;
+  const badgeClass = v.status === 'idle' ? 'badge-success' : v.status === 'driving' ? 'badge-info' : 'badge-danger';
 
   let orderHtml = '<div class="text-muted text-sm">Kein aktiver Auftrag</div>';
   if (activeOrder) {
@@ -131,20 +190,24 @@ export function openVehicleInfoPanel(vehicleId) {
   }
 
   const assignOpts = GS.orders.available.length > 0 && v.status === 'idle'
-    ? `<button class="btn btn-primary btn-sm w-full" onclick="closeModal();navigateToScreen('orders')" style="margin-top:.75rem">
-         📋 Auftrag aus Auftragsliste zuweisen
+    ? `<button class="btn btn-primary btn-sm w-full" onclick="navigateToScreen('orders')" style="margin-top:.5rem">
+         📋 Auftrag zuweisen
        </button>`
     : '';
 
-  const html = `
-    <div class="vehicle-info-panel">
+  el.innerHTML = `
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span>${cat.icon} ${v.name}</span>
+      <button class="btn btn-secondary btn-sm" onclick="deselectVehicleOnMap()" title="Schließen">✕</button>
+    </div>
+    <div class="vehicle-info-panel" style="padding:.5rem 0 0">
       <div class="vinfo-header">
         <span class="vinfo-icon">${cat.icon}</span>
         <div>
           <div class="vinfo-name">${v.name}</div>
           <div class="vinfo-model text-muted text-sm">${cat.model}</div>
         </div>
-        <span class="badge ${v.status === 'idle' ? 'badge-success' : v.status === 'driving' ? 'badge-info' : 'badge-danger'}">${statusLabel}</span>
+        <span class="badge ${badgeClass}">${statusLabel}</span>
       </div>
       <div class="vinfo-stats">
         <div class="vinfo-row"><span class="vinfo-label">Fahrer</span><span>${driver ? driver.name : '– kein Fahrer –'}</span></div>
@@ -155,11 +218,57 @@ export function openVehicleInfoPanel(vehicleId) {
       <div class="vinfo-order">${orderHtml}</div>
       ${assignOpts}
     </div>`;
+}
 
-  openModal(v.name, html);
+export function handleMapScreenMouseDown(e) {
+  if (e.button !== 0) return;
+  const canvas = $('map-screen-canvas');
+  if (!canvas) return;
+  _panDragging = true;
+  _panMoved = false;
+  _panStartX = e.clientX;
+  _panStartY = e.clientY;
+  _panStartCenterX = GS.ui.mapCenter.x;
+  _panStartCenterY = GS.ui.mapCenter.y;
+  canvas.style.cursor = 'grabbing';
+}
+
+export function handleMapScreenMouseMove(e) {
+  if (!_panDragging) return;
+  const canvas = $('map-screen-canvas');
+  if (!canvas) return;
+
+  const dx = e.clientX - _panStartX;
+  const dy = e.clientY - _panStartY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _panMoved = true;
+
+  const zoom = GS.ui.mapZoom;
+  const viewW = 800 / zoom;
+  const viewH = 520 / zoom;
+
+  const newCx = _panStartCenterX - (dx / canvas.clientWidth  * viewW);
+  const newCy = _panStartCenterY - (dy / canvas.clientHeight * viewH);
+  GS.ui.mapCenter.x = Math.max(0, Math.min(800, newCx));
+  GS.ui.mapCenter.y = Math.max(0, Math.min(520, newCy));
+
+  const highlightIds = getSelectedVehicleRouteIds();
+  drawMapOnCanvas(canvas, highlightIds, GS.vehicles, {
+    zoom: GS.ui.mapZoom,
+    center: GS.ui.mapCenter,
+    selectedId: GS.ui.selectedVehicleId,
+  });
+}
+
+export function handleMapScreenMouseUp(e) {
+  if (!_panDragging) return;
+  _panDragging = false;
+  const canvas = $('map-screen-canvas');
+  if (canvas) canvas.style.cursor = 'grab';
 }
 
 export function handleMapScreenClick(e) {
+  if (_panMoved) { _panMoved = false; return; }
+
   const canvas = $('map-screen-canvas');
   if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
@@ -183,26 +292,38 @@ export function handleMapScreenClick(e) {
     return Math.sqrt(dx * dx + dy * dy) < threshold;
   });
 
-  if (hits.length === 0) return;
+  if (hits.length === 0) {
+    if (GS.ui.selectedVehicleId) {
+      GS.ui.selectedVehicleId = null;
+      renderMapScreen();
+    }
+    return;
+  }
 
   if (hits.length === 1) {
-    openVehicleInfoPanel(hits[0].id);
+    GS.ui.selectedVehicleId = hits[0].id;
+    renderMapScreen();
     return;
   }
 
   const listHtml = hits.map(v => {
     const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    return `<button class="btn btn-secondary w-full" onclick="closeModal();openVehicleInfoPanel('${v.id}')">
+    return `<button class="btn btn-secondary w-full" onclick="closeModal();selectVehicleOnMap('${v.id}')">
       ${cat.icon} ${v.name}
     </button>`;
   }).join('');
   openModal('Fahrzeuge auswählen', `<div class="flex flex-col gap-sm">${listHtml}</div>`);
 }
 
+export function selectVehicleOnMap(vehicleId) {
+  GS.ui.selectedVehicleId = vehicleId;
+  renderMapScreen();
+}
+
 export function handleMapScreenWheel(e) {
   e.preventDefault();
-  if (e.deltaY < 0 && GS.ui.mapZoom < 2) setMapZoom(2);
-  else if (e.deltaY > 0 && GS.ui.mapZoom > 1) setMapZoom(1);
+  if (e.deltaY < 0 && GS.ui.mapZoom < MAP_ZOOM_MAX) setMapZoom(GS.ui.mapZoom + 1);
+  else if (e.deltaY > 0 && GS.ui.mapZoom > 1) setMapZoom(GS.ui.mapZoom - 1);
 }
 
 export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
@@ -403,15 +524,31 @@ export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
       if (!v.position) continue;
       const vx = toX(v.position.x);
       const vy = toY(v.position.y);
-      if (vx < -10 || vx > W + 10 || vy < -10 || vy > H + 10) continue;
-      const vr = Math.max(4, 5 * Math.min(zoom, 1.5));
+      if (vx < -20 || vx > W + 20 || vy < -20 || vy > H + 20) continue;
+
+      const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+      const isSelected = opts && opts.selectedId && opts.selectedId === v.id;
+      const vr = Math.max(5, 6 * Math.min(zoom, 1.5));
+
+      // Status circle background
       ctx.beginPath();
-      ctx.arc(vx, vy, vr, 0, Math.PI * 2);
-      ctx.fillStyle = v.status === 'driving' ? '#3fb950' : '#f85149';
+      ctx.arc(vx, vy, vr + (isSelected ? 3 : 0), 0, Math.PI * 2);
+      ctx.fillStyle = isSelected
+        ? 'rgba(240,165,0,0.9)'
+        : v.status === 'driving' ? '#3fb950' : v.status === 'broken' ? '#f85149' : '#8b949e';
       ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
+
+      // Vehicle emoji icon
+      const iconSize = Math.max(10, Math.round(11 * Math.min(zoom, 1.5)));
+      ctx.font = `${iconSize}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cat ? cat.icon : '🚛', vx, vy);
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'alphabetic';
     }
   }
 
