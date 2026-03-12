@@ -20,8 +20,10 @@ import { renderPersonnel, fireStaff, hireStaff } from './ui/personnel.js';
 import { renderFinance, takeLoan } from './ui/finance_ui.js';
 import { renderOffice, officeAction } from './ui/office.js';
 import {
-  renderMapScreen, setMapZoom, mapJumpTo, mapJumpToVehicle,
-  openVehicleInfoPanel, handleMapScreenClick, handleMapScreenWheel,
+  renderMapScreen, setMapZoom, mapZoomIn, mapZoomOut, mapJumpTo, mapJumpToVehicle,
+  openVehicleInfoPanel, selectVehicleOnMap, deselectVehicleOnMap,
+  handleMapScreenClick, handleMapScreenWheel,
+  handleMapScreenMouseDown, handleMapScreenMouseMove, handleMapScreenMouseUp,
   updateZoomButtons,
 } from './ui/map.js';
 import { updateOrderBadge } from './ui/statusbar.js';
@@ -87,9 +89,13 @@ Object.assign(window, {
   closeModal,
 
   setMapZoom,
+  mapZoomIn,
+  mapZoomOut,
   mapJumpTo,
   mapJumpToVehicle,
   openVehicleInfoPanel,
+  selectVehicleOnMap,
+  deselectVehicleOnMap,
 
   autoSave,
   deleteSave,
@@ -110,8 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Map screen canvas
   const msc = document.getElementById('map-screen-canvas');
   if (msc) {
-    msc.addEventListener('click', handleMapScreenClick);
-    msc.addEventListener('wheel', handleMapScreenWheel, { passive: false });
+    msc.addEventListener('mousedown',  handleMapScreenMouseDown);
+    msc.addEventListener('mousemove',  handleMapScreenMouseMove);
+    msc.addEventListener('mouseup',    handleMapScreenMouseUp);
+    msc.addEventListener('mouseleave', handleMapScreenMouseUp);
+    msc.addEventListener('click',      handleMapScreenClick);
+    msc.addEventListener('wheel',      handleMapScreenWheel, { passive: false });
   }
 
   // Check for saved game

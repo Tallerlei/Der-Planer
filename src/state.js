@@ -62,6 +62,7 @@ export const GS = {
     lastRenderMs: 0,
     mapZoom: 1,
     mapCenter: { x: 400, y: 260 },
+    selectedVehicleId: null,
     orderVehicleSelection: {},
   },
 

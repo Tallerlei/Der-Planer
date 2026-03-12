@@ -917,8 +917,9 @@ tr:hover td { background: var(--surface2); }
   border: 1px solid var(--border);
   display: block;
   width: 100%;
-  cursor: pointer;
+  cursor: grab;
 }
+#map-screen-canvas:active { cursor: grabbing; }
 
 .map-sidebar { display: flex; flex-direction: column; gap: 0; }
 
@@ -1010,12 +1011,20 @@ tr:hover td { background: var(--surface2); }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: 0.78rem;
+  transition: border-color 0.15s;
+}
+.map-vehicle-row.selected {
+  border-color: rgba(240,165,0,0.8);
+  background: rgba(240,165,0,0.08);
 }
 .map-vehicle-name { font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
 .map-vehicle-info { color: var(--text-muted); }
 
 /* Vehicle info panel (shown in modal) */
 .vehicle-info-panel { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Vehicle info side panel on map */
+.map-vehicle-panel { padding: 0.5rem; }
 .vinfo-header {
   display: flex;
   align-items: center;

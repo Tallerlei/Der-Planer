@@ -182,8 +182,8 @@
         <div class="page-header">
           <h2>🗺️ <span>Europakarte</span></h2>
           <div class="map-zoom-controls">
-            <button id="map-zoom-in"  class="btn btn-secondary btn-sm" onclick="setMapZoom(2)" title="Regionalansicht (Zoom +)">＋</button>
-            <button id="map-zoom-out" class="btn btn-secondary btn-sm" onclick="setMapZoom(1)" title="Totale (Zoom –)">－</button>
+            <button id="map-zoom-in"  class="btn btn-secondary btn-sm" onclick="mapZoomIn()"  title="Reinzoomen (Zoom +)">＋</button>
+            <button id="map-zoom-out" class="btn btn-secondary btn-sm" onclick="mapZoomOut()" title="Rauszoomen (Zoom –)">－</button>
           </div>
         </div>
         <div class="map-screen-layout">
@@ -191,6 +191,9 @@
             <canvas id="map-screen-canvas"></canvas>
           </div>
           <div class="map-sidebar">
+            <!-- Vehicle info panel (shown when vehicle is selected) -->
+            <div id="map-vehicle-panel" class="card map-vehicle-panel" style="margin-bottom:1rem;display:none"></div>
+            <!-- Legend Card -->
             <div class="map-legend card" style="margin-bottom:1rem">
               <div class="card-header">Legende</div>
               <div class="legend-item"><div class="legend-line legend-autobahn"></div> Autobahn</div>
@@ -200,6 +203,7 @@
               <div class="legend-item"><div class="legend-diamond"></div> Autobahnkreuz</div>
               <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div> Fahrzeug (unterwegs)</div>
               <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div> Fahrzeug (Problem)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(240,165,0,0.9)"></div> Fahrzeug (ausgewählt)</div>
             </div>
             <div class="card" style="margin-bottom:1rem">
               <div class="card-header">Schnellnavigation</div>
