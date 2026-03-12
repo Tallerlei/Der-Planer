@@ -34,8 +34,9 @@ export function renderOrders() {
   // The order badge has already been updated above; empty-state handling ran before this check.
   if (el.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
 
-  const assignableVehicles = GS.vehicles.filter(v =>
-    (v.status === 'idle' || v.status === 'driving') && v.driverId
+  // All vehicles in an assignable state (status check only – driver check done per-vehicle below)
+  const candidateVehicles = GS.vehicles.filter(v =>
+    v.status === 'idle' || v.status === 'driving'
   );
 
   let unfulfillableCount = 0;
@@ -67,14 +68,16 @@ export function renderOrders() {
     }
 
     const savedVehicleId = GS.ui.orderVehicleSelection[o.id] || '';
-    const { eligibleVehicles, vOptsForOrder } = assignableVehicles.reduce((acc, v) => {
+    const { eligibleVehicles, vOptsForOrder } = candidateVehicles.reduce((acc, v) => {
       const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
       if (!cat || !o.requirements.every(req => cat.requirements.includes(req))) return acc;
-      acc.eligibleVehicles.push(v);
-      const queueInfo = v.status === 'driving'
+      const hasDriver = !!v.driverId;
+      if (hasDriver) acc.eligibleVehicles.push(v);
+      const queueInfo = v.status === 'driving' && hasDriver
         ? ` [Warteschlange: Position ${(v.orderQueue || []).length + 1}]`
         : '';
-      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}</option>`;
+      const noDriverHint = !hasDriver ? ' – Kein Fahrer' : '';
+      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}${noDriverHint}</option>`;
       return acc;
     }, { eligibleVehicles: [], vOptsForOrder: '' });
 
@@ -120,7 +123,17 @@ export function renderOrders() {
         <button class="btn btn-danger btn-sm"  onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       </div>` : ''}
 
-      ${tab === 'available' && eligibleVehicles.length === 0 ? `
+      ${tab === 'available' && eligibleVehicles.length === 0 && vOptsForOrder ? `
+      <div class="order-rejection-hint">⚠ ${rejectionReason}</div>
+      <div class="order-actions">
+        <select class="form-control" id="vsel-${o.id}" style="flex:1" disabled>
+          <option value="">Fahrzeug wählen…</option>
+          ${vOptsForOrder}
+        </select>
+        <button class="btn btn-danger btn-sm" onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
+      </div>` : ''}
+
+      ${tab === 'available' && eligibleVehicles.length === 0 && !vOptsForOrder ? `
       <div class="order-rejection-hint">⚠ ${rejectionReason}</div>
       <button class="btn btn-danger btn-sm" onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       ` : ''}
