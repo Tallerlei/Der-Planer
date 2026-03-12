@@ -25,6 +25,33 @@ function _render(name) { if (_renderers[name]) _renderers[name](); }
 
 function getCityName(id) { return cityById[id] ? cityById[id].name : id; }
 
+// ── Per-client reputation helpers ────────────────────────────
+export function getClientReputation(clientId) {
+  return (GS.clientReputation && GS.clientReputation[clientId] !== undefined)
+    ? GS.clientReputation[clientId] : 50;
+}
+
+export function changeClientReputation(clientId, delta) {
+  if (!GS.clientReputation) GS.clientReputation = {};
+  const current = getClientReputation(clientId);
+  GS.clientReputation[clientId] = Math.max(0, Math.min(100, current + delta));
+}
+
+function clientRepCompletionGain(R) {
+  return Math.max(1, Math.round(8 * Math.pow(1 - R / 100, 0.6)));
+}
+
+function clientRepExpiryLoss(R) {
+  return Math.round(12 * Math.pow(R / 100, 0.5));
+}
+
+function ensureClientStats(clientId) {
+  if (!GS.clientStats) GS.clientStats = {};
+  if (!GS.clientStats[clientId]) {
+    GS.clientStats[clientId] = { offered: 0, accepted: 0, completed: 0, failed: 0 };
+  }
+}
+
 // ── Game loop ────────────────────────────────────────────────
 let loopInterval = null;
 
@@ -287,8 +314,9 @@ export function completeOrder(order, vehicle) {
   const minutesTaken = now - order.acceptedMinute;
   const deadlineMin  = order.deadlineDays * 1440;
   let finalValue = order.value;
+  const onTime = minutesTaken <= deadlineMin;
 
-  if (minutesTaken <= deadlineMin) {
+  if (onTime) {
     finalValue += order.bonus;
     showToast(`✅ Lieferung abgeschlossen: +${fmt.money(finalValue)}`, 'success');
   } else {
@@ -306,13 +334,22 @@ export function completeOrder(order, vehicle) {
   GS.orders.completed.unshift(order);
   GS.stats.ordersCompleted++;
 
+  ensureClientStats(order.clientId);
+  if (onTime) {
+    GS.clientStats[order.clientId].completed++;
+    changeClientReputation(order.clientId, clientRepCompletionGain(getClientReputation(order.clientId)));
+  } else {
+    GS.clientStats[order.clientId].failed++;
+    changeClientReputation(order.clientId, -2);
+  }
+
   addTransaction(
     `Lieferung: ${order.clientName} (${getCityName(order.origin)}→${getCityName(order.destination)})`,
     finalValue
   );
 
   const oldRep = GS.company.reputation || 50;
-  if (minutesTaken <= deadlineMin) GS.company.reputation = Math.min(100, oldRep + 2);
+  if (onTime) GS.company.reputation = Math.min(100, oldRep + 2);
   else GS.company.reputation = Math.max(0, oldRep - 3);
   checkReputationTierChange(oldRep, GS.company.reputation);
 
@@ -365,12 +402,16 @@ export function generateOrders() {
       : Math.min(template.maxWeight, tierMaxWeight);
     const weight  = rand(template.minWeight, maxW);
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
-    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
+    const loyaltyBonus = getClientReputation(client.id) >= 75 ? 1.05 : 1.0;
+    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * loyaltyBonus * randFloat(0.85, 1.15));
 
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
     const deadlineDays = rand(2, 5);
     const isUrgent = Math.random() < 0.15;
+
+    ensureClientStats(client.id);
+    GS.clientStats[client.id].offered++;
 
     GS.orders.available.push({
       id: uid(),
@@ -427,9 +468,13 @@ export function injectTierOrders(tier, count) {
     const maxW   = Math.min(template.maxWeight, tierMaxWeight);
     const weight = rand(minW, maxW);
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
-    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
+    const loyaltyBonus = getClientReputation(client.id) >= 75 ? 1.05 : 1.0;
+    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * loyaltyBonus * randFloat(0.85, 1.15));
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
+
+    ensureClientStats(client.id);
+    GS.clientStats[client.id].offered++;
 
     GS.orders.available.push({
       id: uid(),
@@ -441,6 +486,8 @@ export function injectTierOrders(tier, count) {
       cargoDesc: template.cargo,
       cargoType: template.type,
       weight,
+      remainingWeight: weight,
+      tripsCompleted: 0,
       requirements: [...template.requirements],
       value: baseVal,
       penalty: Math.round(baseVal * 0.1 * diff.orderPenaltyMod),
@@ -478,6 +525,9 @@ export function expireOrders() {
     if (ageMin > order.expiresInDays * 1440) {
       order.status = 'expired';
       GS.orders.declined.unshift(order);
+      ensureClientStats(order.clientId);
+      GS.clientStats[order.clientId].failed++;
+      changeClientReputation(order.clientId, -clientRepExpiryLoss(getClientReputation(order.clientId)));
       return false;
     }
     return true;
@@ -511,6 +561,9 @@ export function acceptOrder(orderId, vehicleId) {
   order.vehicleId = vehicleId;
   order.acceptedMinute = GS.time.totalMinutes;
   GS.orders.active.push(order);
+
+  ensureClientStats(order.clientId);
+  GS.clientStats[order.clientId].accepted++;
 
   if (vehicle.status === 'idle') {
     startOrderForVehicle(vehicle, order);
@@ -594,6 +647,8 @@ export function startNewGame() {
   GS.finance.transactions = [];
   GS.market.activeEvents  = [];
   GS.stats = { totalRevenue: 0, totalExpenses: 0, ordersCompleted: 0, ordersFailed: 0, kmDriven: 0 };
+  GS.clientReputation = {};
+  GS.clientStats      = {};
 
   const starterVan = createVehicle('transit', 'frankfurt');
   GS.vehicles.push(starterVan);
@@ -630,6 +685,8 @@ export function loadAndContinue() {
   if (GS.company.werbevertrag_aktiv  === undefined) GS.company.werbevertrag_aktiv  = false;
   if (GS.company.werbevertrag_booster === undefined) GS.company.werbevertrag_booster = 0.0;
   if (!GS.company.reputationTier) GS.company.reputationTier = getReputationTier(GS.company.reputation || 50);
+  if (!GS.clientReputation) GS.clientReputation = {};
+  if (!GS.clientStats)      GS.clientStats      = {};
   GS.started = true;
   document.getElementById('status-bar').classList.add('visible');
   document.getElementById('sidebar').classList.add('visible');

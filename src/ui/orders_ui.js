@@ -3,8 +3,76 @@ import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { TIME_COSTS, REQ_LABELS } from '../constants.js';
 import { canFulfillOrder } from '../game/orders.js';
-import { acceptOrder, declineOrder, declineUnfulfillableOrders } from '../game/engine.js';
+import { acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation } from '../game/engine.js';
 import { updateOrderBadge } from './statusbar.js';
+import { getDistance } from '../routing.js';
+import { openModal } from './modal.js';
+
+// ── Helpers ───────────────────────────────────────────────────
+
+/** Converts a game totalMinutes value to a formatted date+time string (DD.MM.YYYY HH:MM).
+ *  The game clock starts at 01.03.1994 (totalMinutes=0 → midnight of that day). */
+function gameMinutesToDateTime(totalMin) {
+  const dayOffset = Math.floor(totalMin / 1440);
+  const hour = Math.floor((totalMin % 1440) / 60);
+  const mn   = totalMin % 60;
+  const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let d = 1, mo = 3, y = 1994;
+  for (let i = 0; i < dayOffset; i++) {
+    d++;
+    if (d > daysInMonth[mo]) { d = 1; mo++; if (mo > 12) { mo = 1; y++; } }
+  }
+  return `${fmt.date(d, mo, y)} ${String(hour).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+}
+
+/** Returns { stars, cssClass } for the 5-band visual reputation indicator. */
+function clientRepDisplay(rep) {
+  if (rep <= 20) return { stars: '★☆☆☆☆', cssClass: 'rep-very-low' };
+  if (rep <= 40) return { stars: '★★☆☆☆', cssClass: 'rep-low' };
+  if (rep <= 60) return { stars: '★★★☆☆', cssClass: 'rep-mid' };
+  if (rep <= 80) return { stars: '★★★★☆', cssClass: 'rep-high' };
+  return { stars: '★★★★★', cssClass: 'rep-very-high' };
+}
+
+const INDUSTRY_ICONS = {
+  food: '🍎', building: '🏗️', hazmat: '⚠️', auto: '🚗', fuel: '⛽',
+  tech: '💻', medical: '🏥', fashion: '👗', sports: '⚽',
+  industrial: '🔧', paper: '📄', furniture: '🪑', general: '📦',
+};
+
+/** Opens a modal showing per-client reputation and order statistics. */
+export function openClientModal(clientId) {
+  const client = DATA.CLIENTS.find(c => c.id === clientId);
+  if (!client) return;
+  const rep = getClientReputation(clientId);
+  const { stars, cssClass } = clientRepDisplay(rep);
+  const stats = (GS.clientStats && GS.clientStats[clientId])
+    || { offered: 0, accepted: 0, completed: 0, failed: 0 };
+  const icon = INDUSTRY_ICONS[client.industry] || '🏢';
+  const html = `
+    <div class="flex flex-col gap-md">
+      <div style="text-align:center;padding:0.5rem 0">
+        <div style="font-size:2.5rem;line-height:1">${icon}</div>
+        <div class="text-sm text-muted" style="margin-top:0.25rem">${client.industry}</div>
+      </div>
+      <div style="text-align:center">
+        <span class="client-rep-badge ${cssClass}" style="font-size:1.4rem;letter-spacing:0.05em">${stars}</span>
+        <div class="text-sm text-muted" style="margin-top:0.25rem">Kundenansehen: ${rep} / 100</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Statistik</th><th>Anzahl</th></tr>
+          <tr><td>Angebotene Aufträge</td><td>${stats.offered}</td></tr>
+          <tr><td>Angenommene Aufträge</td><td>${stats.accepted}</td></tr>
+          <tr><td>Erledigte Aufträge</td><td>${stats.completed}</td></tr>
+          <tr><td>Verfehlte Aufträge</td><td>${stats.failed}</td></tr>
+        </table>
+      </div>
+    </div>`;
+  openModal(client.name, html);
+}
+
+// ── Main render ───────────────────────────────────────────────
 
 export function renderOrders() {
   updateOrderBadge();
@@ -43,17 +111,59 @@ export function renderOrders() {
   const cards = orders.map(o => {
     const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || { icon: '📦', label: o.cargoType };
     const ch = { phone: '📞 Telefon', fax: '📠 Fax', online: '🌐 Online' }[o.channel] || o.channel;
-    const urgentBadge = o.isUrgent ? `<span class="badge badge-danger urgent-badge" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>` : '';
 
-    let deadlineHtml = '';
+    // ── Urgent badge (only animate/highlight when not in completed tab) ──
+    const urgentBadge = o.isUrgent
+      ? `<span class="badge badge-danger urgent-badge${tab === 'completed' ? ' urgent-badge-done' : ''}" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>`
+      : '';
+
+    // ── Distance & trip calculation ──────────────────────────────
+    const km = getDistance(o.origin, o.destination);
+
+    let trips = 1;
     if (tab === 'available') {
-      const ageMin   = GS.time.totalMinutes - o.receivedMinute;
+      const selId = GS.ui.orderVehicleSelection[o.id];
+      const selV  = selId ? GS.vehicles.find(v => v.id === selId) : null;
+      const selCat = selV ? DATA.VEHICLES.find(c => c.id === selV.catalogId) : null;
+      if (selCat && selCat.capacity < o.weight) trips = Math.ceil(o.weight / selCat.capacity);
+    } else if (tab === 'active') {
+      const actV  = o.vehicleId ? GS.vehicles.find(v => v.id === o.vehicleId) : null;
+      const actCat = actV ? DATA.VEHICLES.find(c => c.id === actV.catalogId) : null;
+      if (actCat && actCat.capacity < o.weight) trips = Math.ceil(o.weight / actCat.capacity);
+    } else if (tab === 'completed') {
+      trips = o.tripsCompleted > 0 ? o.tripsCompleted : 1;
+    }
+    const totalKm   = km * trips;
+    const kmLabel   = trips > 1
+      ? `📍 ${fmt.km(totalKm)} (${trips}×${fmt.km(km)})`
+      : `📍 ${fmt.km(km)}`;
+    const valueForKm = (tab === 'completed' && o.finalValue != null) ? o.finalValue : o.value;
+    const eurPerKm  = totalKm > 0 ? Math.round(valueForKm / totalKm) : 0;
+
+    // ── Deadline display ─────────────────────────────────────────
+    let deadlineHtml = '';
+    let deadlineMetaHtml = '';
+    if (tab === 'available') {
+      const ageMin    = GS.time.totalMinutes - o.receivedMinute;
       const expiresIn = o.expiresInDays * 1440 - ageMin;
       const hoursLeft = Math.max(0, Math.floor(expiresIn / 60));
       deadlineHtml = `<span class="order-deadline ${hoursLeft < 12 ? 'badge-danger' : 'badge-warning'} badge">
         ⏱ noch ${hoursLeft}h</span>`;
+      const deadlineDateTime = gameMinutesToDateTime(GS.time.totalMinutes + o.deadlineDays * 1440);
+      deadlineMetaHtml = `<span>${o.isUrgent ? '🔴' : '📅'} Frist: ${deadlineDateTime}</span>`;
+    } else if (tab === 'active') {
+      const deadlineDateTime = o.acceptedMinute !== null
+        ? gameMinutesToDateTime(o.acceptedMinute + o.deadlineDays * 1440)
+        : `${o.deadlineDays} ${o.deadlineDays === 1 ? 'Tag' : 'Tage'}`;
+      deadlineMetaHtml = `<span>${o.isUrgent ? '🔴' : '📅'} Frist: ${deadlineDateTime}</span>`;
     }
 
+    // ── Client reputation badge ──────────────────────────────────
+    const clientRep = getClientReputation(o.clientId);
+    const { stars: repStars, cssClass: repClass } = clientRepDisplay(clientRep);
+    const clientRepHtml = `<span class="client-rep-badge ${repClass}" title="Kundenansehen: ${clientRep}/100">${repStars}</span>`;
+
+    // ── Feasibility for available tab ────────────────────────────
     let feasibilityIcon = '';
     let rejectionReason = '';
     if (tab === 'available') {
@@ -67,6 +177,7 @@ export function renderOrders() {
       }
     }
 
+    // ── Vehicle selection for available tab ──────────────────────
     const savedVehicleId = GS.ui.orderVehicleSelection[o.id] || '';
     const { eligibleVehicles, vOptsForOrder } = candidateVehicles.reduce((acc, v) => {
       const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
@@ -81,8 +192,34 @@ export function renderOrders() {
       return acc;
     }, { eligibleVehicles: [], vOptsForOrder: '' });
 
+    // ── Completed-tab specifics ──────────────────────────────────
+    let completedHtml = '';
+    if (tab === 'completed') {
+      const isLate    = o.finalValue < o.value;
+      const penalty   = isLate ? o.value - o.finalValue : 0;
+      const paidClass = isLate ? 'badge-danger' : 'badge-success';
+      const completedAt = o.completedMinute !== null
+        ? gameMinutesToDateTime(o.completedMinute) : '–';
+      completedHtml = `
+      <div class="order-meta">
+        <span class="${paidClass} badge">
+          ${isLate ? '⚠️ Verspätet' : '✅ Pünktlich'} – Gezahlt: ${fmt.money(o.finalValue)}
+        </span>
+        ${isLate ? `<span class="badge badge-danger">Strafe: ${fmt.money(penalty)}</span>` : ''}
+        <span>🕐 Erledigt: ${completedAt}</span>
+      </div>`;
+    }
+
+    // ── Card CSS class ───────────────────────────────────────────
+    let cardClass = 'order-card';
+    if (tab === 'completed') {
+      if (o.finalValue < o.value) cardClass += ' order-card-failed';
+    } else if (o.isUrgent) {
+      cardClass += ' order-card-urgent';
+    }
+
     return `
-    <div class="order-card${o.isUrgent ? ' order-card-urgent' : ''}">
+    <div class="${cardClass}">
       <div class="order-card-header">
         <div class="order-header-left">
           ${feasibilityIcon}
@@ -92,7 +229,10 @@ export function renderOrders() {
               <span class="arrow">→</span>
               <span class="city">${getCityName(o.destination)}</span>
             </div>
-            <div class="text-sm text-muted mt-sm">${o.clientName}</div>
+            <div class="text-sm text-muted mt-sm">
+              <span class="client-link" onclick="openClientModal('${o.clientId}')" title="Unternehmensübersicht öffnen">${o.clientName}</span>
+              ${clientRepHtml}
+            </div>
           </div>
         </div>
         <div style="text-align:right">
@@ -106,9 +246,11 @@ export function renderOrders() {
         <span>${ct.icon} ${o.cargoDesc}</span>
         <span>⚖️ ${fmt.weight(o.weight)}</span>
         <span>${ch}</span>
-        <span>${o.isUrgent ? '🔴' : '📅'} Frist: ${o.deadlineDays} ${o.deadlineDays === 1 ? 'Tag' : 'Tage'}</span>
-        <span>🎁 Bonus: ${fmt.money(o.bonus)}</span>
-        ${o.requirements.length ? `<span>⚠️ ${o.requirements.join(', ')}</span>` : ''}
+        ${deadlineMetaHtml}
+        ${tab !== 'completed' ? `<span>🎁 Bonus: ${fmt.money(o.bonus)}</span>` : ''}
+        <span>${kmLabel}</span>
+        <span>💰 ${fmt.money(eurPerKm)}/km</span>
+        ${o.requirements.length ? `<span>⚠️ ${o.requirements.map(r => REQ_LABELS[r] || r).join(', ')}</span>` : ''}
       </div>
 
       ${tab === 'available' && eligibleVehicles.length > 0 ? `
@@ -145,12 +287,7 @@ export function renderOrders() {
         ${(o.remainingWeight !== undefined && o.remainingWeight < o.weight) ? `<span>📦 Geliefert: ${fmt.weight(o.weight - o.remainingWeight)} / ${fmt.weight(o.weight)} (${o.tripsCompleted} ${o.tripsCompleted !== 1 ? 'Fahrten' : 'Fahrt'})</span>` : ''}
       </div>` : ''}
 
-      ${tab === 'completed' ? `
-      <div class="order-meta">
-        <span class="${o.finalValue >= o.value ? 'badge-success' : 'badge-warning'} badge">
-          Gezahlt: ${fmt.money(o.finalValue)}
-        </span>
-      </div>` : ''}
+      ${completedHtml}
     </div>`;
   }).join('');
 

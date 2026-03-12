@@ -66,6 +66,9 @@ export const GS = {
     orderVehicleSelection: {},
   },
 
+  clientReputation: {},
+  clientStats: {},
+
   notifications: [],
   messageLog: [],
   pressConference: null,
