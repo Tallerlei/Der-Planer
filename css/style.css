@@ -1183,10 +1183,29 @@ tr:hover td { background: var(--surface2); }
   font-size: 0.7rem;
   animation: urgentPulse 1.8s ease-in-out infinite;
 }
+.urgent-badge.urgent-badge-done {
+  animation: none;
+  opacity: 0.75;
+}
 @keyframes urgentPulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.55; }
 }
+
+/* Failed / late delivery card */
+.order-card-failed {
+  border-color: rgba(248,81,73,.55) !important;
+  background: rgba(248,81,73,.06);
+}
+
+/* Clickable client name */
+.client-link {
+  cursor: pointer;
+  color: var(--text-muted);
+  text-decoration: underline dotted;
+  transition: color 0.15s;
+}
+.client-link:hover { color: var(--accent2); }
 
 /* Time cost row in route summary */
 .route-summary-row.time-cost-row .rs-value.time-cost {
