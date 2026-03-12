@@ -16,11 +16,12 @@ function gameMinutesToDateTime(totalMin) {
   const dayOffset = Math.floor(totalMin / 1440);
   const hour = Math.floor((totalMin % 1440) / 60);
   const mn   = totalMin % 60;
-  const daysInMonth = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   let d = 1, mo = 3, y = 1994;
   for (let i = 0; i < dayOffset; i++) {
     d++;
-    if (d > daysInMonth[mo]) { d = 1; mo++; if (mo > 12) { mo = 1; y++; } }
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    const dim = [0, 31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo];
+    if (d > dim) { d = 1; mo++; if (mo > 12) { mo = 1; y++; } }
   }
   return `${fmt.date(d, mo, y)} ${String(hour).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
 }
@@ -230,7 +231,7 @@ export function renderOrders() {
               <span class="city">${getCityName(o.destination)}</span>
             </div>
             <div class="text-sm text-muted mt-sm">
-              <span class="client-link" onclick="openClientModal('${o.clientId}')" title="Unternehmensübersicht öffnen">${o.clientName}</span>
+              <span class="client-link" data-client-id="${o.clientId}" title="Unternehmensübersicht öffnen">${o.clientName}</span>
               ${clientRepHtml}
             </div>
           </div>
@@ -300,6 +301,11 @@ export function renderOrders() {
     : '';
 
   el.innerHTML = cards + rejectBtn;
+
+  // Attach client-link click handlers via event delegation (avoids inline onclick interpolation)
+  el.querySelectorAll('.client-link[data-client-id]').forEach(link => {
+    link.addEventListener('click', () => openClientModal(link.dataset.clientId));
+  });
 }
 
 export function switchOrderTab(tab) {
