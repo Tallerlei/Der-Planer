@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.3.3**
+> 🔖 **Version: 1.4.0**
 
 ---
 
@@ -26,6 +26,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 ### 🚛 Fuhrparkmanagement
 - **8 Fahrzeugtypen**: vom kleinen Transporter (2 t) bis zum Schwerlastzug (60 t).
 - Kaufe, warte und verkaufe Fahrzeuge (MAN, Volvo, Scania, DAF, Mercedes Actros u. a.).
+- Weise Fahrern Fahrzeuge zu und entferne sie wieder, wenn Fahrzeug und Fahrer sich am Firmensitz befinden.
 - Fahrzeuge können in den Zuständen *untätig*, *fahrend* oder *Wartung* sein.
 - Treibstoffverbrauch und Verschleiß werden realistisch simuliert.
 - **Automatische Tankstopps**: Sinkt der Kraftstoffstand unter 15 %, hält das Fahrzeug selbständig an einer Tankstelle (15 Min. Verzögerung); die Kraftstoffkosten werden automatisch verbucht.

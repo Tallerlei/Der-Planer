@@ -15,7 +15,7 @@ describe('TIME_COSTS', () => {
   it('has all required action costs', () => {
     const expected = ['navigate', 'assignOrder', 'dispatchRoute', 'hireStaff',
       'fireStaff', 'buyVehicle', 'sellVehicle', 'maintenance', 'repair',
-      'assignDriver', 'takeLoan', 'refreshCand'];
+      'assignDriver', 'removeDriver', 'takeLoan', 'refreshCand'];
     for (const key of expected) {
       expect(TIME_COSTS).toHaveProperty(key);
       expect(typeof TIME_COSTS[key]).toBe('number');

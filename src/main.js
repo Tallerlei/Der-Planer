@@ -11,7 +11,7 @@ import {
 import { showToast } from './ui/notifications.js';
 import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
-import { renderFleet, renderCatalog, assignDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle } from './ui/fleet.js';
+import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle } from './ui/fleet.js';
 import { renderOrders, switchOrderTab, saveOrderVehicleSelection } from './ui/orders_ui.js';
 import {
   renderRoutePlanner, selectRouteVehicle, removeRouteStop, dispatchRoute, handleMapClick, drawRouteMap,
@@ -62,6 +62,7 @@ Object.assign(window, {
   switchOrderTab,
 
   assignDriver,
+  removeDriver,
   sendToMaintenance,
   repairVehicle,
   sellVehicle,
