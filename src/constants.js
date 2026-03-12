@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.3.2';
 
 export const TIME_COSTS = {
   navigate:      5,
@@ -24,6 +24,10 @@ export const CLOCK_FLASH_MS          = 650;
 export const ORDER_POOL_MULTIPLIER   = 2.5;
 export const MIN_ORDER_POOL          = 8;
 export const MINUTES_PER_TICK        = 1;
+
+/** Fraction of each order-generation batch guaranteed to be single-trip
+ *  feasible for the current fleet (weight ≤ max vehicle capacity, requirements met). */
+export const FLEET_COMPATIBLE_ORDER_RATIO = 0.4;
 
 export const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
 export const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' };

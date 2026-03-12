@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getReputationTier, canFulfillOrder } from '../game/orders.js';
+import { getReputationTier, canFulfillOrder, getFleetCapabilities } from '../game/orders.js';
 import { GS } from '../state.js';
 
 describe('getReputationTier', () => {
@@ -74,5 +74,48 @@ describe('canFulfillOrder', () => {
     const order = { requirements: [] };
     const result = canFulfillOrder(order);
     expect(result.feasible).toBe(false);
+  });
+});
+
+describe('getFleetCapabilities', () => {
+  beforeEach(() => {
+    GS.vehicles = [];
+  });
+
+  it('returns zero capacity and empty reqs when fleet is empty', () => {
+    const { maxCapacity, metReqs } = getFleetCapabilities();
+    expect(maxCapacity).toBe(0);
+    expect(metReqs.size).toBe(0);
+  });
+
+  it('returns max capacity of non-broken vehicles', () => {
+    GS.vehicles = [
+      { id: 'v1', catalogId: 'transit',      status: 'idle',   driverId: 'd1' },
+      { id: 'v2', catalogId: 'truck_small',  status: 'idle',   driverId: 'd2' },
+      { id: 'v3', catalogId: 'truck_medium', status: 'broken', driverId: 'd3' },
+    ];
+    const { maxCapacity } = getFleetCapabilities();
+    // transit=2000, truck_small=7500, truck_medium=18000 (broken, excluded)
+    expect(maxCapacity).toBe(7500);
+  });
+
+  it('collects special requirements from all non-broken vehicles', () => {
+    GS.vehicles = [
+      { id: 'v1', catalogId: 'reefer',  status: 'idle', driverId: 'd1' },
+      { id: 'v2', catalogId: 'tanker',  status: 'idle', driverId: 'd2' },
+    ];
+    // reefer has ['cooling'], tanker has ['adr']
+    const { metReqs } = getFleetCapabilities();
+    expect(metReqs.has('cooling')).toBe(true);
+    expect(metReqs.has('adr')).toBe(true);
+    expect(metReqs.has('heavy_load')).toBe(false);
+  });
+
+  it('ignores broken vehicles when computing capabilities', () => {
+    GS.vehicles = [
+      { id: 'v1', catalogId: 'transit', status: 'broken', driverId: 'd1' },
+    ];
+    const { maxCapacity } = getFleetCapabilities();
+    expect(maxCapacity).toBe(0);
   });
 });

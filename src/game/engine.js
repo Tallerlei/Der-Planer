@@ -5,12 +5,13 @@ import {
   TIME_COSTS, REFUEL_THRESHOLD, REFUEL_DURATION_MINUTES,
   RENDER_THROTTLE_MS, MINUTES_PER_TICK,
   ORDER_POOL_MULTIPLIER, MIN_ORDER_POOL, REP_TIER_MAX_WEIGHT, REQ_LABELS,
+  FLEET_COMPATIBLE_ORDER_RATIO,
 } from '../constants.js';
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction } from './finance.js';
 import { createStaff, generateHireCandidates } from './staff.js';
 import { createVehicle, updatePositionForVehicle, startOrderForVehicle } from './vehicles.js';
-import { getReputationTier, canFulfillOrder } from './orders.js';
+import { getReputationTier, canFulfillOrder, getFleetCapabilities } from './orders.js';
 import { checkMarketEvents } from './events.js';
 import { autoSave, loadGame } from './save.js';
 import { showToast, showTimeAdvance } from '../ui/notifications.js';
@@ -335,8 +336,23 @@ export function generateOrders() {
   const eligibleTemplates = DATA.ORDER_TEMPLATES.filter(t => t.minWeight <= tierMaxWeight);
   if (eligibleTemplates.length === 0) return;
 
+  // Determine which templates produce single-trip feasible orders for the current fleet
+  const { maxCapacity, metReqs } = getFleetCapabilities();
+  const feasibleTemplates = maxCapacity > 0
+    ? eligibleTemplates.filter(t =>
+        t.minWeight <= maxCapacity &&
+        t.requirements.every(r => metReqs.has(r))
+      )
+    : [];
+
+  // Guarantee at least FLEET_COMPATIBLE_ORDER_RATIO of each batch (min 1) are single-trip feasible
+  const guaranteedCount = feasibleTemplates.length > 0
+    ? Math.max(1, Math.floor(count * FLEET_COMPATIBLE_ORDER_RATIO))
+    : 0;
+
   for (let i = 0; i < count; i++) {
-    const template = pick(eligibleTemplates);
+    const useFleetFit = i < guaranteedCount;
+    const template = useFleetFit ? pick(feasibleTemplates) : pick(eligibleTemplates);
     const client   = pick(DATA.CLIENTS);
     const origins  = DATA.CITIES.filter(c => c.country === 'DE');
     const originC  = pick(origins);
@@ -344,7 +360,10 @@ export function generateOrders() {
     do { destC = pick(DATA.CITIES); } while (destC.id === originC.id);
 
     const dist    = getDistance(originC.id, destC.id);
-    const weight  = rand(template.minWeight, Math.min(template.maxWeight, tierMaxWeight));
+    const maxW    = useFleetFit
+      ? Math.min(template.maxWeight, maxCapacity)
+      : Math.min(template.maxWeight, tierMaxWeight);
+    const weight  = rand(template.minWeight, maxW);
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
     const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * randFloat(0.85, 1.15));
 

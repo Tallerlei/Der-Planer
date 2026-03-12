@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.3.1**
+> 🔖 **Version: 1.3.2**
 
 ---
 
@@ -35,6 +35,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **10 Frachttypen**: Allgemeingut, Kühlware, Gefahrgut, Schwerlast, Kraftstoff u. v. m.
 - Aufträge haben eine Verfallszeit (2 Spieltage) und dynamische Preise je nach Frachttyp und Schwierigkeitsgrad.
 - **Fuhrpark-adaptives Auftragssystem**: Auftragsgewichte passen sich an die aktuelle Gesamtkapazität des Fuhrparks an. Normale Aufträge bleiben innerhalb der Flottenkapazität; 15 % der Aufträge sind **Großaufträge** (🏋️) mit höherem Gewicht und +50 % Vergütung.
+- **Garantierte erfüllbare Aufträge**: Bei jeder Auftragsgeneration sind mindestens 40 % der neuen Aufträge (mind. 1) auf die aktuelle Flotte zugeschnitten – die Gewichte bleiben innerhalb der maximalen Fahrzeugkapazität und alle Sonderanforderungen (Kühlung, ADR usw.) können vom Fuhrpark erfüllt werden.
 - **Warenklassen mit Vergütungsfaktoren**: Jede Ware gehört einer Klasse an, die die Basispauschale multipliziert – Standardware (×1,0), Kühlware (×1,4), Sperrgut (×1,2), Gefahrgut (×1,8). Eilaufträge (⚡) erhalten den Faktor 1,5.
 - **Distanzbasierte Vergütungsformel**: `Basispauschale × Distanzfaktor × Warenfaktor × Marktmodifikator × Zufallsspanne ±20 %`
 - **Kundenbindungsbonus**: Kunden mit einem Ansehen ≥ 75 bieten 5 % bessere Konditionen.
@@ -182,7 +183,7 @@ Der Spielstand wird automatisch per `localStorage` gespeichert und beim nächste
 |------------------|---------------------------------------------------|
 | Sprache          | HTML5, CSS3, Vanilla JavaScript (ES Modules)      |
 | Build-System     | [Vite](https://vitejs.dev/) – schneller Dev-Server und Bundles |
-| Test-Framework   | [Vitest](https://vitest.dev/) – 38 Unit-Tests     |
+| Test-Framework   | [Vitest](https://vitest.dev/) – 43 Unit-Tests     |
 | Persistenz       | Browser `localStorage`                            |
 | Grafik           | HTML5 Canvas (Karten & Routen)                    |
 | Deployment       | [GitHub Pages](https://tallerlei.github.io/Der-Planer/) via GitHub Actions |
