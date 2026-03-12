@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.6.0**
+> 🔖 **Version: 1.7.0**
 
 ---
 
@@ -45,7 +45,10 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
 - **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; technisch nicht erfüllbare Aufträge (z. B. Kühlware ohne Kühllaster) erscheinen **ausgegraut** und geben dem Spieler Investitionsanreize.
 - **Mehrtransport-Aufträge**: Übersteigt das Auftragsgewicht die Fahrzeugkapazität, werden automatisch mehrere Fahrten durchgeführt – pro Fahrt wird die maximale Nutzlast vom verbleibenden Transportvolumen abgezogen.
-- **Fahrzeug-Warteschlange**: Aufträge können auch einem bereits fahrenden Fahrzeug als Folgeauftrag zugewiesen werden. Nach der Lieferung fährt das Fahrzeug direkt zum nächsten Abholort, ohne einen Umweg über den Heimatstandort (HQ) zu machen. Nur wenn keine Folgeaufträge vorliegen, kehrt das Fahrzeug zum HQ zurück. Im Fuhrpark wird die Warteschlangenlänge angezeigt.
+- **Fahrzeug-Warteschlange**: Aufträge können auch einem bereits fahrenden Fahrzeug als Folgeauftrag zugewiesen werden. Nach der Lieferung fährt das Fahrzeug direkt zum nächsten Abholort, ohne einen Umweg über den Heimatstandort (HQ) zu machen. Nur wenn keine Folgeaufträge vorliegen, kehrt das Fahrzeug zum HQ zurück. Im Fuhrpark wird die Warteschlange mit den konkreten Auftragsnamen angezeigt.
+- **Auftragsreihenfolge ändern**: Die Position eines Auftrags in der Warteschlange eines Fahrzeugs lässt sich per Pfeilschaltfläche (▲ / ▼) verschieben, solange der Auftrag noch nicht aktiv ausgeführt wird.
+- **Auftrag umleiten**: Ein warteschlangenstehender Auftrag kann im *Aktive Aufträge*-Tab einem anderen geeigneten Fahrzeug zugewiesen werden.
+- **Multi-Fahrzeug-Lieferung**: Übersteigt das Auftragsgewicht die Kapazität eines einzelnen Fahrzeugs, können zusätzliche Fahrzeuge hinzugefügt werden, die die verbleibende Ladung parallel transportieren. Der Auftrag gilt erst dann als vollständig abgeschlossen, wenn die Gesamtmenge geliefert wurde.
 - **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
 - **Auftragsvolumen skaliert mit Bekanntheitsgrad**: Die Auftragsgeneration läuft ohne obere Mengenbegrenzung – die Verfallszeit (1–2 Spieltage) reguliert den Pool natürlich. Die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
 - **Verbessertes Auftragsmenü**: Jede Auftragskarte zeigt die genaue Lieferfrist als Datum & Uhrzeit, die Streckenlänge in km (bei Mehrtransporten multipliziert mit der Anzahl der Fahrten) sowie den Wert **€/km** für direkten Lukrativitätsvergleich. Abgeschlossene Aufträge zeigen den Abschlusszeitpunkt; verspätete Lieferungen werden rot hervorgehoben und enthalten eine Aufschlüsselung der Strafzahlung. Der Auftraggeber-Name ist klickbar und öffnet eine **Unternehmensübersicht** mit aktuellem Kundenansehen und einer Statistik der angebotenen, angenommenen, erledigten und verfehlten Aufträge.

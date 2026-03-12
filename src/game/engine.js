@@ -594,6 +594,141 @@ export function declineOrder(orderId) {
   if (document.getElementById('order-list-available')) _render('orders');
 }
 
+// ── Order queue management ────────────────────────────────────
+
+/** Returns the orderId currently being actively executed by the vehicle
+ *  (route has been built for it – it is NOT merely sitting in orderQueue). */
+export function getVehicleActiveOrderId(vehicle) {
+  if (!vehicle || vehicle.status !== 'driving' || !vehicle.route?.stops) return null;
+  for (const stop of vehicle.route.stops) {
+    if ((stop.action === 'pickup' || stop.action === 'delivery') && stop.orderId) {
+      return stop.orderId;
+    }
+  }
+  return null;
+}
+
+/** Returns true when the vehicle has already passed the pickup stop for orderId
+ *  (cargo is physically on the vehicle and cannot be redirected). */
+function isCargoLoaded(vehicle, orderId) {
+  if (!vehicle || vehicle.status !== 'driving' || !vehicle.route?.stops) return false;
+  const stops = vehicle.route.stops;
+  const pickupIdx = stops.findIndex(s => s.action === 'pickup' && s.orderId === orderId);
+  if (pickupIdx < 0) return false;
+  return vehicle.route.currentStopIndex > pickupIdx;
+}
+
+/** Validates that a target vehicle is capable and available for an order. */
+function _validateVehicleForOrder(vehicle, order) {
+  if (!vehicle) return 'Fahrzeug nicht gefunden.';
+  if (vehicle.status !== 'idle' && vehicle.status !== 'driving') return 'Fahrzeug ist nicht verfügbar.';
+  if (!vehicle.driverId) return 'Dem Fahrzeug ist kein Fahrer zugewiesen.';
+  const cat = DATA.VEHICLES.find(c => c.id === vehicle.catalogId);
+  for (const req of order.requirements) {
+    if (!cat.requirements.includes(req)) return `Fahrzeug erfüllt nicht: ${REQ_LABELS[req] || req}`;
+  }
+  return null;
+}
+
+/**
+ * Reassigns a queued order (one sitting in a vehicle's orderQueue, not
+ * currently executing) to a different vehicle.
+ */
+export function reassignOrder(orderId, newVehicleId) {
+  const order = GS.orders.active.find(o => o.id === orderId);
+  if (!order) { showToast('Auftrag nicht gefunden.', 'warning'); return; }
+
+  // Find which vehicle currently owns this order in its queue
+  const currentVehicle = GS.vehicles.find(v =>
+    v.orderQueue && v.orderQueue.includes(orderId)
+  );
+  if (!currentVehicle) {
+    showToast('Auftrag wird bereits aktiv ausgeführt und kann nicht umgeleitet werden.', 'warning');
+    return;
+  }
+
+  if (currentVehicle.id === newVehicleId) {
+    showToast('Auftrag ist bereits diesem Fahrzeug zugewiesen.', 'info');
+    return;
+  }
+
+  const newVehicle = GS.vehicles.find(v => v.id === newVehicleId);
+  const validationError = _validateVehicleForOrder(newVehicle, order);
+  if (validationError) { showToast(validationError, 'danger'); return; }
+
+  // Remove from current vehicle's queue
+  currentVehicle.orderQueue = currentVehicle.orderQueue.filter(id => id !== orderId);
+
+  // Update primary vehicle reference on the order
+  order.vehicleId = newVehicleId;
+
+  // Assign to new vehicle
+  if (newVehicle.status === 'idle') {
+    startOrderForVehicle(newVehicle, order);
+    showToast(`Auftrag umgeleitet zu ${newVehicle.name} – fährt sofort los.`, 'success');
+  } else {
+    newVehicle.orderQueue = newVehicle.orderQueue || [];
+    newVehicle.orderQueue.push(orderId);
+    showToast(`Auftrag umgeleitet zu ${newVehicle.name} (Warteschlange: Position ${newVehicle.orderQueue.length}).`, 'success');
+  }
+
+  advanceGameTime(TIME_COSTS.assignOrder, 'Auftragsumleitung');
+  _render('orders');
+  if (document.getElementById('fleet-list')) _render('fleet');
+}
+
+/**
+ * Adds an additional vehicle to help deliver the remaining weight of an
+ * active order (multi-vehicle distribution).
+ * The order is considered complete once the total remaining weight reaches 0,
+ * regardless of how many vehicles contributed.
+ */
+export function addVehicleToOrder(orderId, vehicleId) {
+  const order = GS.orders.active.find(o => o.id === orderId);
+  if (!order) { showToast('Auftrag nicht gefunden.', 'warning'); return; }
+  if ((order.remainingWeight || 0) <= 0) { showToast('Auftrag ist bereits vollständig geliefert.', 'info'); return; }
+
+  const vehicle = GS.vehicles.find(v => v.id === vehicleId);
+  const validationError = _validateVehicleForOrder(vehicle, order);
+  if (validationError) { showToast(validationError, 'danger'); return; }
+
+  // Don't add the same vehicle twice for the same order
+  const alreadyActive = getVehicleActiveOrderId(vehicle) === orderId;
+  const alreadyQueued = (vehicle.orderQueue || []).includes(orderId);
+  if (alreadyActive || alreadyQueued) {
+    showToast(`${vehicle.name} transportiert diesen Auftrag bereits.`, 'info');
+    return;
+  }
+
+  if (vehicle.status === 'idle') {
+    startOrderForVehicle(vehicle, order);
+    showToast(`${vehicle.name} unterstützt Auftrag – fährt sofort los.`, 'success');
+  } else {
+    vehicle.orderQueue = vehicle.orderQueue || [];
+    vehicle.orderQueue.push(orderId);
+    showToast(`${vehicle.name} unterstützt Auftrag (Warteschlange: Position ${vehicle.orderQueue.length}).`, 'success');
+  }
+
+  advanceGameTime(TIME_COSTS.assignOrder, 'Fahrzeugzuweisung');
+  _render('orders');
+  if (document.getElementById('fleet-list')) _render('fleet');
+}
+
+/**
+ * Moves an order within a vehicle's orderQueue.
+ * fromIdx and toIdx are zero-based positions within the queue array.
+ */
+export function moveOrderInQueue(vehicleId, fromIdx, toIdx) {
+  const vehicle = GS.vehicles.find(v => v.id === vehicleId);
+  if (!vehicle || !vehicle.orderQueue) return;
+  const q = vehicle.orderQueue;
+  if (fromIdx < 0 || fromIdx >= q.length || toIdx < 0 || toIdx >= q.length) return;
+  const [removed] = q.splice(fromIdx, 1);
+  q.splice(toIdx, 0, removed);
+  _render('fleet');
+  _render('orders');
+}
+
 export function declineUnfulfillableOrders() {
   const unfulfillable = GS.orders.available.filter(o => !canFulfillOrder(o).feasible);
   if (unfulfillable.length === 0) { showToast('Alle Aufträge sind erfüllbar.', 'info'); return; }
