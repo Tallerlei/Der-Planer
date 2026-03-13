@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.11.0**
+> 🔖 **Version: 1.12.0**
 
 ---
 
@@ -49,7 +49,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Mehrtransport-Aufträge**: Übersteigt das Auftragsgewicht die Fahrzeugkapazität, werden automatisch mehrere Fahrten durchgeführt – pro Fahrt wird die maximale Nutzlast vom verbleibenden Transportvolumen abgezogen.
 - **Fahrzeug-Statusübersicht**: Im Fuhrpark-Bildschirm zeigt jede Fahrzeugkarte alle noch ausstehenden Ziele der aktuellen Route (Abholung, Lieferung, Rückkehr) mit der jeweiligen geschätzten Ankunftszeit an – nicht nur das unmittelbar nächste. Ein Beladungsbalken zeigt bei geladenen Fahrzeugen Gewicht und Füllgrad. In der Warteschlange ist für jeden Folgeauftrag die voraussichtliche Startzeit sichtbar – so kann frühzeitig umgeplant werden.
 - **Auftragsreihenfolge ändern**: Die Position eines Auftrags in der Warteschlange eines Fahrzeugs lässt sich per Pfeilschaltfläche (▲ / ▼) verschieben, solange der Auftrag noch nicht aktiv ausgeführt wird.
-- **Auftrag umleiten**: Ein warteschlangenstehender Auftrag kann im *Aktive Aufträge*-Tab einem anderen geeigneten Fahrzeug zugewiesen werden.
+- **Auftrag umleiten**: Ein warteschlangenstehender oder aktiv fahrender (aber noch nicht abgeholter) Auftrag kann im *Aktive Aufträge*-Tab einem anderen geeigneten Fahrzeug zugewiesen werden. Wurde die Ladung bereits abgeholt, ist eine Umleitung nicht mehr möglich.
 - **Multi-Fahrzeug-Lieferung**: Übersteigt das Auftragsgewicht die Kapazität eines einzelnen Fahrzeugs, können zusätzliche Fahrzeuge hinzugefügt werden, die die verbleibende Ladung parallel transportieren. Der Auftrag gilt erst dann als vollständig abgeschlossen, wenn die Gesamtmenge geliefert wurde.
 - **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
 - **Auftragsvolumen skaliert mit Bekanntheitsgrad**: Die Auftragsgeneration läuft ohne obere Mengenbegrenzung – die Verfallszeit (1–2 Spieltage) reguliert den Pool natürlich. Die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.

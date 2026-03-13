@@ -614,7 +614,7 @@ export function getVehicleActiveOrderId(vehicle) {
 
 /** Returns true when the vehicle has already passed the pickup stop for orderId
  *  (cargo is physically on the vehicle and cannot be redirected). */
-function isCargoLoaded(vehicle, orderId) {
+export function isCargoLoaded(vehicle, orderId) {
   if (!vehicle || vehicle.status !== 'driving' || !vehicle.route?.stops) return false;
   const stops = vehicle.route.stops;
   const pickupIdx = stops.findIndex(s => s.action === 'pickup' && s.orderId === orderId);
@@ -635,19 +635,37 @@ function _validateVehicleForOrder(vehicle, order) {
 }
 
 /**
- * Reassigns a queued order (one sitting in a vehicle's orderQueue, not
- * currently executing) to a different vehicle.
+ * Reassigns an order to a different vehicle.
+ * Handles two cases:
+ *   1. The order is sitting in a vehicle's orderQueue (not yet executing).
+ *   2. The order is actively executing but cargo has NOT yet been picked up
+ *      (vehicle is still on the way to the pickup city).
  */
 export function reassignOrder(orderId, newVehicleId) {
   const order = GS.orders.active.find(o => o.id === orderId);
   if (!order) { showToast('Auftrag nicht gefunden.', 'warning'); return; }
 
-  // Find which vehicle currently owns this order in its queue
-  const currentVehicle = GS.vehicles.find(v =>
+  // Case 1: order is sitting in a vehicle's queue
+  let currentVehicle = GS.vehicles.find(v =>
     v.orderQueue && v.orderQueue.includes(orderId)
   );
+  let isActiveOrder = false;
+
+  // Case 2: order is actively executing but cargo not yet picked up
   if (!currentVehicle) {
-    showToast('Auftrag wird bereits aktiv ausgeführt und kann nicht umgeleitet werden.', 'warning');
+    const executingVehicle = GS.vehicles.find(v => getVehicleActiveOrderId(v) === orderId);
+    if (executingVehicle) {
+      if (isCargoLoaded(executingVehicle, orderId)) {
+        showToast('Ladung wurde bereits abgeholt – Auftrag kann nicht mehr umgeleitet werden.', 'warning');
+        return;
+      }
+      currentVehicle = executingVehicle;
+      isActiveOrder = true;
+    }
+  }
+
+  if (!currentVehicle) {
+    showToast('Auftrag kann nicht umgeleitet werden.', 'warning');
     return;
   }
 
@@ -660,8 +678,22 @@ export function reassignOrder(orderId, newVehicleId) {
   const validationError = _validateVehicleForOrder(newVehicle, order);
   if (validationError) { showToast(validationError, 'danger'); return; }
 
-  // Remove from current vehicle's queue
-  currentVehicle.orderQueue = currentVehicle.orderQueue.filter(id => id !== orderId);
+  if (isActiveOrder) {
+    // Abort the active route on the current vehicle.
+    // If it has a valid queued order, start that; otherwise go idle.
+    currentVehicle.orderQueue = currentVehicle.orderQueue || [];
+    const nextOrderId = currentVehicle.orderQueue.shift();
+    const nextOrder = nextOrderId ? GS.orders.active.find(o => o.id === nextOrderId) : null;
+    if (nextOrder) {
+      startOrderForVehicle(currentVehicle, nextOrder);
+    } else {
+      currentVehicle.status = 'idle';
+      currentVehicle.route = { stops: [], currentStopIndex: 0, progressPct: 0, totalDistance: 0, coveredDistance: 0 };
+    }
+  } else {
+    // Remove from current vehicle's queue
+    currentVehicle.orderQueue = currentVehicle.orderQueue.filter(id => id !== orderId);
+  }
 
   // Update primary vehicle reference on the order
   order.vehicleId = newVehicleId;
