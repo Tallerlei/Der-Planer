@@ -5,7 +5,7 @@ import { TIME_COSTS, REQ_LABELS } from '../constants.js';
 import { canFulfillOrder, isOrderAvailable } from '../game/orders.js';
 import {
   acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
-  getVehicleActiveOrderId,
+  getVehicleActiveOrderId, isCargoLoaded,
 } from '../game/engine.js';
 import { isVehicleReturningToBase } from '../game/vehicles.js';
 import { updateOrderBadge } from './statusbar.js';
@@ -179,12 +179,18 @@ function renderActiveOrderActions(o) {
     v.orderQueue && v.orderQueue.includes(o.id)
   );
 
-  // Vehicles currently executing this order (not reassignable)
+  // Vehicles currently executing this order
   const vehiclesExecuting = GS.vehicles.filter(v =>
     getVehicleActiveOrderId(v) === o.id
   );
 
+  // Vehicles executing this order but not yet past the pickup stop (can be redirected)
+  const vehiclesPrePickup = vehiclesExecuting.filter(v => !isCargoLoaded(v, o.id));
+
   const isQueued = vehiclesWithInQueue.length > 0;
+  // Allow reassign of active order when ALL executing vehicles are still pre-pickup
+  const isReassignableActive = vehiclesPrePickup.length > 0 &&
+    vehiclesExecuting.length === vehiclesPrePickup.length;
 
   // Vehicles eligible for reassignment or additional assignment
   const eligibleForReassign = GS.vehicles.filter(v => {
@@ -201,7 +207,8 @@ function renderActiveOrderActions(o) {
     !(v.orderQueue || []).includes(o.id)
   );
 
-  const reassignOpts = isQueued
+  const canShowReassign = isQueued || isReassignableActive;
+  const reassignOpts = canShowReassign
     ? eligibleForReassign
         .filter(v =>
           !vehiclesWithInQueue.some(vq => vq.id === v.id) &&
@@ -227,7 +234,7 @@ function renderActiveOrderActions(o) {
       ${vehiclesWithInQueue.length > 0 ? `<span class="badge badge-warning">In Warteschlange</span>` : ''}
       ${(o.remainingWeight !== undefined && o.remainingWeight < o.weight) ? `<span>📦 Geliefert: ${fmt.weight(o.weight - o.remainingWeight)} / ${fmt.weight(o.weight)} (${o.tripsCompleted} ${o.tripsCompleted !== 1 ? 'Fahrten' : 'Fahrt'})</span>` : ''}
     </div>
-    ${isQueued && reassignOpts ? `
+    ${canShowReassign && reassignOpts ? `
     <div class="order-actions" style="margin-top:0.5rem">
       <select class="form-control" id="reassign-sel-${o.id}" style="flex:1">
         <option value="">Fahrzeug für Umleitung…</option>

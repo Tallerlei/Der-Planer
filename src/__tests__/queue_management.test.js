@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getVehicleActiveOrderId, moveOrderInQueue } from '../game/engine.js';
+import { getVehicleActiveOrderId, moveOrderInQueue, reassignOrder, isCargoLoaded } from '../game/engine.js';
 import { isVehicleReturningToBase } from '../game/vehicles.js';
 import { GS } from '../state.js';
 
@@ -194,5 +194,172 @@ describe('isVehicleReturningToBase', () => {
       },
     };
     expect(isVehicleReturningToBase(v)).toBe(true);
+  });
+});
+
+describe('isCargoLoaded', () => {
+  it('returns false for an idle vehicle', () => {
+    const v = { status: 'idle', route: { stops: [], currentStopIndex: 0 } };
+    expect(isCargoLoaded(v, 'o1')).toBe(false);
+  });
+
+  it('returns false when vehicle has not yet reached the pickup stop', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 0,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isCargoLoaded(v, 'o1')).toBe(false);
+  });
+
+  it('returns false when currentStopIndex equals pickup stop index (at pickup, not past it)', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 1,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isCargoLoaded(v, 'o1')).toBe(false);
+  });
+
+  it('returns true when vehicle is past the pickup stop (cargo loaded)', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 2,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isCargoLoaded(v, 'o1')).toBe(true);
+  });
+
+  it('returns false when pickup stop does not exist for the given orderId', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 2,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isCargoLoaded(v, 'o1')).toBe(false);
+  });
+});
+
+describe('reassignOrder – pre-pickup active order', () => {
+  const mockData = {
+    VEHICLES: [{ id: 'cat1', name: 'LKW', capacity: 5000, requirements: [], speed: 80, fuelCapacity: 300, fuelConsumption: 30, maintenanceCostPerMonth: 500 }],
+  };
+
+  beforeEach(() => {
+    // Inject minimal DATA mock
+    vi.doMock('../data.js', () => ({ DATA: mockData }));
+
+    // Stub browser DOM so reassignOrder's document.getElementById guard works
+    global.document = { getElementById: vi.fn(() => null) };
+
+    GS.vehicles = [
+      {
+        id: 'v1',
+        name: 'Fahrzeug 1',
+        catalogId: 'cat1',
+        status: 'driving',
+        driverId: 'driver1',
+        currentCity: 'cologne',
+        homeCity: 'frankfurt',
+        orderQueue: [],
+        route: {
+          stops: [
+            { cityId: 'frankfurt', action: 'depart' },
+            { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+            { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+            { cityId: 'frankfurt', action: 'return' },
+          ],
+          currentStopIndex: 0,
+          progressPct: 0,
+          totalDistance: 500,
+          coveredDistance: 0,
+        },
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: 'v2',
+        name: 'Fahrzeug 2',
+        catalogId: 'cat1',
+        status: 'idle',
+        driverId: 'driver2',
+        currentCity: 'frankfurt',
+        homeCity: 'frankfurt',
+        orderQueue: [],
+        route: { stops: [], currentStopIndex: 0, progressPct: 0, totalDistance: 0, coveredDistance: 0 },
+        position: { x: 0, y: 0 },
+      },
+    ];
+
+    GS.orders = {
+      active: [
+        {
+          id: 'o1',
+          vehicleId: 'v1',
+          status: 'accepted',
+          weight: 3000,
+          remainingWeight: 3000,
+          origin: 'hamburg',
+          destination: 'berlin',
+          requirements: [],
+        },
+      ],
+      available: [],
+      completed: [],
+      declined: [],
+    };
+
+    GS.time = { totalMinutes: 0 };
+    GS.stats = { kmDriven: 0 };
+    GS.market = { speedMod: 1, fuelPrice: 1.5 };
+    GS.finance = { balance: 10000, monthRevenue: 0, monthExpenses: 0, transactions: [] };
+    GS.company = { reputation: 50 };
+    GS.ui = {};
+  });
+
+  it('allows reassigning an active order before cargo is picked up', () => {
+    reassignOrder('o1', 'v2');
+    // v1 should be idle now (no queued orders)
+    expect(GS.vehicles.find(v => v.id === 'v1').status).toBe('idle');
+    // order should reference v2
+    expect(GS.orders.active.find(o => o.id === 'o1').vehicleId).toBe('v2');
+    // v2 should be driving (started order)
+    expect(GS.vehicles.find(v => v.id === 'v2').status).toBe('driving');
+  });
+
+  it('blocks reassignment after cargo has been picked up', () => {
+    // Simulate that v1 has passed the pickup stop
+    GS.vehicles[0].route.currentStopIndex = 2;
+    reassignOrder('o1', 'v2');
+    // v1 should still be driving (reassignment refused)
+    expect(GS.vehicles.find(v => v.id === 'v1').status).toBe('driving');
+    // order should still belong to v1
+    expect(GS.orders.active.find(o => o.id === 'o1').vehicleId).toBe('v1');
   });
 });
