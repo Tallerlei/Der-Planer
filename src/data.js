@@ -182,8 +182,8 @@ export const DATA = {
       icon: '📦',
       compatibleWith: ['transit'],
       requirements: [],
-      capacityBonus: 500,
-      purchasePrice: 3500,
+      capacityBonus: 2000,
+      purchasePrice: 5000,
       description: 'Kleiner Kastenanhänger für Pakete und Stückgut – ideal für den Kleintransporter.'
     },
     {
@@ -192,8 +192,8 @@ export const DATA = {
       icon: '🪵',
       compatibleWith: ['transit'],
       requirements: [],
-      capacityBonus: 300,
-      purchasePrice: 2500,
+      capacityBonus: 4000,
+      purchasePrice: 8000,
       description: 'Offener Anhänger für sperrige und leichte Güter – passend für den Kleintransporter.'
     },
   ],
