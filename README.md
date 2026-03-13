@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.9.4**
+> 🔖 **Version: 1.10.0**
 
 ---
 
@@ -46,7 +46,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
 - **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; technisch nicht erfüllbare Aufträge (z. B. Kühlware ohne Kühllaster) erscheinen **ausgegraut** und geben dem Spieler Investitionsanreize.
 - **Mehrtransport-Aufträge**: Übersteigt das Auftragsgewicht die Fahrzeugkapazität, werden automatisch mehrere Fahrten durchgeführt – pro Fahrt wird die maximale Nutzlast vom verbleibenden Transportvolumen abgezogen.
-- **Fahrzeug-Statusübersicht**: Im Fuhrpark-Bildschirm zeigt jede Fahrzeugkarte das nächste Ziel (Abholung, Lieferung oder Rückkehr) mit der geschätzten Ankunftszeit an. Ein Beladungsbalken zeigt bei geladenen Fahrzeugen Gewicht und Füllgrad. In der Warteschlange ist für jeden Folgeauftrag die voraussichtliche Startzeit sichtbar – so kann frühzeitig umgeplant werden.
+- **Fahrzeug-Statusübersicht**: Im Fuhrpark-Bildschirm zeigt jede Fahrzeugkarte alle noch ausstehenden Ziele der aktuellen Route (Abholung, Lieferung, Rückkehr) mit der jeweiligen geschätzten Ankunftszeit an – nicht nur das unmittelbar nächste. Ein Beladungsbalken zeigt bei geladenen Fahrzeugen Gewicht und Füllgrad. In der Warteschlange ist für jeden Folgeauftrag die voraussichtliche Startzeit sichtbar – so kann frühzeitig umgeplant werden.
 - **Auftragsreihenfolge ändern**: Die Position eines Auftrags in der Warteschlange eines Fahrzeugs lässt sich per Pfeilschaltfläche (▲ / ▼) verschieben, solange der Auftrag noch nicht aktiv ausgeführt wird.
 - **Auftrag umleiten**: Ein warteschlangenstehender Auftrag kann im *Aktive Aufträge*-Tab einem anderen geeigneten Fahrzeug zugewiesen werden.
 - **Multi-Fahrzeug-Lieferung**: Übersteigt das Auftragsgewicht die Kapazität eines einzelnen Fahrzeugs, können zusätzliche Fahrzeuge hinzugefügt werden, die die verbleibende Ladung parallel transportieren. Der Auftrag gilt erst dann als vollständig abgeschlossen, wenn die Gesamtmenge geliefert wurde.
