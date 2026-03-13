@@ -4,7 +4,7 @@ import { uid } from '../utils.js';
 import { cityById } from '../state.js';
 import { buildRouteStops, routeDistance } from '../routing.js';
 
-export function createVehicle(catalogId, homeCityId) {
+export function createVehicle(catalogId, homeCityId, trailerId = null) {
   const cat = DATA.VEHICLES.find(v => v.id === catalogId);
   if (!cat) return null;
   const num = GS.vehicles.filter(v => v.catalogId === catalogId).length + 1;
@@ -21,6 +21,7 @@ export function createVehicle(catalogId, homeCityId) {
     status: 'idle',
     homeCity: homeCityIdResolved,
     currentCity: homeCityIdResolved,
+    trailerId: trailerId || null,
     route: {
       stops: [],
       currentStopIndex: 0,
@@ -32,6 +33,40 @@ export function createVehicle(catalogId, homeCityId) {
     refuelPauseMinutes: 0,
     orderQueue: [],
   };
+}
+
+/**
+ * Returns the combined set of requirements for a vehicle, including
+ * any requirements added by an attached trailer.
+ */
+export function getVehicleEffectiveRequirements(vehicle) {
+  const cat = DATA.VEHICLES.find(c => c.id === vehicle.catalogId);
+  if (!cat) return [];
+  const reqs = [...cat.requirements];
+  if (vehicle.trailerId) {
+    const trailer = DATA.TRAILERS.find(t => t.id === vehicle.trailerId);
+    if (trailer) {
+      for (const r of trailer.requirements) {
+        if (!reqs.includes(r)) reqs.push(r);
+      }
+    }
+  }
+  return reqs;
+}
+
+/**
+ * Returns the effective cargo capacity of a vehicle, including any
+ * capacity bonus granted by an attached trailer.
+ */
+export function getVehicleEffectiveCapacity(vehicle) {
+  const cat = DATA.VEHICLES.find(c => c.id === vehicle.catalogId);
+  if (!cat) return 0;
+  let capacity = cat.capacity;
+  if (vehicle.trailerId) {
+    const trailer = DATA.TRAILERS.find(t => t.id === vehicle.trailerId);
+    if (trailer) capacity += trailer.capacityBonus;
+  }
+  return capacity;
 }
 
 export function updatePositionForVehicle(v) {

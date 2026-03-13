@@ -17,6 +17,7 @@ export function loadGame() {
     GS.vehicles.forEach(v => {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
       if (v.orderQueue === undefined) v.orderQueue = [];
+      if (v.trailerId === undefined) v.trailerId = null;
       updatePositionForVehicle(v);
     });
     [...GS.orders.available, ...GS.orders.active].forEach(o => {

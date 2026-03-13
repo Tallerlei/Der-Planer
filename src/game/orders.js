@@ -1,6 +1,7 @@
 import { DATA } from '../data.js';
 import { GS } from '../state.js';
 import { REP_TIER_MAX_WEIGHT, REQ_LABELS } from '../constants.js';
+import { getVehicleEffectiveRequirements, getVehicleEffectiveCapacity } from './vehicles.js';
 
 export function getReputationTier(rep) {
   if (rep <= 20) return 1;
@@ -20,10 +21,9 @@ export function getFleetCapabilities() {
   let maxCapacity = 0;
   const metReqs = new Set();
   for (const v of fleetVehicles) {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    if (!cat) continue;
-    if (cat.capacity > maxCapacity) maxCapacity = cat.capacity;
-    for (const r of cat.requirements) metReqs.add(r);
+    const cap = getVehicleEffectiveCapacity(v);
+    if (cap > maxCapacity) maxCapacity = cap;
+    for (const r of getVehicleEffectiveRequirements(v)) metReqs.add(r);
   }
   return { maxCapacity, metReqs };
 }
@@ -36,9 +36,8 @@ export function canFulfillOrder(order) {
     return { feasible: false, reason: 'Kein Fahrzeug mit Fahrer verfügbar' };
   }
   for (const v of assignableVehicles) {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    if (!cat) continue;
-    const meetsReqs = order.requirements.every(req => cat.requirements.includes(req));
+    const effectiveReqs = getVehicleEffectiveRequirements(v);
+    const meetsReqs = order.requirements.every(req => effectiveReqs.includes(req));
     if (meetsReqs) return { feasible: true, reason: '' };
   }
   const reqLabel = order.requirements.map(r => REQ_LABELS[r] || r).join(', ');

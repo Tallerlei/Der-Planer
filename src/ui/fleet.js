@@ -63,12 +63,26 @@ export function renderFleet() {
         </div>
         <div class="vehicle-stat">
           <span class="stat-label">Nutzlast</span>
-          <span class="stat-value">${fmt.weight(cat.capacity)}</span>
+          <span class="stat-value">${(() => {
+            if (!v.trailerId) return fmt.weight(cat.capacity);
+            const tr = DATA.TRAILERS.find(t => t.id === v.trailerId);
+            return tr && tr.capacityBonus
+              ? `${fmt.weight(cat.capacity)} + ${fmt.weight(tr.capacityBonus)}`
+              : fmt.weight(cat.capacity);
+          })()}</span>
         </div>
         <div class="vehicle-stat">
           <span class="stat-label">km-Stand</span>
           <span class="stat-value">${fmt.km(Math.round(v.odometer))}</span>
         </div>
+        ${v.trailerId ? (() => {
+          const trailer = DATA.TRAILERS.find(t => t.id === v.trailerId);
+          return trailer ? `
+        <div class="vehicle-stat">
+          <span class="stat-label">Anhänger</span>
+          <span class="stat-value">${trailer.icon} ${trailer.name}</span>
+        </div>` : '';
+        })() : ''}
         ${(v.orderQueue && v.orderQueue.length > 0) ? `
         <div class="vehicle-stat" style="align-items:flex-start">
           <span class="stat-label">Warteschlange</span>
@@ -144,7 +158,19 @@ function _getCityName(id) {
 export function renderCatalog() {
   const el = $('catalog-list');
   if (!el) return;
-  el.innerHTML = DATA.VEHICLES.map(cat => `
+  el.innerHTML = DATA.VEHICLES.map(cat => {
+    const compatibleTrailers = cat.trailerSlot
+      ? DATA.TRAILERS.filter(t => t.compatibleWith.includes(cat.id))
+      : [];
+    const trailerSelect = compatibleTrailers.length > 0 ? `
+      <div class="catalog-trailer-select mt-sm">
+        <label class="text-sm text-muted" for="trailer-sel-${cat.id}">Anhänger (optional):</label>
+        <select class="form-control mt-xs" id="trailer-sel-${cat.id}">
+          <option value="">— Kein Anhänger —</option>
+          ${compatibleTrailers.map(t => `<option value="${t.id}">${t.icon} ${t.name} (+${fmt.money(t.purchasePrice)})</option>`).join('')}
+        </select>
+      </div>` : '';
+    return `
     <div class="catalog-card">
       <h3>${cat.icon} ${cat.name}</h3>
       <div class="text-muted text-sm">${cat.model}</div>
@@ -156,11 +182,14 @@ export function renderCatalog() {
         <div class="catalog-spec-item"><span class="spec-key">Verbrauch:</span> ${cat.fuelConsumption} L/100km</div>
         <div class="catalog-spec-item"><span class="spec-key">Wartung:</span> ${fmt.money(cat.maintenanceCostPerMonth)}/Mo</div>
         ${cat.requirements.length ? `<div class="catalog-spec-item"><span class="spec-key">Anforderungen:</span> ${cat.requirements.join(', ')}</div>` : ''}
+        ${cat.trailerSlot ? `<div class="catalog-spec-item"><span class="spec-key">Anhänger:</span> ✓ möglich</div>` : ''}
       </div>
+      ${trailerSelect}
       <div class="catalog-price">${fmt.money(cat.purchasePrice)}</div>
       <button class="btn btn-primary w-full mt-sm" title="Fahrzeug kaufen: +${TIME_COSTS.buyVehicle} Min" onclick="buyVehicle('${cat.id}')">Kaufen</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 export function assignDriver(vehicleId) {
@@ -249,13 +278,32 @@ export function sellVehicle(vehicleId) {
 export function buyVehicle(catalogId) {
   const cat = DATA.VEHICLES.find(c => c.id === catalogId);
   if (!cat) return;
-  if (GS.finance.balance < cat.purchasePrice) {
+
+  let trailerId = null;
+  let selectedTrailer = null;
+  if (cat.trailerSlot) {
+    const trailerSel = $('trailer-sel-' + catalogId);
+    if (trailerSel && trailerSel.value) {
+      trailerId = trailerSel.value;
+      selectedTrailer = DATA.TRAILERS.find(t => t.id === trailerId) || null;
+    }
+  }
+
+  const trailerPrice = selectedTrailer ? selectedTrailer.purchasePrice : 0;
+  const totalPrice = cat.purchasePrice + trailerPrice;
+  if (GS.finance.balance < totalPrice) {
     showToast('Nicht genug Geld!', 'danger'); return;
   }
-  const v = createVehicle(catalogId, 'frankfurt');
+  const v = createVehicle(catalogId, 'frankfurt', trailerId);
   GS.vehicles.push(v);
   addTransaction(`Fahrzeugkauf: ${cat.name}`, -cat.purchasePrice);
-  showToast(`${cat.name} gekauft!`, 'success');
+  if (selectedTrailer && trailerPrice > 0) {
+    addTransaction(`Anhängerkauf: ${selectedTrailer.name}`, -trailerPrice);
+  }
+  const displayName = selectedTrailer
+    ? `${cat.name} + ${selectedTrailer.name}`
+    : cat.name;
+  showToast(`${displayName} gekauft!`, 'success');
   advanceGameTime(TIME_COSTS.buyVehicle, 'Fahrzeugkauf');
   document.querySelectorAll('.fleet-tab').forEach(t => t.classList.remove('active'));
   $('fleet-tab-mine') && $('fleet-tab-mine').classList.add('active');
