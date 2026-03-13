@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.12.2';
+export const APP_VERSION = '1.12.3';
 
 export const TIME_COSTS = {
   navigate:      5,
@@ -35,3 +35,18 @@ export const FLEET_COMPATIBLE_ORDER_RATIO = 0.4;
 
 export const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
 export const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' };
+
+/** Centralized vehicle status badge class and German label, keyed by status string. */
+export const VEHICLE_STATUS_INFO = {
+  idle:        { badge: 'badge-success',  label: 'Bereit' },
+  driving:     { badge: 'badge-info',     label: 'Unterwegs' },
+  maintenance: { badge: 'badge-warning',  label: 'Wartung' },
+  broken:      { badge: 'badge-danger',   label: 'Defekt' },
+};
+
+/** German labels for meaningful route stop actions. */
+export const NEXT_ACTION_LABELS = {
+  pickup:   'Abholung',
+  delivery: 'Lieferung',
+  return:   'Rückkehr',
+};

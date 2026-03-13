@@ -3,6 +3,7 @@ import {
   APP_VERSION, TIME_COSTS, REFUEL_THRESHOLD, REFUEL_DURATION_MINUTES,
   RENDER_THROTTLE_MS, TOAST_DISPLAY_MS, ORDER_POOL_MULTIPLIER, MINUTES_PER_TICK,
   REP_TIER_MAX_WEIGHT, REQ_LABELS, FLEET_COMPATIBLE_ORDER_RATIO,
+  VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS,
 } from '../constants.js';
 
 describe('APP_VERSION', () => {
@@ -67,5 +68,37 @@ describe('FLEET_COMPATIBLE_ORDER_RATIO', () => {
     expect(typeof FLEET_COMPATIBLE_ORDER_RATIO).toBe('number');
     expect(FLEET_COMPATIBLE_ORDER_RATIO).toBeGreaterThan(0);
     expect(FLEET_COMPATIBLE_ORDER_RATIO).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('VEHICLE_STATUS_INFO', () => {
+  it('has entries for all standard vehicle statuses', () => {
+    for (const status of ['idle', 'driving', 'maintenance', 'broken']) {
+      expect(VEHICLE_STATUS_INFO).toHaveProperty(status);
+      expect(VEHICLE_STATUS_INFO[status]).toHaveProperty('badge');
+      expect(VEHICLE_STATUS_INFO[status]).toHaveProperty('label');
+    }
+  });
+
+  it('labels are non-empty German strings', () => {
+    for (const info of Object.values(VEHICLE_STATUS_INFO)) {
+      expect(typeof info.label).toBe('string');
+      expect(info.label.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('NEXT_ACTION_LABELS', () => {
+  it('has labels for pickup, delivery, and return', () => {
+    expect(NEXT_ACTION_LABELS).toHaveProperty('pickup');
+    expect(NEXT_ACTION_LABELS).toHaveProperty('delivery');
+    expect(NEXT_ACTION_LABELS).toHaveProperty('return');
+  });
+
+  it('all values are non-empty strings', () => {
+    for (const label of Object.values(NEXT_ACTION_LABELS)) {
+      expect(typeof label).toBe('string');
+      expect(label.length).toBeGreaterThan(0);
+    }
   });
 });

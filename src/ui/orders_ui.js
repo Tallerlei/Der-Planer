@@ -27,7 +27,7 @@ function gameMinutesToDateTime(totalMin) {
     const dim = [0, 31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo];
     if (d > dim) { d = 1; mo++; if (mo > 12) { mo = 1; y++; } }
   }
-  return `${fmt.date(d, mo, y)} ${String(hour).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+  return `${fmt.date(d, mo, y)} ${fmt.time(hour, mn)}`;
 }
 
 /** Returns { stars, cssClass } for the 5-band visual reputation indicator. */

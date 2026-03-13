@@ -12,7 +12,7 @@ export function updateStatusBar() {
   $('sb-money').className = 'value money' + (badMoney ? ' danger' : '');
   $('sb-reputation').textContent = (GS.company.reputation || 50) + ' / 100';
   $('sb-date').textContent = fmt.date(GS.time.day, GS.time.month, GS.time.year)
-    + ` ${String(GS.time.hour).padStart(2,'0')}:${String(GS.time.minute).padStart(2,'0')}`;
+    + ` ${fmt.time(GS.time.hour, GS.time.minute)}`;
   $('sb-company').textContent = GS.company.name;
   $('sb-vehicles').textContent = `${GS.vehicles.filter(v => v.status === 'driving').length}/${GS.vehicles.length}`;
   $('sb-fuel').textContent = fmt.moneyDec(GS.market.fuelPrice) + '/L';
