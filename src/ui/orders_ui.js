@@ -166,7 +166,9 @@ export function renderOrders() {
   updateOrderBadge();
   const tab = GS.ui.orderTab;
   let orders = [];
-  if (tab === 'available') orders = GS.orders.available;
+  if (tab === 'available') orders = GS.orders.available.filter(
+    o => (GS.time.totalMinutes - o.receivedMinute) <= o.expiresInDays * 1440
+  );
   if (tab === 'active')    orders = GS.orders.active;
   if (tab === 'completed') orders = GS.orders.completed.slice(0, 50);
 
