@@ -119,6 +119,16 @@
           <div class="order-tab" id="otab-active" data-tab="active">🚛 Aktiv <span class="badge badge-info" id="badge-active">0</span></div>
           <div class="order-tab" id="otab-completed" data-tab="completed">✅ Abgeschlossen <span class="badge badge-info" id="badge-completed">0</span></div>
         </div>
+        <div id="order-sort-bar" class="order-sort-bar">
+          <span class="order-sort-label">Sortierung:</span>
+          <button class="sort-btn active" data-sort="value"      onclick="setOrderSort('value')">Wert ↓</button>
+          <button class="sort-btn"        data-sort="weight"     onclick="setOrderSort('weight')">Gewicht</button>
+          <button class="sort-btn"        data-sort="km"         onclick="setOrderSort('km')">Entfernung</button>
+          <button class="sort-btn"        data-sort="valuePerKm" onclick="setOrderSort('valuePerKm')">€/km</button>
+          <button class="sort-btn" data-sort="expires"  data-sort-tab="available" onclick="setOrderSort('expires')">Ablaufzeit</button>
+          <button class="sort-btn" data-sort="deadline" data-sort-tab="active"    onclick="setOrderSort('deadline')">Frist</button>
+          <button class="sort-btn" data-sort="completed" data-sort-tab="completed" onclick="setOrderSort('completed')">Abschluss</button>
+        </div>
         <div id="order-list-available" class="card-grid card-grid-2"></div>
         <div id="order-list-active"    class="card-grid card-grid-2" style="display:none"></div>
         <div id="order-list-completed" class="card-grid card-grid-2" style="display:none"></div>

@@ -65,6 +65,7 @@ export const GS = {
     mapCenter: { x: 400, y: 260 },
     selectedVehicleId: null,
     orderVehicleSelection: {},
+    orderSort: { field: 'value', dir: 'desc' },
   },
 
   clientReputation: {},
