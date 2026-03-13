@@ -233,6 +233,7 @@ html, body {
 .btn-ghost     { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
 .btn-ghost:hover { background: rgba(88,166,255,.1); }
 .btn-sm        { padding: 0.25rem 0.6rem; font-size: 0.78rem; }
+.btn-xs        { padding: 0.1rem 0.35rem; font-size: 0.72rem; line-height: 1.2; }
 .btn:disabled  { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Badges ───────────────────────────────────────────────── */

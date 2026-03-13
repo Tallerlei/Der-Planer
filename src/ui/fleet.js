@@ -4,7 +4,7 @@ import { GS, cityById } from '../state.js';
 import { TIME_COSTS } from '../constants.js';
 import { addTransaction } from '../game/finance.js';
 import { createVehicle, updatePositionForVehicle } from '../game/vehicles.js';
-import { advanceGameTime } from '../game/engine.js';
+import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
 import { showToast } from './notifications.js';
 import { navigateToScreen } from './screens.js';
 
@@ -70,9 +70,26 @@ export function renderFleet() {
           <span class="stat-value">${fmt.km(Math.round(v.odometer))}</span>
         </div>
         ${(v.orderQueue && v.orderQueue.length > 0) ? `
-        <div class="vehicle-stat">
+        <div class="vehicle-stat" style="align-items:flex-start">
           <span class="stat-label">Warteschlange</span>
-          <span class="stat-value">${v.orderQueue.length} ${v.orderQueue.length !== 1 ? 'Aufträge' : 'Auftrag'}</span>
+          <div class="stat-value" style="width:100%">
+            ${v.orderQueue.map((oid, idx) => {
+              const qOrder = GS.orders.active.find(o => o.id === oid);
+              const label  = qOrder
+                ? `${qOrder.clientName}: ${_getCityName(qOrder.origin)}→${_getCityName(qOrder.destination)}`
+                : oid;
+              return `
+              <div class="queue-item flex items-center gap-sm" style="margin-top:0.25rem">
+                <span class="text-sm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${idx + 1}. ${label}</span>
+                <button class="btn btn-secondary btn-xs" title="Nach oben"
+                  ${idx === 0 ? 'disabled' : ''}
+                  onclick="moveOrderInQueue('${v.id}', ${idx}, ${idx - 1})">▲</button>
+                <button class="btn btn-secondary btn-xs" title="Nach unten"
+                  ${idx === v.orderQueue.length - 1 ? 'disabled' : ''}
+                  onclick="moveOrderInQueue('${v.id}', ${idx}, ${idx + 1})">▼</button>
+              </div>`;
+            }).join('')}
+          </div>
         </div>` : ''}
       </div>
 

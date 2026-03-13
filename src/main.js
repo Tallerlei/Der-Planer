@@ -6,6 +6,7 @@ import {
   setSpeed,
   acceptOrder, declineOrder,
   declineUnfulfillableOrders, confirmDeclineUnfulfillable,
+  reassignOrder, addVehicleToOrder, moveOrderInQueue,
   refreshCandidates,
 } from './game/engine.js';
 import { showToast } from './ui/notifications.js';
@@ -60,6 +61,9 @@ Object.assign(window, {
   declineOrder,
   declineUnfulfillableOrders,
   confirmDeclineUnfulfillable,
+  reassignOrder,
+  addVehicleToOrder,
+  moveOrderInQueue,
   saveOrderVehicleSelection,
   switchOrderTab,
   openClientModal,

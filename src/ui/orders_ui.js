@@ -3,7 +3,10 @@ import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { TIME_COSTS, REQ_LABELS } from '../constants.js';
 import { canFulfillOrder } from '../game/orders.js';
-import { acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation } from '../game/engine.js';
+import {
+  acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
+  getVehicleActiveOrderId,
+} from '../game/engine.js';
 import { updateOrderBadge } from './statusbar.js';
 import { getDistance } from '../routing.js';
 import { openModal } from './modal.js';
@@ -74,6 +77,90 @@ export function openClientModal(clientId) {
 }
 
 // ── Main render ───────────────────────────────────────────────
+
+/** Renders the vehicle assignment / reassign / add-vehicle section for an active order card. */
+function renderActiveOrderActions(o) {
+  const activeVehicle = o.vehicleId ? GS.vehicles.find(v => v.id === o.vehicleId) : null;
+  const activeVehicleName = activeVehicle ? activeVehicle.name : 'Unbekannt';
+
+  // Vehicles with this order in their queue (can be reassigned)
+  const vehiclesWithInQueue = GS.vehicles.filter(v =>
+    v.orderQueue && v.orderQueue.includes(o.id)
+  );
+
+  // Vehicles currently executing this order (not reassignable)
+  const vehiclesExecuting = GS.vehicles.filter(v =>
+    getVehicleActiveOrderId(v) === o.id
+  );
+
+  const isQueued = vehiclesWithInQueue.length > 0;
+
+  // Vehicles eligible for reassignment or additional assignment
+  const eligibleForReassign = GS.vehicles.filter(v => {
+    if (!v.driverId) return false;
+    if (v.status !== 'idle' && v.status !== 'driving') return false;
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    if (!cat) return false;
+    return o.requirements.every(req => cat.requirements.includes(req));
+  });
+
+  // Multi-vehicle: exclude vehicles already doing this order
+  const eligibleForAdd = eligibleForReassign.filter(v =>
+    getVehicleActiveOrderId(v) !== o.id &&
+    !(v.orderQueue || []).includes(o.id)
+  );
+
+  const reassignOpts = isQueued
+    ? eligibleForReassign
+        .filter(v =>
+          !vehiclesWithInQueue.some(vq => vq.id === v.id) &&
+          !vehiclesExecuting.some(ve => ve.id === v.id)
+        )
+        .map(v => `<option value="${v.id}">${v.name}${v.status === 'driving' ? ' [Unterwegs]' : ''}</option>`)
+        .join('')
+    : '';
+
+  const addOpts = eligibleForAdd
+    .map(v => `<option value="${v.id}">${v.name}${v.status === 'driving' ? ' [Unterwegs]' : ''}</option>`)
+    .join('');
+
+  const vehicleAssignees = [
+    ...vehiclesExecuting.map(v => `${v.name} 🔄`),
+    ...vehiclesWithInQueue.map(v => `${v.name} ⏳`),
+  ].join(', ') || activeVehicleName;
+
+  return `
+    <div class="order-meta">
+      <span>🚛 ${vehicleAssignees}</span>
+      ${vehiclesExecuting.length > 0 ? `<span class="badge badge-info">Aktiv</span>` : ''}
+      ${vehiclesWithInQueue.length > 0 ? `<span class="badge badge-warning">In Warteschlange</span>` : ''}
+      ${(o.remainingWeight !== undefined && o.remainingWeight < o.weight) ? `<span>📦 Geliefert: ${fmt.weight(o.weight - o.remainingWeight)} / ${fmt.weight(o.weight)} (${o.tripsCompleted} ${o.tripsCompleted !== 1 ? 'Fahrten' : 'Fahrt'})</span>` : ''}
+    </div>
+    ${isQueued && reassignOpts ? `
+    <div class="order-actions" style="margin-top:0.5rem">
+      <select class="form-control" id="reassign-sel-${o.id}" style="flex:1">
+        <option value="">Fahrzeug für Umleitung…</option>
+        ${reassignOpts}
+      </select>
+      <button class="btn btn-warning btn-sm"
+        title="Auftrag einem anderen Fahrzeug zuweisen"
+        onclick="reassignOrder('${o.id}', document.getElementById('reassign-sel-${o.id}').value)">
+        🔀 Umleiten
+      </button>
+    </div>` : ''}
+    ${addOpts ? `
+    <div class="order-actions" style="margin-top:0.25rem">
+      <select class="form-control" id="add-veh-sel-${o.id}" style="flex:1">
+        <option value="">Fahrzeug hinzufügen…</option>
+        ${addOpts}
+      </select>
+      <button class="btn btn-secondary btn-sm"
+        title="Weiteres Fahrzeug für Teillieferung hinzufügen"
+        onclick="addVehicleToOrder('${o.id}', document.getElementById('add-veh-sel-${o.id}').value)">
+        ➕ Fahrzeug
+      </button>
+    </div>` : ''}`;
+}
 
 export function renderOrders() {
   updateOrderBadge();
@@ -281,12 +368,7 @@ export function renderOrders() {
       <button class="btn btn-danger btn-sm" onclick="declineOrder('${o.id}')">✗ Ablehnen</button>
       ` : ''}
 
-      ${tab === 'active' ? `
-      <div class="order-meta">
-        <span>🚛 ${o.vehicleId ? (GS.vehicles.find(v=>v.id===o.vehicleId)||{}).name || 'Unbekannt' : '-'}</span>
-        <span>Status: Unterwegs</span>
-        ${(o.remainingWeight !== undefined && o.remainingWeight < o.weight) ? `<span>📦 Geliefert: ${fmt.weight(o.weight - o.remainingWeight)} / ${fmt.weight(o.weight)} (${o.tripsCompleted} ${o.tripsCompleted !== 1 ? 'Fahrten' : 'Fahrt'})</span>` : ''}
-      </div>` : ''}
+      ${tab === 'active' ? renderActiveOrderActions(o) : ''}
 
       ${completedHtml}
     </div>`;
