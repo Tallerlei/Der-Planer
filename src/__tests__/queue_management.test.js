@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getVehicleActiveOrderId, moveOrderInQueue, reassignOrder, isCargoLoaded } from '../game/engine.js';
+import { getVehicleActiveOrderId, moveOrderInQueue, reassignOrder, isCargoLoaded, acceptOrder } from '../game/engine.js';
 import { isVehicleReturningToBase } from '../game/vehicles.js';
 import { GS } from '../state.js';
 
@@ -361,5 +361,161 @@ describe('reassignOrder – pre-pickup active order', () => {
     expect(GS.vehicles.find(v => v.id === 'v1').status).toBe('driving');
     // order should still belong to v1
     expect(GS.orders.active.find(o => o.id === 'o1').vehicleId).toBe('v1');
+  });
+});
+
+describe('acceptOrder – Standort und km-Stand stabil bei fahrendem Fahrzeug', () => {
+  beforeEach(() => {
+    global.document = { getElementById: vi.fn(() => null) };
+
+    // Vehicle returning to base: delivery done, heading from Berlin back to Frankfurt
+    // currentStopIndex=2 → driving from stops[2](Berlin) to stops[3](Frankfurt)
+    // progressPct=50 → mid-leg (Berlin→Frankfurt ≈ 144 km, remaining ≈ 72 km > 40 km/30min)
+    GS.vehicles = [
+      {
+        id: 'v1',
+        catalogId: 'truck_small',
+        name: 'LKW 1',
+        status: 'driving',
+        driverId: 'driver1',
+        currentCity: 'berlin',
+        homeCity: 'frankfurt',
+        orderQueue: [],
+        fuel: 150,
+        health: 100,
+        odometer: 500,
+        refuelPauseMinutes: 0,
+        trailerId: null,
+        route: {
+          stops: [
+            { cityId: 'frankfurt', action: 'depart' },
+            { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+            { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+            { cityId: 'frankfurt', action: 'return' },
+          ],
+          currentStopIndex: 2,
+          progressPct: 50,
+          totalDistance: 700,
+          coveredDistance: 350,
+        },
+        position: { x: 421, y: 228 },
+      },
+    ];
+
+    GS.orders = {
+      available: [
+        {
+          id: 'o2',
+          clientId: 'c01',
+          clientName: 'Test Client',
+          cargoDesc: 'Testfracht',
+          origin: 'hamburg',
+          destination: 'muenchen',
+          weight: 3000,
+          remainingWeight: 3000,
+          requirements: [],
+          value: 1000,
+          bonus: 100,
+          penalty: 50,
+          deadlineDays: 3,
+          expiresInDays: 2,
+          receivedMinute: 0,
+          tripsCompleted: 0,
+          status: 'available',
+        },
+      ],
+      active: [
+        {
+          id: 'o1',
+          vehicleId: 'v1',
+          clientId: 'c01',
+          status: 'accepted',
+          weight: 7500,
+          remainingWeight: 7500,
+          origin: 'hamburg',
+          destination: 'berlin',
+          requirements: [],
+          acceptedMinute: 0,
+          deadlineDays: 3,
+          value: 800,
+          bonus: 50,
+          penalty: 30,
+        },
+      ],
+      completed: [],
+      declined: [],
+    };
+
+    GS.time = { totalMinutes: 0, day: 1, month: 3, year: 1994, hour: 8, minute: 0 };
+    GS.stats = { kmDriven: 0, ordersCompleted: 0, ordersFailed: 0, totalRevenue: 0, totalExpenses: 0 };
+    GS.market = { speedMod: 1, fuelPrice: 1.65, activeEvents: [] };
+    GS.finance = { balance: 10000, monthRevenue: 0, monthExpenses: 0, transactions: [] };
+    GS.company = { reputation: 50, difficulty: 'normal', hqCity: 'frankfurt' };
+    GS.ui = {
+      lastOrderCheckMin: -9999,
+      lastEventCheckMin: -9999,
+      orderVehicleSelection: {},
+      currentScreen: null,
+      lastRenderMs: 0,
+    };
+    GS.clientReputation = {};
+    GS.clientStats = {};
+    GS.staff = [
+      { id: 'driver1', role: 'driver', vehicleId: 'v1', name: 'Max Mustermann', salary: 2400, satisfaction: 70, skill: 3 },
+    ];
+    GS.trailers = [];
+    GS.notifications = [];
+    GS.messageLog = [];
+  });
+
+  it('Auftrag wird eingereiht und Route bleibt unverändert wenn Fahrzeug fährt', () => {
+    const vehicle = GS.vehicles[0];
+
+    // Confirm the vehicle is currently returning to base (isVehicleReturningToBase = true)
+    expect(isVehicleReturningToBase(vehicle)).toBe(true);
+
+    // Record original position and route
+    const originalPositionX = vehicle.position.x;
+    const originalPositionY = vehicle.position.y;
+    const originalRouteLength = vehicle.route.stops.length;
+    const originalFinalStop = vehicle.route.stops[vehicle.route.stops.length - 1];
+
+    acceptOrder('o2', 'v1');
+
+    // New order must be queued, NOT started directly
+    expect(vehicle.orderQueue).toContain('o2');
+
+    // The original route's final stop (return to Frankfurt) must still be present
+    const finalStop = vehicle.route.stops[vehicle.route.stops.length - 1];
+    expect(finalStop.cityId).toBe(originalFinalStop.cityId);
+    expect(finalStop.action).toBe('return');
+
+    // Route should not have been replaced with o2's pickup/delivery stops
+    const hasO2Pickup   = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'pickup');
+    const hasO2Delivery = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'delivery');
+    expect(hasO2Pickup).toBe(false);
+    expect(hasO2Delivery).toBe(false);
+  });
+
+  it('Auftrag wird sofort gestartet wenn Fahrzeug bereit (idle)', () => {
+    GS.vehicles[0].status = 'idle';
+    GS.vehicles[0].route = {
+      stops: [],
+      currentStopIndex: 0,
+      progressPct: 0,
+      totalDistance: 0,
+      coveredDistance: 0,
+    };
+
+    const vehicle = GS.vehicles[0];
+    acceptOrder('o2', 'v1');
+
+    expect(vehicle.status).toBe('driving');
+    expect(vehicle.orderQueue).toHaveLength(0);
+
+    const hasO2Pickup   = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'pickup');
+    const hasO2Delivery = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'delivery');
+    expect(hasO2Pickup).toBe(true);
+    expect(hasO2Delivery).toBe(true);
   });
 });
