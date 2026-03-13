@@ -2,7 +2,7 @@ import { $, fmt } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { TIME_COSTS, REQ_LABELS } from '../constants.js';
-import { canFulfillOrder } from '../game/orders.js';
+import { canFulfillOrder, isOrderAvailable } from '../game/orders.js';
 import {
   acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
   getVehicleActiveOrderId,
@@ -166,9 +166,7 @@ export function renderOrders() {
   updateOrderBadge();
   const tab = GS.ui.orderTab;
   let orders = [];
-  if (tab === 'available') orders = GS.orders.available.filter(
-    o => (GS.time.totalMinutes - o.receivedMinute) <= o.expiresInDays * 1440
-  );
+  if (tab === 'available') orders = GS.orders.available.filter(isOrderAvailable);
   if (tab === 'active')    orders = GS.orders.active;
   if (tab === 'completed') orders = GS.orders.completed.slice(0, 50);
 
