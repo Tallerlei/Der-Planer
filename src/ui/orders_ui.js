@@ -7,7 +7,7 @@ import {
   acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
   getVehicleActiveOrderId, isCargoLoaded,
 } from '../game/engine.js';
-import { isVehicleReturningToBase } from '../game/vehicles.js';
+import { isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements } from '../game/vehicles.js';
 import { updateOrderBadge } from './statusbar.js';
 import { getDistance } from '../routing.js';
 import { openModal } from './modal.js';
@@ -313,12 +313,12 @@ export function renderOrders() {
     if (tab === 'available') {
       const selId = GS.ui.orderVehicleSelection[o.id];
       const selV  = selId ? GS.vehicles.find(v => v.id === selId) : null;
-      const selCat = selV ? DATA.VEHICLES.find(c => c.id === selV.catalogId) : null;
-      if (selCat && selCat.capacity < o.weight) trips = Math.ceil(o.weight / selCat.capacity);
+      const selCap = selV ? getVehicleEffectiveCapacity(selV) : 0;
+      if (selCap > 0 && selCap < o.weight) trips = Math.ceil(o.weight / selCap);
     } else if (tab === 'active') {
       const actV  = o.vehicleId ? GS.vehicles.find(v => v.id === o.vehicleId) : null;
-      const actCat = actV ? DATA.VEHICLES.find(c => c.id === actV.catalogId) : null;
-      if (actCat && actCat.capacity < o.weight) trips = Math.ceil(o.weight / actCat.capacity);
+      const actCap = actV ? getVehicleEffectiveCapacity(actV) : 0;
+      if (actCap > 0 && actCap < o.weight) trips = Math.ceil(o.weight / actCap);
     } else if (tab === 'completed') {
       trips = o.tripsCompleted > 0 ? o.tripsCompleted : 1;
     }
@@ -370,7 +370,7 @@ export function renderOrders() {
     const savedVehicleId = GS.ui.orderVehicleSelection[o.id] || '';
     const { eligibleVehicles, vOptsForOrder } = candidateVehicles.reduce((acc, v) => {
       const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-      if (!cat || !o.requirements.every(req => cat.requirements.includes(req))) return acc;
+      if (!cat || !o.requirements.every(req => getVehicleEffectiveRequirements(v).includes(req))) return acc;
       const hasDriver = !!v.driverId;
       if (hasDriver) acc.eligibleVehicles.push(v);
       const returningToBase = isVehicleReturningToBase(v);
@@ -378,7 +378,7 @@ export function renderOrders() {
         ? ` [Warteschlange: Position ${(v.orderQueue || []).length + 1}]`
         : returningToBase && hasDriver ? ' [Startet nach Rückkehr]' : '';
       const noDriverHint = !hasDriver ? ' – Kein Fahrer' : '';
-      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}${noDriverHint}</option>`;
+      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(getVehicleEffectiveCapacity(v))})${queueInfo}${noDriverHint}</option>`;
       return acc;
     }, { eligibleVehicles: [], vOptsForOrder: '' });
 
