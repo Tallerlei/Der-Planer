@@ -10,7 +10,7 @@ import {
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction } from './finance.js';
 import { createStaff, generateHireCandidates } from './staff.js';
-import { createVehicle, updatePositionForVehicle, startOrderForVehicle } from './vehicles.js';
+import { createVehicle, updatePositionForVehicle, startOrderForVehicle, isVehicleReturningToBase } from './vehicles.js';
 import { getReputationTier, canFulfillOrder, getFleetCapabilities } from './orders.js';
 import { checkMarketEvents } from './events.js';
 import { autoSave, loadGame } from './save.js';
@@ -569,7 +569,7 @@ export function acceptOrder(orderId, vehicleId) {
   ensureClientStats(order.clientId);
   GS.clientStats[order.clientId].accepted++;
 
-  if (vehicle.status === 'idle') {
+  if (vehicle.status === 'idle' || isVehicleReturningToBase(vehicle)) {
     startOrderForVehicle(vehicle, order);
     showToast(`Auftrag angenommen: ${order.clientName}`, 'success');
   } else {
