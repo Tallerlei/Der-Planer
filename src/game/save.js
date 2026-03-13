@@ -24,6 +24,16 @@ export function loadGame() {
       if (o.remainingWeight === undefined) o.remainingWeight = o.weight;
       if (o.tripsCompleted  === undefined) o.tripsCompleted  = 0;
     });
+    // Remove orders whose acceptance deadline has already passed (silently, without rep penalty)
+    const now = GS.time.totalMinutes;
+    GS.orders.available = GS.orders.available.filter(o => {
+      if ((now - o.receivedMinute) > o.expiresInDays * 1440) {
+        o.status = 'expired';
+        GS.orders.declined.unshift(o);
+        return false;
+      }
+      return true;
+    });
     return true;
   } catch (e) { return false; }
 }
