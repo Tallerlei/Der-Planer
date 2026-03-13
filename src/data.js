@@ -66,6 +66,7 @@ export const DATA = {
       maintenanceCostPerMonth: 900,
       description: 'Maximale Nutzlast für Fernstrecken quer durch Europa.',
       requirements: [],
+      trailerSlot: true,
       icon: '🚚'
     },
     {
@@ -81,6 +82,7 @@ export const DATA = {
       maintenanceCostPerMonth: 1100,
       description: 'Kühlauflieger für temperaturempfindliche Waren.',
       requirements: ['cooling'],
+      trailerSlot: true,
       icon: '🧊'
     },
     {
@@ -96,6 +98,7 @@ export const DATA = {
       maintenanceCostPerMonth: 1200,
       description: 'Für Flüssigkeiten, Treibstoffe und Chemikalien.',
       requirements: ['adr'],
+      trailerSlot: true,
       icon: '🛢️'
     },
     {
@@ -128,6 +131,50 @@ export const DATA = {
       requirements: ['heavy_load'],
       icon: '🏗️'
     }
+  ],
+
+  // ── Trailer catalogue ────────────────────────────────────
+  TRAILERS: [
+    {
+      id: 'curtainsider',
+      name: 'Planenauflieger',
+      icon: '🚛',
+      compatibleWith: ['semi'],
+      requirements: [],
+      capacityBonus: 2000,
+      purchasePrice: 22000,
+      description: 'Universeller Planenauflieger für allgemeine Güter und Sammelgut.'
+    },
+    {
+      id: 'flatbed_trailer',
+      name: 'Pritschenauflieger',
+      icon: '🏗️',
+      compatibleWith: ['semi'],
+      requirements: [],
+      capacityBonus: 1000,
+      purchasePrice: 18000,
+      description: 'Offene Ladefläche für sperrige Güter und Baumaterialien.'
+    },
+    {
+      id: 'reefer_trailer',
+      name: 'Kühlauflieger',
+      icon: '🧊',
+      compatibleWith: ['semi'],
+      requirements: ['cooling'],
+      capacityBonus: 0,
+      purchasePrice: 42000,
+      description: 'Temperaturgeführter Transport für Kühl- und Tiefkühlware (0–8 °C).'
+    },
+    {
+      id: 'tank_trailer',
+      name: 'Tankauflieger',
+      icon: '🛢️',
+      compatibleWith: ['semi'],
+      requirements: ['adr'],
+      capacityBonus: 4000,
+      purchasePrice: 52000,
+      description: 'Für Flüssigkeiten, Treibstoffe und ADR-pflichtige Güter.'
+    },
   ],
 
   // ── Fictional clients ───────────────────────────────────

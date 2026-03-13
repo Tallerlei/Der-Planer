@@ -118,4 +118,65 @@ describe('getFleetCapabilities', () => {
     const { maxCapacity } = getFleetCapabilities();
     expect(maxCapacity).toBe(0);
   });
+
+  it('includes trailer capacity bonus in maxCapacity', () => {
+    // semi base=24000 + curtainsider bonus=2000 = 26000
+    GS.vehicles = [
+      { id: 'v1', catalogId: 'semi', status: 'idle', driverId: 'd1', trailerId: 'curtainsider' },
+    ];
+    const { maxCapacity } = getFleetCapabilities();
+    expect(maxCapacity).toBe(26000);
+  });
+
+  it('includes trailer requirements in metReqs', () => {
+    // semi has no requirements, but reefer_trailer requires cooling
+    GS.vehicles = [
+      { id: 'v1', catalogId: 'semi', status: 'idle', driverId: 'd1', trailerId: 'reefer_trailer' },
+    ];
+    const { metReqs } = getFleetCapabilities();
+    expect(metReqs.has('cooling')).toBe(true);
+  });
+});
+
+describe('canFulfillOrder with trailers', () => {
+  beforeEach(() => {
+    GS.vehicles = [];
+  });
+
+  it('returns feasible when trailer meets order requirements', () => {
+    // semi alone has no cooling, but with reefer_trailer it can fulfill cooling orders
+    GS.vehicles = [{
+      id: 'v1',
+      catalogId: 'semi',
+      status: 'idle',
+      driverId: 'd1',
+      trailerId: 'reefer_trailer',
+    }];
+    const order = { requirements: ['cooling'] };
+    expect(canFulfillOrder(order).feasible).toBe(true);
+  });
+
+  it('returns not feasible when trailer does not meet order requirements', () => {
+    GS.vehicles = [{
+      id: 'v1',
+      catalogId: 'semi',
+      status: 'idle',
+      driverId: 'd1',
+      trailerId: 'curtainsider',
+    }];
+    const order = { requirements: ['cooling'] };
+    expect(canFulfillOrder(order).feasible).toBe(false);
+  });
+
+  it('returns feasible when trailer provides adr requirement', () => {
+    GS.vehicles = [{
+      id: 'v1',
+      catalogId: 'semi',
+      status: 'idle',
+      driverId: 'd1',
+      trailerId: 'tank_trailer',
+    }];
+    const order = { requirements: ['adr'] };
+    expect(canFulfillOrder(order).feasible).toBe(true);
+  });
 });
