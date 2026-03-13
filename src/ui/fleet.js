@@ -3,10 +3,116 @@ import { DATA } from '../data.js';
 import { GS, cityById } from '../state.js';
 import { TIME_COSTS } from '../constants.js';
 import { addTransaction } from '../game/finance.js';
-import { createVehicle, updatePositionForVehicle } from '../game/vehicles.js';
+import { createVehicle, updatePositionForVehicle, getVehicleEffectiveCapacity } from '../game/vehicles.js';
 import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
+import { getDistance, findShortestPath, routeDistance } from '../routing.js';
 import { showToast } from './notifications.js';
 import { navigateToScreen } from './screens.js';
+
+/** Formats a duration in minutes as a German human-readable string. */
+function _fmtMinutes(mins) {
+  if (mins === null || mins === undefined || mins < 0) return '–';
+  const m = Math.round(mins);
+  if (m < 60) return `${m} Min`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  if (h < 24) return rem > 0 ? `${h} Std ${rem} Min` : `${h} Std`;
+  const days = Math.floor(h / 24);
+  const hrs = h % 24;
+  return hrs > 0 ? `${days} T ${hrs} Std` : `${days} T`;
+}
+
+/**
+ * Calculates the estimated driving time (in minutes) from the vehicle's
+ * current in-route position to the stop at targetStopIdx.
+ * Returns null if the vehicle is not driving or the index is out of range.
+ */
+function _minsToStopIdx(v, cat, targetStopIdx) {
+  if (v.status !== 'driving' || !v.route?.stops) return null;
+  const stops = v.route.stops;
+  const idx = v.route.currentStopIndex;
+  if (targetStopIdx <= idx || targetStopIdx >= stops.length) return null;
+
+  const kmPerMin = (cat.speed * GS.market.speedMod) / 60;
+  const legDist = getDistance(stops[idx].cityId, stops[idx + 1].cityId);
+  let km = legDist * (1 - v.route.progressPct / 100);
+  for (let i = idx + 1; i < targetStopIdx; i++) {
+    km += getDistance(stops[i].cityId, stops[i + 1].cityId);
+  }
+  return (km / kmPerMin) + (v.refuelPauseMinutes || 0);
+}
+
+/**
+ * Finds the next stop (after current position) whose action is
+ * pickup, delivery, or return (i.e. not transit / depart).
+ * Returns { stop, stopIndex } or null.
+ */
+function _nextMeaningfulStop(v) {
+  if (v.status !== 'driving' || !v.route?.stops) return null;
+  const stops = v.route.stops;
+  const idx = v.route.currentStopIndex;
+  for (let i = idx + 1; i < stops.length; i++) {
+    const s = stops[i];
+    if (s.action && s.action !== 'transit' && s.action !== 'depart') {
+      return { stop: s, stopIndex: i };
+    }
+  }
+  return null;
+}
+
+/**
+ * Returns the current cargo state of a vehicle:
+ * whether it is loaded, the loaded weight, and the effective capacity.
+ */
+function _getCargoInfo(v) {
+  const capacity = getVehicleEffectiveCapacity(v);
+  if (v.status !== 'driving' || !v.route?.stops) return { loaded: false, weight: 0, capacity };
+  const activeOrderId = getVehicleActiveOrderId(v);
+  if (!activeOrderId) return { loaded: false, weight: 0, capacity };
+
+  const stops = v.route.stops;
+  const pickupIdx   = stops.findIndex(s => s.action === 'pickup'   && s.orderId === activeOrderId);
+  const deliveryIdx = stops.findIndex(s => s.action === 'delivery' && s.orderId === activeOrderId);
+  if (pickupIdx < 0 || deliveryIdx < 0) return { loaded: false, weight: 0, capacity };
+
+  const currentIdx = v.route.currentStopIndex;
+  if (currentIdx < pickupIdx || currentIdx >= deliveryIdx) return { loaded: false, weight: 0, capacity };
+
+  const order = GS.orders.active.find(o => o.id === activeOrderId);
+  if (!order) return { loaded: false, weight: 0, capacity };
+  const loadedWeight = Math.min(
+    capacity,
+    order.remainingWeight !== undefined ? order.remainingWeight : order.weight,
+  );
+  return { loaded: true, weight: loadedWeight, capacity };
+}
+
+/**
+ * Estimates the minutes until each queued order can be started.
+ * Returns an array (same length as v.orderQueue) of { orderId, minsUntilStart }.
+ */
+function _getQueueTiming(v, cat) {
+  if (!v.orderQueue || v.orderQueue.length === 0) return [];
+
+  const kmPerMin = (cat.speed * GS.market.speedMod) / 60;
+  let accMins = v.status === 'driving'
+    ? (_minsToStopIdx(v, cat, v.route.stops.length - 1) || 0)
+    : 0;
+  let fromCity = v.homeCity;
+
+  return v.orderQueue.map(orderId => {
+    const minsUntilStart = accMins;
+    const order = GS.orders.active.find(o => o.id === orderId);
+    if (order) {
+      const d1 = routeDistance(findShortestPath(fromCity, order.origin).map(id => ({ cityId: id })));
+      const d2 = routeDistance(findShortestPath(order.origin, order.destination).map(id => ({ cityId: id })));
+      const d3 = routeDistance(findShortestPath(order.destination, v.homeCity).map(id => ({ cityId: id })));
+      accMins += (d1 + d2 + d3) / kmPerMin;
+      fromCity = v.homeCity;
+    }
+    return { orderId, minsUntilStart };
+  });
+}
 
 export function renderFleet() {
   const listEl = $('fleet-list');
@@ -40,6 +146,15 @@ export function renderFleet() {
 
     const freeDrivers = GS.staff.filter(s => s.role === 'driver' && !s.vehicleId);
     const driverOpts  = freeDrivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+    const cargoInfo      = _getCargoInfo(v);
+    const nextMeaningful = _nextMeaningfulStop(v);
+    const etaMins        = nextMeaningful ? _minsToStopIdx(v, cat, nextMeaningful.stopIndex) : null;
+    const queueTiming    = _getQueueTiming(v, cat);
+    const nextActionLabels = { pickup: 'Abholung', delivery: 'Lieferung', return: 'Rückkehr' };
+    const nextActionLabel = nextMeaningful
+      ? (nextActionLabels[nextMeaningful.stop.action] || nextMeaningful.stop.action)
+      : null;
 
     return `
     <div class="vehicle-card">
@@ -83,6 +198,11 @@ export function renderFleet() {
           <span class="stat-value">${trailer.icon} ${trailer.name}</span>
         </div>` : '';
         })() : ''}
+        ${v.status === 'driving' && nextMeaningful ? `
+        <div class="vehicle-stat" style="grid-column: span 2">
+          <span class="stat-label">Nächstes Ziel</span>
+          <span class="stat-value">${nextActionLabel}: ${_getCityName(nextMeaningful.stop.cityId)} <span class="text-muted" style="font-weight:400;font-size:0.7rem">(ca. ${_fmtMinutes(etaMins)})</span></span>
+        </div>` : ''}
         ${(v.orderQueue && v.orderQueue.length > 0) ? `
         <div class="vehicle-stat" style="align-items:flex-start">
           <span class="stat-label">Warteschlange</span>
@@ -94,7 +214,10 @@ export function renderFleet() {
                 : oid;
               return `
               <div class="queue-item flex items-center gap-sm" style="margin-top:0.25rem">
-                <span class="text-sm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${idx + 1}. ${label}</span>
+                <div style="flex:1;min-width:0">
+                  <div class="text-sm" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${idx + 1}. ${label}</div>
+                  ${queueTiming[idx] ? `<div class="text-muted" style="font-size:0.7rem">ca. ${_fmtMinutes(queueTiming[idx].minsUntilStart)} bis Start</div>` : ''}
+                </div>
                 <button class="btn btn-secondary btn-xs" title="Nach oben"
                   ${idx === 0 ? 'disabled' : ''}
                   onclick="moveOrderInQueue('${v.id}', ${idx}, ${idx - 1})">▲</button>
@@ -126,6 +249,17 @@ export function renderFleet() {
           <div class="progress-bar ${fuelColor}" style="width:${v.fuel / cat.fuelCapacity * 100}%"></div>
         </div>
       </div>
+
+      ${cargoInfo.loaded ? `
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="text-muted">Beladung</span>
+          <span>${fmt.weight(cargoInfo.weight)} / ${fmt.weight(cargoInfo.capacity)} (${Math.round(cargoInfo.weight / cargoInfo.capacity * 100)} %)</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar blue" style="width:${Math.round(cargoInfo.weight / cargoInfo.capacity * 100)}%"></div>
+        </div>
+      </div>` : ''}
 
       ${v.status === 'idle' && !v.driverId && freeDrivers.length > 0 ? `
       <div class="flex gap-sm items-center">
