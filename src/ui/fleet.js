@@ -43,21 +43,22 @@ function _minsToStopIdx(v, cat, targetStopIdx) {
 }
 
 /**
- * Finds the next stop (after current position) whose action is
+ * Returns all upcoming stops (after current position) whose action is
  * pickup, delivery, or return (i.e. not transit / depart).
- * Returns { stop, stopIndex } or null.
+ * Returns array of { stop, stopIndex }.
  */
-function _nextMeaningfulStop(v) {
-  if (v.status !== 'driving' || !v.route?.stops) return null;
+function _allMeaningfulStops(v) {
+  if (v.status !== 'driving' || !v.route?.stops) return [];
   const stops = v.route.stops;
   const idx = v.route.currentStopIndex;
+  const result = [];
   for (let i = idx + 1; i < stops.length; i++) {
     const s = stops[i];
     if (s.action && s.action !== 'transit' && s.action !== 'depart') {
-      return { stop: s, stopIndex: i };
+      result.push({ stop: s, stopIndex: i });
     }
   }
-  return null;
+  return result;
 }
 
 /**
@@ -147,14 +148,10 @@ export function renderFleet() {
     const freeDrivers = GS.staff.filter(s => s.role === 'driver' && !s.vehicleId);
     const driverOpts  = freeDrivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
 
-    const cargoInfo      = _getCargoInfo(v);
-    const nextMeaningful = _nextMeaningfulStop(v);
-    const etaMins        = nextMeaningful ? _minsToStopIdx(v, cat, nextMeaningful.stopIndex) : null;
-    const queueTiming    = _getQueueTiming(v, cat);
-    const nextActionLabels = { pickup: 'Abholung', delivery: 'Lieferung', return: 'Rückkehr' };
-    const nextActionLabel = nextMeaningful
-      ? (nextActionLabels[nextMeaningful.stop.action] || nextMeaningful.stop.action)
-      : null;
+    const cargoInfo          = _getCargoInfo(v);
+    const allMeaningfulStops = _allMeaningfulStops(v);
+    const queueTiming        = _getQueueTiming(v, cat);
+    const nextActionLabels   = { pickup: 'Abholung', delivery: 'Lieferung', return: 'Rückkehr' };
 
     return `
     <div class="vehicle-card">
@@ -198,10 +195,18 @@ export function renderFleet() {
           <span class="stat-value">${trailer.icon} ${trailer.name}</span>
         </div>` : '';
         })() : ''}
-        ${v.status === 'driving' && nextMeaningful ? `
-        <div class="vehicle-stat" style="grid-column: span 2">
-          <span class="stat-label">Nächstes Ziel</span>
-          <span class="stat-value">${nextActionLabel}: ${_getCityName(nextMeaningful.stop.cityId)} <span class="text-muted" style="font-weight:400;font-size:0.7rem">(ca. ${_fmtMinutes(etaMins)})</span></span>
+        ${v.status === 'driving' && allMeaningfulStops.length > 0 ? `
+        <div class="vehicle-stat" style="grid-column: span 2; align-items: flex-start">
+          <span class="stat-label">Nächste Ziele</span>
+          <div class="stat-value" style="width:100%">
+            ${allMeaningfulStops.map((ms, i) => {
+              const label = nextActionLabels[ms.stop.action] || ms.stop.action;
+              const etaMs = _minsToStopIdx(v, cat, ms.stopIndex);
+              return `<div class="text-sm" style="${i > 0 ? 'margin-top:0.2rem;' : ''}">
+                ${i + 1}. ${label}: ${_getCityName(ms.stop.cityId)} <span class="text-muted" style="font-weight:400;font-size:0.7rem">(ca. ${_fmtMinutes(etaMs)})</span>
+              </div>`;
+            }).join('')}
+          </div>
         </div>` : ''}
         ${(v.orderQueue && v.orderQueue.length > 0) ? `
         <div class="vehicle-stat" style="align-items:flex-start">
