@@ -26,6 +26,7 @@ export const GS = {
   },
 
   vehicles: [],
+  trailers: [],
   staff:    [],
   orders: {
     available: [],

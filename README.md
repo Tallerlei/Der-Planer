@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.10.0**
+> 🔖 **Version: 1.11.0**
 
 ---
 
@@ -31,6 +31,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Treibstoffverbrauch und Verschleiß werden realistisch simuliert.
 - **Automatische Tankstopps**: Sinkt der Kraftstoffstand unter 15 %, hält das Fahrzeug selbständig an einer Tankstelle (15 Min. Verzögerung); die Kraftstoffkosten werden automatisch verbucht.
 - **Anhänger-System**: Fahrzeuge mit Anhänger-Slot können beim Kauf mit einem passenden Anhänger ausgestattet werden. Sattelzug, Kühllaster und Tankzug unterstützen große Auflieger (Planenauflieger, Pritschenauflieger, Kühlauflieger, Tankauflieger); der Kleintransporter kann mit kleinen Anhängern (Kastenanhänger, Pritschenanhänger) ausgerüstet werden. Anhänger erhöhen die Nutzlast und ermöglichen zusätzliche Frachtanforderungen (z. B. Kühlung, ADR).
+- **Anhänger-Verwaltung im Fuhrpark**: Für Fahrzeuge am Firmensitz kann direkt ein kompatibler Anhänger gekauft und angekoppelt werden. Anhänger lassen sich abkoppeln und im Fuhrpark einlagern – von dort können sie an ein anderes kompatibles Fahrzeug angekoppelt oder verkauft werden.
 
 ### 📦 Auftragsystem
 - **25 fiktive Kunden** aus verschiedenen Branchen (Lebensmittel, Chemie, Bau, Medizin, Automobil …).

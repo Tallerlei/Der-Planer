@@ -1,4 +1,4 @@
-import { $, fmt } from '../utils.js';
+import { $, fmt, uid } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById } from '../state.js';
 import { TIME_COSTS } from '../constants.js';
@@ -126,6 +126,7 @@ export function renderFleet() {
         <h3>Keine Fahrzeuge</h3>
         <p>Kaufen Sie Ihr erstes Fahrzeug im Fahrzeugkatalog.</p>
       </div>`;
+    renderTrailerPool();
     return;
   }
 
@@ -280,6 +281,48 @@ export function renderFleet() {
         <button class="btn btn-warning btn-sm" title="Fahrer entfernen: +${TIME_COSTS.removeDriver} Min" onclick="removeDriver('${v.id}')">👤 Fahrer entfernen</button>
       </div>` : ''}
 
+      ${(() => {
+        if (!cat.trailerSlot || v.status !== 'idle' || v.currentCity !== GS.company.hqCity) return '';
+        const compatibleTrailers = DATA.TRAILERS.filter(t => t.compatibleWith.includes(cat.id));
+        const poolCompatible = GS.trailers.filter(ti => {
+          const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+          return tcat && tcat.compatibleWith.includes(cat.id);
+        });
+        if (v.trailerId) {
+          const attached = DATA.TRAILERS.find(t => t.id === v.trailerId);
+          return `
+      <div class="flex gap-sm items-center">
+        <span class="text-sm text-muted" style="flex:1">${attached ? `${attached.icon} ${attached.name}` : ''}</span>
+        <button class="btn btn-warning btn-sm" title="Anhänger abkoppeln: +${TIME_COSTS.detachTrailer} Min" onclick="detachTrailerFromVehicle('${v.id}')">🔗 Anhänger abkoppeln</button>
+      </div>`;
+        }
+        let html = '';
+        if (compatibleTrailers.length > 0) {
+          html += `
+      <div class="flex gap-sm items-center">
+        <select class="form-control" id="buy-trailer-sel-${v.id}" style="flex:1">
+          <option value="">— Anhänger kaufen —</option>
+          ${compatibleTrailers.map(t => `<option value="${t.id}">${t.icon} ${t.name} (${fmt.money(t.purchasePrice)})</option>`).join('')}
+        </select>
+        <button class="btn btn-primary btn-sm" title="Anhänger kaufen: +${TIME_COSTS.buyTrailer} Min" onclick="buyTrailerForVehicle('${v.id}')">Kaufen</button>
+      </div>`;
+        }
+        if (poolCompatible.length > 0) {
+          html += `
+      <div class="flex gap-sm items-center">
+        <select class="form-control" id="attach-trailer-sel-${v.id}" style="flex:1">
+          <option value="">— Aus Fuhrpark ankoppeln —</option>
+          ${poolCompatible.map(ti => {
+            const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+            return `<option value="${ti.id}">${tcat.icon} ${tcat.name}</option>`;
+          }).join('')}
+        </select>
+        <button class="btn btn-secondary btn-sm" title="Anhänger ankoppeln: +${TIME_COSTS.attachTrailer} Min" onclick="attachTrailerToVehicle('${v.id}')">Ankoppeln</button>
+      </div>`;
+        }
+        return html;
+      })()}
+
       <div class="vehicle-actions">
         ${v.status === 'idle' ? `<button class="btn btn-secondary btn-sm" title="Route planen: +${TIME_COSTS.navigate} Min" onclick="openRouteForVehicle('${v.id}')">🗺️ Route planen</button>` : ''}
         ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" title="Wartung: +${TIME_COSTS.maintenance} Min" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
@@ -288,6 +331,7 @@ export function renderFleet() {
       </div>
     </div>`;
   }).join('');
+  renderTrailerPool();
 }
 
 function _getCityName(id) {
@@ -406,6 +450,9 @@ export function sellVehicle(vehicleId) {
       const drv = GS.staff.find(s => s.id === v.driverId);
       if (drv) drv.vehicleId = null;
     }
+    if (v.trailerId) {
+      GS.trailers.push({ id: uid(), catalogId: v.trailerId });
+    }
     GS.vehicles = GS.vehicles.filter(x => x.id !== vehicleId);
     addTransaction(`Fahrzeugverkauf: ${v.name}`, salePrice);
     showToast(`${v.name} verkauft für ${fmt.money(salePrice)}`, 'success');
@@ -446,8 +493,9 @@ export function buyVehicle(catalogId) {
   advanceGameTime(TIME_COSTS.buyVehicle, 'Fahrzeugkauf');
   document.querySelectorAll('.fleet-tab').forEach(t => t.classList.remove('active'));
   $('fleet-tab-mine') && $('fleet-tab-mine').classList.add('active');
-  $('catalog-list') && ($('catalog-list').style.display = 'none');
-  $('fleet-list')   && ($('fleet-list').style.display   = '');
+  $('catalog-list')   && ($('catalog-list').style.display   = 'none');
+  $('fleet-list')     && ($('fleet-list').style.display     = '');
+  $('trailer-pool')   && ($('trailer-pool').style.display   = '');
   renderFleet();
 }
 
@@ -455,4 +503,118 @@ export function openRouteForVehicle(vehicleId) {
   GS.ui.routeVehicleId = vehicleId;
   GS.ui.routeStops = [];
   navigateToScreen('routes');
+}
+
+export function renderTrailerPool() {
+  const el = $('trailer-pool');
+  if (!el) return;
+  if (GS.trailers.length === 0) {
+    el.innerHTML = '';
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+  el.innerHTML = `
+    <h3 style="margin-top:1.5rem;margin-bottom:0.75rem">🔗 Anhänger im Fuhrpark</h3>
+    <div class="card-grid card-grid-2">
+      ${GS.trailers.map(ti => {
+        const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+        if (!tcat) return '';
+        const sellPrice = Math.round(tcat.purchasePrice * 0.55);
+        return `
+      <div class="vehicle-card">
+        <div class="vehicle-card-header">
+          <div class="vehicle-icon-box">${tcat.icon}</div>
+          <div class="vehicle-info">
+            <div class="vehicle-name">${tcat.name}</div>
+            <div class="vehicle-model">${tcat.description}</div>
+          </div>
+        </div>
+        <div class="vehicle-stats">
+          <div class="vehicle-stat">
+            <span class="stat-label">Nutzlastzusatz</span>
+            <span class="stat-value">${tcat.capacityBonus > 0 ? fmt.weight(tcat.capacityBonus) : '–'}</span>
+          </div>
+          <div class="vehicle-stat">
+            <span class="stat-label">Kompatibel mit</span>
+            <span class="stat-value">${tcat.compatibleWith.map(id => {
+              const vcat = DATA.VEHICLES.find(v => v.id === id);
+              return vcat ? vcat.name : id;
+            }).join(', ')}</span>
+          </div>
+        </div>
+        <div class="vehicle-actions">
+          <button class="btn btn-danger btn-sm" title="Anhänger verkaufen: +${TIME_COSTS.sellVehicle} Min" onclick="sellTrailer('${ti.id}')">💰 Verkaufen (${fmt.money(sellPrice)})</button>
+        </div>
+      </div>`;
+      }).join('')}
+    </div>`;
+}
+
+export function buyTrailerForVehicle(vehicleId) {
+  const v = GS.vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
+  if (v.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  if (v.trailerId) { showToast('Fahrzeug hat bereits einen Anhänger.', 'warning'); return; }
+  const sel = $('buy-trailer-sel-' + vehicleId);
+  if (!sel || !sel.value) { showToast('Bitte einen Anhänger auswählen.', 'warning'); return; }
+  const trailer = DATA.TRAILERS.find(t => t.id === sel.value);
+  if (!trailer) return;
+  if (GS.finance.balance < trailer.purchasePrice) { showToast('Nicht genug Geld!', 'danger'); return; }
+  v.trailerId = trailer.id;
+  addTransaction(`Anhängerkauf: ${trailer.name}`, -trailer.purchasePrice);
+  showToast(`${trailer.icon} ${trailer.name} an ${v.name} angekoppelt!`, 'success');
+  advanceGameTime(TIME_COSTS.buyTrailer, 'Anhängerkauf');
+  renderFleet();
+}
+
+export function detachTrailerFromVehicle(vehicleId) {
+  const v = GS.vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
+  if (v.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  if (!v.trailerId) { showToast('Fahrzeug hat keinen Anhänger.', 'warning'); return; }
+  const trailer = DATA.TRAILERS.find(t => t.id === v.trailerId);
+  GS.trailers.push({ id: uid(), catalogId: v.trailerId });
+  v.trailerId = null;
+  showToast(`${trailer ? `${trailer.icon} ${trailer.name}` : 'Anhänger'} abgekoppelt und im Fuhrpark eingelagert.`, 'success');
+  advanceGameTime(TIME_COSTS.detachTrailer, 'Anhänger abkoppeln');
+  renderFleet();
+}
+
+export function attachTrailerToVehicle(vehicleId) {
+  const v = GS.vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
+  if (v.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  if (v.trailerId) { showToast('Fahrzeug hat bereits einen Anhänger.', 'warning'); return; }
+  const sel = $('attach-trailer-sel-' + vehicleId);
+  if (!sel || !sel.value) { showToast('Bitte einen Anhänger auswählen.', 'warning'); return; }
+  const trailerInstance = GS.trailers.find(ti => ti.id === sel.value);
+  if (!trailerInstance) { showToast('Anhänger nicht gefunden.', 'warning'); return; }
+  const tcat = DATA.TRAILERS.find(t => t.id === trailerInstance.catalogId);
+  if (!tcat) return;
+  const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+  if (!cat || !tcat.compatibleWith.includes(cat.id)) { showToast('Anhänger ist nicht kompatibel mit diesem Fahrzeug.', 'warning'); return; }
+  v.trailerId = trailerInstance.catalogId;
+  GS.trailers = GS.trailers.filter(ti => ti.id !== trailerInstance.id);
+  showToast(`${tcat.icon} ${tcat.name} an ${v.name} angekoppelt!`, 'success');
+  advanceGameTime(TIME_COSTS.attachTrailer, 'Anhänger ankoppeln');
+  renderFleet();
+}
+
+export function sellTrailer(trailerInstanceId) {
+  const ti = GS.trailers.find(x => x.id === trailerInstanceId);
+  if (!ti) return;
+  const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+  if (!tcat) return;
+  const sellPrice = Math.round(tcat.purchasePrice * 0.55);
+  if (confirm(`${tcat.icon} ${tcat.name} für ${fmt.money(sellPrice)} verkaufen?`)) {
+    GS.trailers = GS.trailers.filter(x => x.id !== trailerInstanceId);
+    addTransaction(`Anhängerverkauf: ${tcat.name}`, sellPrice);
+    showToast(`${tcat.icon} ${tcat.name} verkauft für ${fmt.money(sellPrice)}`, 'success');
+    advanceGameTime(TIME_COSTS.sellVehicle, 'Anhängerverkauf');
+    renderFleet();
+  }
 }
