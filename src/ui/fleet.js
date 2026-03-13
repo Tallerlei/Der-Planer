@@ -1,13 +1,37 @@
-import { $, fmt, uid } from '../utils.js';
+import { $, fmt, uid, findById } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById } from '../state.js';
-import { TIME_COSTS } from '../constants.js';
+import { TIME_COSTS, VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS } from '../constants.js';
 import { addTransaction } from '../game/finance.js';
 import { createVehicle, updatePositionForVehicle, getVehicleEffectiveCapacity } from '../game/vehicles.js';
 import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
 import { getDistance, findShortestPath, routeDistance } from '../routing.js';
 import { showToast } from './notifications.js';
 import { navigateToScreen } from './screens.js';
+
+/**
+ * Checks whether a vehicle is idle (available for operations).
+ * Shows a warning toast and returns false if unavailable.
+ */
+function _checkVehicleAvailable(v) {
+  if (v.status !== 'idle') {
+    showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning');
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Checks whether a vehicle is currently at the company HQ.
+ * Shows a warning toast and returns false if not at HQ.
+ */
+function _checkVehicleAtHQ(v) {
+  if (v.currentCity !== GS.company.hqCity) {
+    showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning');
+    return false;
+  }
+  return true;
+}
 
 /** Formats a duration in minutes as a German human-readable string. */
 function _fmtMinutes(mins) {
@@ -79,7 +103,7 @@ function _getCargoInfo(v) {
   const currentIdx = v.route.currentStopIndex;
   if (currentIdx < pickupIdx || currentIdx >= deliveryIdx) return { loaded: false, weight: 0, capacity };
 
-  const order = GS.orders.active.find(o => o.id === activeOrderId);
+  const order = findById(GS.orders.active, activeOrderId);
   if (!order) return { loaded: false, weight: 0, capacity };
   const loadedWeight = Math.min(
     capacity,
@@ -103,7 +127,7 @@ function _getQueueTiming(v, cat) {
 
   return v.orderQueue.map(orderId => {
     const minsUntilStart = accMins;
-    const order = GS.orders.active.find(o => o.id === orderId);
+    const order = findById(GS.orders.active, orderId);
     if (order) {
       const d1 = routeDistance(findShortestPath(fromCity, order.origin).map(id => ({ cityId: id })));
       const d2 = routeDistance(findShortestPath(order.origin, order.destination).map(id => ({ cityId: id })));
@@ -131,14 +155,9 @@ export function renderFleet() {
   }
 
   listEl.innerHTML = GS.vehicles.map(v => {
-    const cat    = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    const driver = GS.staff.find(s => s.id === v.driverId);
-    const statusInfo = {
-      idle:        { badge: 'badge-success',  label: 'Bereit' },
-      driving:     { badge: 'badge-info',     label: 'Unterwegs' },
-      maintenance: { badge: 'badge-warning',  label: 'Wartung' },
-      broken:      { badge: 'badge-danger',   label: 'Defekt' },
-    }[v.status] || { badge: 'badge-neutral', label: v.status };
+    const cat    = findById(DATA.VEHICLES, v.catalogId);
+    const driver = findById(GS.staff, v.driverId);
+    const statusInfo = VEHICLE_STATUS_INFO[v.status] || { badge: 'badge-neutral', label: v.status };
 
     const healthColor = v.health > 60 ? 'green' : v.health > 30 ? 'yellow' : 'red';
     const fuelColor   = (v.fuel / cat.fuelCapacity * 100) > 30 ? 'green' : 'red';
@@ -152,7 +171,6 @@ export function renderFleet() {
     const cargoInfo          = _getCargoInfo(v);
     const allMeaningfulStops = _allMeaningfulStops(v);
     const queueTiming        = _getQueueTiming(v, cat);
-    const nextActionLabels   = { pickup: 'Abholung', delivery: 'Lieferung', return: 'Rückkehr' };
 
     return `
     <div class="vehicle-card">
@@ -178,7 +196,7 @@ export function renderFleet() {
           <span class="stat-label">Nutzlast</span>
           <span class="stat-value">${(() => {
             if (!v.trailerId) return fmt.weight(cat.capacity);
-            const tr = DATA.TRAILERS.find(t => t.id === v.trailerId);
+            const tr = findById(DATA.TRAILERS, v.trailerId);
             return tr && tr.capacityBonus
               ? `${fmt.weight(cat.capacity)} + ${fmt.weight(tr.capacityBonus)}`
               : fmt.weight(cat.capacity);
@@ -189,7 +207,7 @@ export function renderFleet() {
           <span class="stat-value">${fmt.km(Math.round(v.odometer))}</span>
         </div>
         ${v.trailerId ? (() => {
-          const trailer = DATA.TRAILERS.find(t => t.id === v.trailerId);
+          const trailer = findById(DATA.TRAILERS, v.trailerId);
           return trailer ? `
         <div class="vehicle-stat">
           <span class="stat-label">Anhänger</span>
@@ -201,7 +219,7 @@ export function renderFleet() {
           <span class="stat-label">Nächste Ziele</span>
           <div class="stat-value" style="width:100%">
             ${allMeaningfulStops.map((ms, i) => {
-              const label = nextActionLabels[ms.stop.action] || ms.stop.action;
+              const label = NEXT_ACTION_LABELS[ms.stop.action] || ms.stop.action;
               const etaMs = _minsToStopIdx(v, cat, ms.stopIndex);
               return `<div class="text-sm" style="${i > 0 ? 'margin-top:0.2rem;' : ''}">
                 ${i + 1}. ${label}: ${_getCityName(ms.stop.cityId)} <span class="text-muted" style="font-weight:400;font-size:0.7rem">(ca. ${_fmtMinutes(etaMs)})</span>
@@ -214,7 +232,7 @@ export function renderFleet() {
           <span class="stat-label">Warteschlange</span>
           <div class="stat-value" style="width:100%">
             ${v.orderQueue.map((oid, idx) => {
-              const qOrder = GS.orders.active.find(o => o.id === oid);
+              const qOrder = findById(GS.orders.active, oid);
               const label  = qOrder
                 ? `${qOrder.clientName}: ${_getCityName(qOrder.origin)}→${_getCityName(qOrder.destination)}`
                 : oid;
@@ -285,11 +303,11 @@ export function renderFleet() {
         if (!cat.trailerSlot || v.status !== 'idle' || v.currentCity !== GS.company.hqCity) return '';
         const compatibleTrailers = DATA.TRAILERS.filter(t => t.compatibleWith.includes(cat.id));
         const poolCompatible = GS.trailers.filter(ti => {
-          const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+          const tcat = findById(DATA.TRAILERS, ti.catalogId);
           return tcat && tcat.compatibleWith.includes(cat.id);
         });
         if (v.trailerId) {
-          const attached = DATA.TRAILERS.find(t => t.id === v.trailerId);
+          const attached = findById(DATA.TRAILERS, v.trailerId);
           return `
       <div class="flex gap-sm items-center">
         <span class="text-sm text-muted" style="flex:1">${attached ? `${attached.icon} ${attached.name}` : ''}</span>
@@ -313,7 +331,7 @@ export function renderFleet() {
         <select class="form-control" id="attach-trailer-sel-${v.id}" style="flex:1">
           <option value="">— Aus Fuhrpark ankoppeln —</option>
           ${poolCompatible.map(ti => {
-            const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+            const tcat = findById(DATA.TRAILERS, ti.catalogId);
             return `<option value="${ti.id}">${tcat.icon} ${tcat.name}</option>`;
           }).join('')}
         </select>
@@ -379,11 +397,11 @@ export function assignDriver(vehicleId) {
   const sel = $('drv-sel-' + vehicleId);
   if (!sel || !sel.value) return;
   const driverId = sel.value;
-  const vehicle = GS.vehicles.find(v => v.id === vehicleId);
-  const driver  = GS.staff.find(s => s.id === driverId);
+  const vehicle = findById(GS.vehicles, vehicleId);
+  const driver  = findById(GS.staff, driverId);
   if (!vehicle || !driver) return;
   if (driver.vehicleId) {
-    const old = GS.vehicles.find(v => v.id === driver.vehicleId);
+    const old = findById(GS.vehicles, driver.vehicleId);
     if (old) old.driverId = null;
   }
   vehicle.driverId = driverId;
@@ -394,11 +412,11 @@ export function assignDriver(vehicleId) {
 }
 
 export function removeDriver(vehicleId) {
-  const vehicle = GS.vehicles.find(v => v.id === vehicleId);
+  const vehicle = findById(GS.vehicles, vehicleId);
   if (!vehicle || !vehicle.driverId) return;
-  if (vehicle.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
-  if (vehicle.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
-  const driver = GS.staff.find(s => s.id === vehicle.driverId);
+  if (!_checkVehicleAvailable(vehicle)) return;
+  if (!_checkVehicleAtHQ(vehicle)) return;
+  const driver = findById(GS.staff, vehicle.driverId);
   if (driver) driver.vehicleId = null;
   vehicle.driverId = null;
   showToast(`${driver ? driver.name : 'Fahrer'} wurde vom Fahrzeug entfernt.`, 'success');
@@ -407,9 +425,9 @@ export function removeDriver(vehicleId) {
 }
 
 export function sendToMaintenance(vehicleId) {
-  const v = GS.vehicles.find(v => v.id === vehicleId);
+  const v = findById(GS.vehicles, vehicleId);
   if (!v) return;
-  const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+  const cat = findById(DATA.VEHICLES, v.catalogId);
   const cost = Math.round((100 - v.health) * cat.purchasePrice * 0.002);
   if (GS.finance.balance < cost) { showToast('Nicht genug Geld für die Wartung.', 'danger'); return; }
   v.status = 'maintenance';
@@ -425,9 +443,9 @@ export function sendToMaintenance(vehicleId) {
 }
 
 export function repairVehicle(vehicleId) {
-  const v = GS.vehicles.find(v => v.id === vehicleId);
+  const v = findById(GS.vehicles, vehicleId);
   if (!v) return;
-  const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+  const cat = findById(DATA.VEHICLES, v.catalogId);
   const cost = Math.round(cat.purchasePrice * 0.05);
   if (GS.finance.balance < cost) { showToast('Nicht genug Geld für die Reparatur.', 'danger'); return; }
   addTransaction(`Reparatur: ${v.name}`, -cost);
@@ -440,14 +458,14 @@ export function repairVehicle(vehicleId) {
 }
 
 export function sellVehicle(vehicleId) {
-  const v = GS.vehicles.find(v => v.id === vehicleId);
+  const v = findById(GS.vehicles, vehicleId);
   if (!v) return;
-  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
-  const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+  if (!_checkVehicleAvailable(v)) return;
+  const cat = findById(DATA.VEHICLES, v.catalogId);
   const salePrice = Math.round(cat.purchasePrice * 0.55 * (v.health / 100));
   if (confirm(`${v.name} für ${fmt.money(salePrice)} verkaufen?`)) {
     if (v.driverId) {
-      const drv = GS.staff.find(s => s.id === v.driverId);
+      const drv = findById(GS.staff, v.driverId);
       if (drv) drv.vehicleId = null;
     }
     if (v.trailerId) {
@@ -462,7 +480,7 @@ export function sellVehicle(vehicleId) {
 }
 
 export function buyVehicle(catalogId) {
-  const cat = DATA.VEHICLES.find(c => c.id === catalogId);
+  const cat = findById(DATA.VEHICLES, catalogId);
   if (!cat) return;
 
   let trailerId = null;
@@ -471,7 +489,7 @@ export function buyVehicle(catalogId) {
     const trailerSel = $('trailer-sel-' + catalogId);
     if (trailerSel && trailerSel.value) {
       trailerId = trailerSel.value;
-      selectedTrailer = DATA.TRAILERS.find(t => t.id === trailerId) || null;
+      selectedTrailer = findById(DATA.TRAILERS, trailerId) || null;
     }
   }
 
@@ -518,7 +536,7 @@ export function renderTrailerPool() {
     <h3 style="margin-top:1.5rem;margin-bottom:0.75rem">🔗 Anhänger im Fuhrpark</h3>
     <div class="card-grid card-grid-2">
       ${GS.trailers.map(ti => {
-        const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+        const tcat = findById(DATA.TRAILERS, ti.catalogId);
         if (!tcat) return '';
         const sellPrice = Math.round(tcat.purchasePrice * 0.55);
         return `
@@ -538,7 +556,7 @@ export function renderTrailerPool() {
           <div class="vehicle-stat">
             <span class="stat-label">Kompatibel mit</span>
             <span class="stat-value">${tcat.compatibleWith.map(id => {
-              const vcat = DATA.VEHICLES.find(v => v.id === id);
+              const vcat = findById(DATA.VEHICLES, id);
               return vcat ? vcat.name : id;
             }).join(', ')}</span>
           </div>
@@ -552,14 +570,14 @@ export function renderTrailerPool() {
 }
 
 export function buyTrailerForVehicle(vehicleId) {
-  const v = GS.vehicles.find(x => x.id === vehicleId);
+  const v = findById(GS.vehicles, vehicleId);
   if (!v) return;
-  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
-  if (v.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  if (!_checkVehicleAvailable(v)) return;
+  if (!_checkVehicleAtHQ(v)) return;
   if (v.trailerId) { showToast('Fahrzeug hat bereits einen Anhänger.', 'warning'); return; }
   const sel = $('buy-trailer-sel-' + vehicleId);
   if (!sel || !sel.value) { showToast('Bitte einen Anhänger auswählen.', 'warning'); return; }
-  const trailer = DATA.TRAILERS.find(t => t.id === sel.value);
+  const trailer = findById(DATA.TRAILERS, sel.value);
   if (!trailer) return;
   if (GS.finance.balance < trailer.purchasePrice) { showToast('Nicht genug Geld!', 'danger'); return; }
   v.trailerId = trailer.id;
@@ -570,12 +588,12 @@ export function buyTrailerForVehicle(vehicleId) {
 }
 
 export function detachTrailerFromVehicle(vehicleId) {
-  const v = GS.vehicles.find(x => x.id === vehicleId);
+  const v = findById(GS.vehicles, vehicleId);
   if (!v) return;
-  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
-  if (v.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  if (!_checkVehicleAvailable(v)) return;
+  if (!_checkVehicleAtHQ(v)) return;
   if (!v.trailerId) { showToast('Fahrzeug hat keinen Anhänger.', 'warning'); return; }
-  const trailer = DATA.TRAILERS.find(t => t.id === v.trailerId);
+  const trailer = findById(DATA.TRAILERS, v.trailerId);
   GS.trailers.push({ id: uid(), catalogId: v.trailerId });
   v.trailerId = null;
   showToast(`${trailer ? `${trailer.icon} ${trailer.name}` : 'Anhänger'} abgekoppelt und im Fuhrpark eingelagert.`, 'success');
@@ -584,18 +602,18 @@ export function detachTrailerFromVehicle(vehicleId) {
 }
 
 export function attachTrailerToVehicle(vehicleId) {
-  const v = GS.vehicles.find(x => x.id === vehicleId);
+  const v = findById(GS.vehicles, vehicleId);
   if (!v) return;
-  if (v.status !== 'idle') { showToast('Fahrzeug ist gerade nicht verfügbar.', 'warning'); return; }
-  if (v.currentCity !== GS.company.hqCity) { showToast('Fahrzeug befindet sich nicht am Firmensitz.', 'warning'); return; }
+  if (!_checkVehicleAvailable(v)) return;
+  if (!_checkVehicleAtHQ(v)) return;
   if (v.trailerId) { showToast('Fahrzeug hat bereits einen Anhänger.', 'warning'); return; }
   const sel = $('attach-trailer-sel-' + vehicleId);
   if (!sel || !sel.value) { showToast('Bitte einen Anhänger auswählen.', 'warning'); return; }
-  const trailerInstance = GS.trailers.find(ti => ti.id === sel.value);
+  const trailerInstance = findById(GS.trailers, sel.value);
   if (!trailerInstance) { showToast('Anhänger nicht gefunden.', 'warning'); return; }
-  const tcat = DATA.TRAILERS.find(t => t.id === trailerInstance.catalogId);
+  const tcat = findById(DATA.TRAILERS, trailerInstance.catalogId);
   if (!tcat) return;
-  const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+  const cat = findById(DATA.VEHICLES, v.catalogId);
   if (!cat || !tcat.compatibleWith.includes(cat.id)) { showToast('Anhänger ist nicht kompatibel mit diesem Fahrzeug.', 'warning'); return; }
   v.trailerId = trailerInstance.catalogId;
   GS.trailers = GS.trailers.filter(ti => ti.id !== trailerInstance.id);
@@ -605,9 +623,9 @@ export function attachTrailerToVehicle(vehicleId) {
 }
 
 export function sellTrailer(trailerInstanceId) {
-  const ti = GS.trailers.find(x => x.id === trailerInstanceId);
+  const ti = findById(GS.trailers, trailerInstanceId);
   if (!ti) return;
-  const tcat = DATA.TRAILERS.find(t => t.id === ti.catalogId);
+  const tcat = findById(DATA.TRAILERS, ti.catalogId);
   if (!tcat) return;
   const sellPrice = Math.round(tcat.purchasePrice * 0.55);
   if (confirm(`${tcat.icon} ${tcat.name} für ${fmt.money(sellPrice)} verkaufen?`)) {

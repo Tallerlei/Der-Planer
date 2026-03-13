@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rand, randFloat, pick, uid, fmt } from '../utils.js';
+import { rand, randFloat, pick, uid, fmt, findById } from '../utils.js';
 
 describe('rand', () => {
   it('returns integer within range', () => {
@@ -53,6 +53,14 @@ describe('fmt.date', () => {
   });
 });
 
+describe('fmt.time', () => {
+  it('formats time with zero-padded hours and minutes', () => {
+    expect(fmt.time(9, 5)).toBe('09:05');
+    expect(fmt.time(14, 30)).toBe('14:30');
+    expect(fmt.time(0, 0)).toBe('00:00');
+  });
+});
+
 describe('fmt.weight', () => {
   it('formats kg for small weights', () => {
     expect(fmt.weight(500)).toBe('500 kg');
@@ -61,5 +69,21 @@ describe('fmt.weight', () => {
   it('formats tonnes for weights >= 1000', () => {
     expect(fmt.weight(2000)).toBe('2.0 t');
     expect(fmt.weight(1500)).toBe('1.5 t');
+  });
+});
+
+describe('findById', () => {
+  it('finds an element by id', () => {
+    const items = [{ id: 'a', v: 1 }, { id: 'b', v: 2 }, { id: 'c', v: 3 }];
+    expect(findById(items, 'b')).toEqual({ id: 'b', v: 2 });
+  });
+
+  it('returns undefined when id is not found', () => {
+    const items = [{ id: 'a' }, { id: 'b' }];
+    expect(findById(items, 'z')).toBeUndefined();
+  });
+
+  it('returns undefined for empty collection', () => {
+    expect(findById([], 'a')).toBeUndefined();
   });
 });

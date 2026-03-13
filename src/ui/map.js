@@ -2,6 +2,7 @@ import { $ } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { openModal, closeModal } from './modal.js';
+import { VEHICLE_STATUS_INFO } from '../constants.js';
 
 const MAP_ZOOM_MAX = 3;
 
@@ -176,9 +177,9 @@ export function renderVehicleSidePanel() {
   const driver = GS.staff.find(s => s.id === v.driverId);
   const activeOrder = GS.orders.active.find(o => o.vehicleId === v.id);
 
-  const statusLabels = { idle: 'Bereit', driving: 'Unterwegs', maintenance: 'Wartung', broken: 'Defekt' };
-  const statusLabel = statusLabels[v.status] || v.status;
-  const badgeClass = v.status === 'idle' ? 'badge-success' : v.status === 'driving' ? 'badge-info' : 'badge-danger';
+  const statusInfo = VEHICLE_STATUS_INFO[v.status] || { badge: 'badge-danger', label: v.status };
+  const statusLabel = statusInfo.label;
+  const badgeClass  = statusInfo.badge;
 
   let orderHtml = '<div class="text-muted text-sm">Kein aktiver Auftrag</div>';
   if (activeOrder) {
