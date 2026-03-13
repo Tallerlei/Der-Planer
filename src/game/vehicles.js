@@ -90,6 +90,19 @@ export function updatePositionForVehicle(v) {
   v.position.y = from.y + (to.y - from.y) * pct;
 }
 
+/**
+ * Returns true when a vehicle is driving back to its home base after completing
+ * all pickups and deliveries (i.e. no more 'pickup' or 'delivery' stops remain
+ * in the current route ahead of the vehicle's current position).
+ */
+export function isVehicleReturningToBase(vehicle) {
+  if (vehicle.status !== 'driving') return false;
+  const stops = vehicle.route && vehicle.route.stops;
+  if (!stops || stops.length === 0) return false;
+  const ahead = stops.slice(vehicle.route.currentStopIndex + 1);
+  return !ahead.some(s => s.action === 'pickup' || s.action === 'delivery');
+}
+
 export function startOrderForVehicle(vehicle, order) {
   vehicle.status = 'driving';
   const keyWaypoints = [

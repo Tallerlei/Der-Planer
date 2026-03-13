@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getVehicleActiveOrderId, moveOrderInQueue } from '../game/engine.js';
+import { isVehicleReturningToBase } from '../game/vehicles.js';
 import { GS } from '../state.js';
 
 // Stub out DOM-dependent helpers so tests can run without a browser
@@ -104,5 +105,94 @@ describe('moveOrderInQueue', () => {
   it('moving to same index leaves queue unchanged', () => {
     moveOrderInQueue('v1', 1, 1);
     expect(GS.vehicles[0].orderQueue).toEqual(['o1', 'o2', 'o3']);
+  });
+});
+
+describe('isVehicleReturningToBase', () => {
+  it('returns false for an idle vehicle', () => {
+    const v = { status: 'idle', route: { stops: [], currentStopIndex: 0 } };
+    expect(isVehicleReturningToBase(v)).toBe(false);
+  });
+
+  it('returns false when upcoming stops include a pickup', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 0,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isVehicleReturningToBase(v)).toBe(false);
+  });
+
+  it('returns false when upcoming stops include a delivery', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 1,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isVehicleReturningToBase(v)).toBe(false);
+  });
+
+  it('returns true when all remaining stops are transit/return (after delivery)', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 2,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'hamburg',   action: 'pickup',   orderId: 'o1' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'cologne',   action: 'transit' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isVehicleReturningToBase(v)).toBe(true);
+  });
+
+  it('returns true when at the last transit stop before return', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 3,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'cologne',   action: 'transit' },
+          { cityId: 'mainz',     action: 'transit' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isVehicleReturningToBase(v)).toBe(true);
+  });
+
+  it('returns true when no stops remain ahead (at final stop)', () => {
+    const v = {
+      status: 'driving',
+      route: {
+        currentStopIndex: 3,
+        stops: [
+          { cityId: 'frankfurt', action: 'depart' },
+          { cityId: 'berlin',    action: 'delivery', orderId: 'o1' },
+          { cityId: 'cologne',   action: 'transit' },
+          { cityId: 'frankfurt', action: 'return' },
+        ],
+      },
+    };
+    expect(isVehicleReturningToBase(v)).toBe(true);
   });
 });
