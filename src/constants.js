@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.12.1';
+export const APP_VERSION = '1.12.2';
 
 export const TIME_COSTS = {
   navigate:      5,

@@ -512,4 +512,5 @@ export function switchOrderTab(tab) {
 
 export function saveOrderVehicleSelection(orderId, vehicleId) {
   GS.ui.orderVehicleSelection[orderId] = vehicleId;
+  renderOrders();
 }
