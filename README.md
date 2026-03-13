@@ -30,7 +30,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Fahrzeuge können in den Zuständen *untätig*, *fahrend* oder *Wartung* sein.
 - Treibstoffverbrauch und Verschleiß werden realistisch simuliert.
 - **Automatische Tankstopps**: Sinkt der Kraftstoffstand unter 15 %, hält das Fahrzeug selbständig an einer Tankstelle (15 Min. Verzögerung); die Kraftstoffkosten werden automatisch verbucht.
-- **Anhänger-System**: Fahrzeuge mit Anhänger-Slot (Sattelzug, Kühllaster, Tankzug) können beim Kauf mit einem passenden Anhänger ausgestattet werden (Planenauflieger, Pritschenauflieger, Kühlauflieger, Tankauflieger). Anhänger erhöhen Nutzlast und ermöglichen zusätzliche Frachtanforderungen (z. B. Kühlung, ADR).
+- **Anhänger-System**: Fahrzeuge mit Anhänger-Slot können beim Kauf mit einem passenden Anhänger ausgestattet werden. Sattelzug, Kühllaster und Tankzug unterstützen große Auflieger (Planenauflieger, Pritschenauflieger, Kühlauflieger, Tankauflieger); der Kleintransporter kann mit kleinen Anhängern (Kastenanhänger, Pritschenanhänger) ausgerüstet werden. Anhänger erhöhen die Nutzlast und ermöglichen zusätzliche Frachtanforderungen (z. B. Kühlung, ADR).
 
 ### 📦 Auftragsystem
 - **25 fiktive Kunden** aus verschiedenen Branchen (Lebensmittel, Chemie, Bau, Medizin, Automobil …).

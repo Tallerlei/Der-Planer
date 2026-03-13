@@ -21,6 +21,7 @@ export const DATA = {
       maintenanceCostPerMonth: 150,
       description: 'Ideal für Kurzstrecken und Paketzustellungen.',
       requirements: [],
+      trailerSlot: true,
       icon: '🚐'
     },
     {
@@ -159,7 +160,7 @@ export const DATA = {
       id: 'reefer_trailer',
       name: 'Kühlauflieger',
       icon: '🧊',
-      compatibleWith: ['semi'],
+      compatibleWith: ['semi', 'reefer'],
       requirements: ['cooling'],
       capacityBonus: 0,
       purchasePrice: 42000,
@@ -169,11 +170,31 @@ export const DATA = {
       id: 'tank_trailer',
       name: 'Tankauflieger',
       icon: '🛢️',
-      compatibleWith: ['semi'],
+      compatibleWith: ['semi', 'tanker'],
       requirements: ['adr'],
       capacityBonus: 4000,
       purchasePrice: 52000,
       description: 'Für Flüssigkeiten, Treibstoffe und ADR-pflichtige Güter.'
+    },
+    {
+      id: 'van_box_trailer',
+      name: 'Kastenanhänger',
+      icon: '📦',
+      compatibleWith: ['transit'],
+      requirements: [],
+      capacityBonus: 500,
+      purchasePrice: 3500,
+      description: 'Kleiner Kastenanhänger für Pakete und Stückgut – ideal für den Kleintransporter.'
+    },
+    {
+      id: 'van_flatbed_trailer',
+      name: 'Pritschenanhänger',
+      icon: '🪵',
+      compatibleWith: ['transit'],
+      requirements: [],
+      capacityBonus: 300,
+      purchasePrice: 2500,
+      description: 'Offener Anhänger für sperrige und leichte Güter – passend für den Kleintransporter.'
     },
   ],
 
