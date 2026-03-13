@@ -3,6 +3,11 @@ import { GS } from '../state.js';
 import { REP_TIER_MAX_WEIGHT, REQ_LABELS } from '../constants.js';
 import { getVehicleEffectiveRequirements, getVehicleEffectiveCapacity } from './vehicles.js';
 
+/** Returns true when an order has not yet expired and should be shown to the player. */
+export function isOrderAvailable(order) {
+  return (GS.time.totalMinutes - order.receivedMinute) <= order.expiresInDays * 1440;
+}
+
 export function getReputationTier(rep) {
   if (rep <= 20) return 1;
   if (rep <= 40) return 2;

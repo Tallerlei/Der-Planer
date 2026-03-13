@@ -1,5 +1,6 @@
 import { $, fmt } from '../utils.js';
 import { GS } from '../state.js';
+import { isOrderAvailable } from '../game/orders.js';
 
 export function updateStatusBar() {
   if (!GS.started) return;
@@ -18,14 +19,15 @@ export function updateStatusBar() {
 }
 
 export function updateOrderBadge() {
+  const visibleOrders = GS.orders.available.filter(isOrderAvailable);
   const badge = $('badge-orders');
   if (badge) {
-    const n = GS.orders.available.length;
+    const n = visibleOrders.length;
     badge.textContent = n;
     badge.classList.toggle('visible', n > 0);
   }
   const ba = $('badge-avail');
-  if (ba) ba.textContent = GS.orders.available.length;
+  if (ba) ba.textContent = visibleOrders.length;
   const bact = $('badge-active');
   if (bact) bact.textContent = GS.orders.active.length;
   const bcomp = $('badge-completed');
