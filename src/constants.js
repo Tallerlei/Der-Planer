@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.10.0';
+export const APP_VERSION = '1.11.0';
 
 export const TIME_COSTS = {
   navigate:      5,
@@ -14,6 +14,9 @@ export const TIME_COSTS = {
   removeDriver: 10,
   takeLoan:     15,
   refreshCand:   5,
+  buyTrailer:   15,
+  detachTrailer: 10,
+  attachTrailer: 10,
 };
 
 export const REFUEL_THRESHOLD        = 0.15;

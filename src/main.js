@@ -12,7 +12,7 @@ import {
 import { showToast } from './ui/notifications.js';
 import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
-import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle } from './ui/fleet.js';
+import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle, buyTrailerForVehicle, detachTrailerFromVehicle, attachTrailerToVehicle, sellTrailer } from './ui/fleet.js';
 import { renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal } from './ui/orders_ui.js';
 import {
   renderRoutePlanner, selectRouteVehicle, removeRouteStop, dispatchRoute, handleMapClick, drawRouteMap,
@@ -75,6 +75,10 @@ Object.assign(window, {
   sellVehicle,
   buyVehicle,
   openRouteForVehicle,
+  buyTrailerForVehicle,
+  detachTrailerFromVehicle,
+  attachTrailerToVehicle,
+  sellTrailer,
 
   selectRouteVehicle,
   removeRouteStop,
@@ -175,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
       t.classList.add('active');
       const fleetList   = document.getElementById('fleet-list');
       const catalogList = document.getElementById('catalog-list');
+      const trailerPool = document.getElementById('trailer-pool');
       if (t.id === 'fleet-tab-mine') {
         if (fleetList)   fleetList.style.display   = '';
         if (catalogList) catalogList.style.display = 'none';
@@ -182,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         if (fleetList)   fleetList.style.display   = 'none';
         if (catalogList) catalogList.style.display = '';
+        if (trailerPool) trailerPool.style.display = 'none';
         renderCatalog();
       }
     });

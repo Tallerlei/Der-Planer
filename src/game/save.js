@@ -14,6 +14,7 @@ export function loadGame() {
     const saved = JSON.parse(raw);
     Object.assign(GS, saved);
     if (!Array.isArray(GS.messageLog)) GS.messageLog = [];
+    if (!Array.isArray(GS.trailers))   GS.trailers   = [];
     GS.vehicles.forEach(v => {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
       if (v.orderQueue === undefined) v.orderQueue = [];
