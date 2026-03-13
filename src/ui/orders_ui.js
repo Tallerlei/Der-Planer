@@ -7,6 +7,7 @@ import {
   acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
   getVehicleActiveOrderId,
 } from '../game/engine.js';
+import { isVehicleReturningToBase } from '../game/vehicles.js';
 import { updateOrderBadge } from './statusbar.js';
 import { getDistance } from '../routing.js';
 import { openModal } from './modal.js';
@@ -274,9 +275,10 @@ export function renderOrders() {
       if (!cat || !o.requirements.every(req => cat.requirements.includes(req))) return acc;
       const hasDriver = !!v.driverId;
       if (hasDriver) acc.eligibleVehicles.push(v);
-      const queueInfo = v.status === 'driving' && hasDriver
+      const returningToBase = isVehicleReturningToBase(v);
+      const queueInfo = v.status === 'driving' && hasDriver && !returningToBase
         ? ` [Warteschlange: Position ${(v.orderQueue || []).length + 1}]`
-        : '';
+        : returningToBase && hasDriver ? ' [Startet nach Rückkehr]' : '';
       const noDriverHint = !hasDriver ? ' – Kein Fahrer' : '';
       acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(cat.capacity)})${queueInfo}${noDriverHint}</option>`;
       return acc;
