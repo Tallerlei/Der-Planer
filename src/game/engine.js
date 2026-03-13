@@ -400,7 +400,9 @@ export function generateOrders() {
     const maxW    = useFleetFit
       ? Math.min(template.maxWeight, maxCapacity)
       : Math.min(template.maxWeight, tierMaxWeight);
-    const weight  = rand(template.minWeight, maxW);
+    const minTons = Math.ceil(template.minWeight / 1000);
+    const maxTons = Math.max(minTons, Math.floor(maxW / 1000));
+    const weight  = rand(minTons, maxTons) * 1000;
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
     const loyaltyBonus = getClientReputation(client.id) >= 75 ? 1.05 : 1.0;
     const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * loyaltyBonus * randFloat(0.85, 1.15));
@@ -466,7 +468,9 @@ export function injectTierOrders(tier, count) {
     const dist   = getDistance(originC.id, destC.id);
     const minW   = Math.max(template.minWeight, prevMaxWeight + 1);
     const maxW   = Math.min(template.maxWeight, tierMaxWeight);
-    const weight = rand(minW, maxW);
+    const minTons = Math.ceil(minW / 1000);
+    const maxTons = Math.max(minTons, Math.floor(maxW / 1000));
+    const weight = rand(minTons, maxTons) * 1000;
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
     const loyaltyBonus = getClientReputation(client.id) >= 75 ? 1.05 : 1.0;
     const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * loyaltyBonus * randFloat(0.85, 1.15));
