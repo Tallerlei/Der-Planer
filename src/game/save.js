@@ -15,6 +15,7 @@ export function loadGame() {
     Object.assign(GS, saved);
     if (!Array.isArray(GS.messageLog)) GS.messageLog = [];
     if (!Array.isArray(GS.trailers))   GS.trailers   = [];
+    if (!GS.ui.orderSort) GS.ui.orderSort = { field: 'value', dir: 'desc' };
     GS.vehicles.forEach(v => {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
       if (v.orderQueue === undefined) v.orderQueue = [];

@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.11.0**
+> 🔖 **Version: 1.12.0**
 
 ---
 
@@ -45,6 +45,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Automatischer Auftragsablauf**: Verfallene Aufträge werden automatisch entfernt und senken die Reputation beim jeweiligen Auftraggeber um −3 Punkte.
 - **Kundenstatus (Kundenansehen)**: Jeder Auftraggeber hat ein eigenes Ansehen (0–100, Start: 50), das in den Auftragskarten als Sternbewertung angezeigt wird. Erfüllte Aufträge erhöhen das Ansehen – mit **sinkenden Zuwächsen** je höher der Wert bereits ist.
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
+- **Auftragsortierung**: Die Auftragsliste kann nach verschiedenen Kriterien sortiert werden – **Wert**, **Gewicht**, **Entfernung**, **€/km** (alle Tabs), **Ablaufzeit** (verfügbare Aufträge), **Frist** (aktive Aufträge) und **Abschlusszeitpunkt** (abgeschlossene Aufträge). Ein Klick auf ein aktives Sortierkriterium kehrt die Reihenfolge um (auf-/absteigend).
 - **Erfüllbarkeitsanzeige**: Jeder verfügbare Auftrag zeigt ein grünes ✔ (erfüllbar) oder rotes ✘ (nicht erfüllbar) Icon; technisch nicht erfüllbare Aufträge (z. B. Kühlware ohne Kühllaster) erscheinen **ausgegraut** und geben dem Spieler Investitionsanreize.
 - **Mehrtransport-Aufträge**: Übersteigt das Auftragsgewicht die Fahrzeugkapazität, werden automatisch mehrere Fahrten durchgeführt – pro Fahrt wird die maximale Nutzlast vom verbleibenden Transportvolumen abgezogen.
 - **Fahrzeug-Statusübersicht**: Im Fuhrpark-Bildschirm zeigt jede Fahrzeugkarte alle noch ausstehenden Ziele der aktuellen Route (Abholung, Lieferung, Rückkehr) mit der jeweiligen geschätzten Ankunftszeit an – nicht nur das unmittelbar nächste. Ein Beladungsbalken zeigt bei geladenen Fahrzeugen Gewicht und Füllgrad. In der Warteschlange ist für jeden Folgeauftrag die voraussichtliche Startzeit sichtbar – so kann frühzeitig umgeplant werden.

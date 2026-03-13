@@ -656,6 +656,41 @@ tr:hover td { background: var(--surface2); }
 
 .order-reject-all { grid-column: 1 / -1; margin-top: 0.5rem; }
 
+.order-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.order-sort-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+  white-space: nowrap;
+}
+
+.sort-btn {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.sort-btn:hover { color: var(--text); border-color: var(--accent2); }
+.sort-btn.active { background: rgba(88,166,255,.15); color: var(--accent2); border-color: var(--accent2); font-weight: 600; }
+.sort-btn[data-sort-tab] { display: none; }
+
 .order-deadline {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;

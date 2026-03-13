@@ -77,7 +77,97 @@ export function openClientModal(clientId) {
   openModal(client.name, html);
 }
 
-// ── Main render ───────────────────────────────────────────────
+// ── Sorting ───────────────────────────────────────────────────
+
+const SORT_LABELS = {
+  value:      'Wert',
+  weight:     'Gewicht',
+  km:         'Entfernung',
+  valuePerKm: '€/km',
+  expires:    'Ablaufzeit',
+  deadline:   'Frist',
+  completed:  'Abschluss',
+};
+
+/** Returns a sorted copy of the orders array for the given tab. */
+function sortOrders(orders, tab) {
+  const { field, dir } = GS.ui.orderSort;
+  const mul = dir === 'asc' ? 1 : -1;
+  return [...orders].sort((a, b) => {
+    let va = 0, vb = 0;
+    switch (field) {
+      case 'value':
+        va = tab === 'completed' ? (a.finalValue ?? a.value) : a.value;
+        vb = tab === 'completed' ? (b.finalValue ?? b.value) : b.value;
+        break;
+      case 'weight':
+        va = a.weight; vb = b.weight;
+        break;
+      case 'km':
+        va = getDistance(a.origin, a.destination);
+        vb = getDistance(b.origin, b.destination);
+        break;
+      case 'valuePerKm': {
+        const kmA = getDistance(a.origin, a.destination);
+        const kmB = getDistance(b.origin, b.destination);
+        const valA = tab === 'completed' ? (a.finalValue ?? a.value) : a.value;
+        const valB = tab === 'completed' ? (b.finalValue ?? b.value) : b.value;
+        va = kmA > 0 ? valA / kmA : 0;
+        vb = kmB > 0 ? valB / kmB : 0;
+        break;
+      }
+      case 'expires':
+        va = a.receivedMinute + (a.expiresInDays * 1440) - GS.time.totalMinutes;
+        vb = b.receivedMinute + (b.expiresInDays * 1440) - GS.time.totalMinutes;
+        break;
+      case 'deadline':
+        va = a.acceptedMinute !== null ? a.acceptedMinute + a.deadlineDays * 1440 : a.deadlineDays * 1440;
+        vb = b.acceptedMinute !== null ? b.acceptedMinute + b.deadlineDays * 1440 : b.deadlineDays * 1440;
+        break;
+      case 'completed':
+        va = a.completedMinute ?? 0;
+        vb = b.completedMinute ?? 0;
+        break;
+    }
+    return (va - vb) * mul;
+  });
+}
+
+/** Updates the sort bar button states to reflect the current sort field/direction. */
+function updateSortBar(tab) {
+  const bar = document.getElementById('order-sort-bar');
+  if (!bar) return;
+  const { field, dir } = GS.ui.orderSort;
+
+  // Show/hide tab-specific buttons
+  bar.querySelectorAll('[data-sort-tab]').forEach(b => {
+    b.style.display = b.dataset.sortTab === tab ? '' : 'none';
+  });
+
+  // Update active state and direction arrows on all buttons
+  bar.querySelectorAll('.sort-btn').forEach(b => {
+    const sortField = b.dataset.sort;
+    const isActive = sortField === field;
+    b.classList.toggle('active', isActive);
+    const label = SORT_LABELS[sortField] || sortField;
+    b.textContent = label + (isActive ? (dir === 'asc' ? ' ↑' : ' ↓') : '');
+  });
+}
+
+/** Toggles or sets the sort field; re-renders the order list. */
+export function setOrderSort(field) {
+  const sort = GS.ui.orderSort;
+  if (sort.field === field) {
+    sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sort.field = field;
+    // Ascending default for time-based fields (soonest first), descending for value-based
+    sort.dir = (field === 'expires' || field === 'deadline' || field === 'completed') ? 'asc' : 'desc';
+  }
+  renderOrders();
+}
+
+
 
 /** Renders the vehicle assignment / reassign / add-vehicle section for an active order card. */
 function renderActiveOrderActions(o) {
@@ -170,6 +260,9 @@ export function renderOrders() {
   if (tab === 'available') orders = GS.orders.available.filter(isOrderAvailable);
   if (tab === 'active')    orders = GS.orders.active;
   if (tab === 'completed') orders = GS.orders.completed.slice(0, 50);
+
+  updateSortBar(tab);
+  orders = sortOrders(orders, tab);
 
   const el = $('order-list-' + tab);
   if (!el) return;
@@ -394,6 +487,13 @@ export function renderOrders() {
 
 export function switchOrderTab(tab) {
   GS.ui.orderTab = tab;
+  // Reset sort field when switching to a tab where the current field doesn't apply
+  const tabSpecificFields = { expires: 'available', deadline: 'active', completed: 'completed' };
+  const curField = GS.ui.orderSort.field;
+  if (tabSpecificFields[curField] && tabSpecificFields[curField] !== tab) {
+    GS.ui.orderSort.field = 'value';
+    GS.ui.orderSort.dir = 'desc';
+  }
   document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
   $(`otab-${tab}`) && $(`otab-${tab}`).classList.add('active');
   ['available','active','completed'].forEach(t => {
