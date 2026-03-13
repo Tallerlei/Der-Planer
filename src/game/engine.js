@@ -10,7 +10,7 @@ import {
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction } from './finance.js';
 import { createStaff, generateHireCandidates } from './staff.js';
-import { createVehicle, updatePositionForVehicle, startOrderForVehicle, isVehicleReturningToBase } from './vehicles.js';
+import { createVehicle, updatePositionForVehicle, startOrderForVehicle, isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements } from './vehicles.js';
 import { getReputationTier, canFulfillOrder, getFleetCapabilities } from './orders.js';
 import { checkMarketEvents } from './events.js';
 import { autoSave, loadGame } from './save.js';
@@ -251,9 +251,8 @@ export function processStopAction(v, stop) {
   if (stop.action === 'pickup') {
     showToast(`${v.name}: Ware abgeholt in ${getCityName(stop.cityId)}`, 'info');
   } else if (stop.action === 'delivery') {
-    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
     const remaining = order.remainingWeight !== undefined ? order.remainingWeight : order.weight;
-    const deliveredWeight = Math.min(cat.capacity, remaining);
+    const deliveredWeight = Math.min(getVehicleEffectiveCapacity(v), remaining);
     order.remainingWeight = Math.max(0, remaining - deliveredWeight);
     order.tripsCompleted  = (order.tripsCompleted || 0) + 1;
 
@@ -552,9 +551,9 @@ export function acceptOrder(orderId, vehicleId) {
   }
   if (!vehicle.driverId) { showToast('Dem Fahrzeug ist kein Fahrer zugewiesen.', 'warning'); return; }
 
-  const cat = DATA.VEHICLES.find(v => v.id === vehicle.catalogId);
+  const effectiveReqs = getVehicleEffectiveRequirements(vehicle);
   for (const req of order.requirements) {
-    if (!cat.requirements.includes(req)) {
+    if (!effectiveReqs.includes(req)) {
       const reqLabel = REQ_LABELS[req] || req;
       showToast(`Fahrzeug erfüllt nicht: ${reqLabel}`, 'danger'); return;
     }
