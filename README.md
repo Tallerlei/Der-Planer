@@ -193,7 +193,7 @@ Der Spielstand wird automatisch per `localStorage` gespeichert und beim nächste
 |------------------|---------------------------------------------------|
 | Sprache          | HTML5, CSS3, Vanilla JavaScript (ES Modules)      |
 | Build-System     | [Vite](https://vitejs.dev/) – schneller Dev-Server und Bundles |
-| Test-Framework   | [Vitest](https://vitest.dev/) – 43 Unit-Tests     |
+| Test-Framework   | [Vitest](https://vitest.dev/) – 97 Unit-Tests     |
 | Persistenz       | Browser `localStorage`                            |
 | Grafik           | HTML5 Canvas (Karten & Routen)                    |
 | Deployment       | [GitHub Pages](https://tallerlei.github.io/Der-Planer/) via GitHub Actions |
