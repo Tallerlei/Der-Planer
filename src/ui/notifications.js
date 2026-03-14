@@ -11,6 +11,10 @@ export function showToast(msg, type = 'info') {
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, TOAST_DISPLAY_MS + TOAST_FADE_MS + 1400);
 
+  addLogEntry(msg, type);
+}
+
+export function addLogEntry(msg, type = 'info') {
   if (GS.started) {
     GS.messageLog.push({
       t: { day: GS.time.day, month: GS.time.month, year: GS.time.year,

@@ -14,7 +14,7 @@ import { createVehicle, updatePositionForVehicle, startOrderForVehicle, isVehicl
 import { getReputationTier, canFulfillOrder, getFleetCapabilities } from './orders.js';
 import { checkMarketEvents } from './events.js';
 import { autoSave, loadGame } from './save.js';
-import { showToast, showTimeAdvance } from '../ui/notifications.js';
+import { showToast, showTimeAdvance, addLogEntry } from '../ui/notifications.js';
 import { updateStatusBar } from '../ui/statusbar.js';
 import { openModal, closeModal } from '../ui/modal.js';
 
@@ -187,14 +187,14 @@ export function tickVehicles(minutesPassed) {
           const cost = litres * GS.market.fuelPrice;
           addTransaction(`Tankstopp ${v.name}`, -cost);
           v.fuel = cat.fuelCapacity;
-          showToast(`⛽ ${v.name}: Getankt`, 'info');
+          addLogEntry(`⛽ ${v.name}: Getankt`, 'info');
         }
         continue;
       }
 
       if (v.fuel < cat.fuelCapacity * REFUEL_THRESHOLD) {
         v.refuelPauseMinutes = REFUEL_DURATION_MINUTES;
-        showToast(`⛽ ${v.name}: Tankstopp (${REFUEL_DURATION_MINUTES} Min)`, 'info');
+        addLogEntry(`⛽ ${v.name}: Tankstopp (${REFUEL_DURATION_MINUTES} Min)`, 'info');
         continue;
       }
 
