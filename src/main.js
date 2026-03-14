@@ -3,7 +3,7 @@ import { autoSave, deleteSave, hasSave } from './game/save.js';
 import {
   registerRenderer,
   startNewGame, loadAndContinue,
-  setSpeed,
+  setSpeed, jumpToNextEvent,
   acceptOrder, declineOrder,
   declineUnfulfillableOrders, confirmDeclineUnfulfillable,
   reassignOrder, addVehicleToOrder, moveOrderInQueue,
@@ -56,6 +56,7 @@ Object.assign(window, {
   navigateToScreen,
   showScreen,
   setSpeed,
+  jumpToNextEvent,
 
   acceptOrder,
   declineOrder,
@@ -115,9 +116,13 @@ Object.assign(window, {
 // ── DOM init ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   // Speed buttons
-  document.querySelectorAll('.speed-btn').forEach(b => {
+  document.querySelectorAll('.speed-btn[data-speed]').forEach(b => {
     b.addEventListener('click', () => setSpeed(parseInt(b.dataset.speed)));
   });
+
+  // Skip-to-next-event button
+  const skipBtn = document.getElementById('btn-skip-event');
+  if (skipBtn) skipBtn.addEventListener('click', jumpToNextEvent);
 
   // Map canvas click (route planner)
   const mc = document.getElementById('map-canvas');

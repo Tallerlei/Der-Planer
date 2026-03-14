@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.12.3**
+> 🔖 **Version: 1.13.0**
 
 ---
 
@@ -89,7 +89,8 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Jedes Ereignis hat eine Eintrittswahrscheinlichkeit und Dauer und beeinflusst Kraftstoffpreise, Auftragsvolumen, Fahrzeuggeschwindigkeit und Reputation.
 
 ### ⏱️ Zeitsteuerung
-- Einstellbare Spielgeschwindigkeit: **Pause / 1× / 5× / 30×**.
+- Einstellbare Spielgeschwindigkeit: **Pause / 1× / 5×**.
+- **⏭ Nächstes Ereignis**: Springt automatisch zum nächsten relevanten Spielereignis – entweder die Ankunft eines Fahrzeugs an einem Standort oder der Abschluss eines Auftrags. Spart Wartezeit, ohne die manuelle Kontrolle zu verlieren.
 - Das Spiel läuft in 15-Minuten-Ticks; Fahrzeuge, Aufträge und Ereignisse werden in Echtzeit aktualisiert.
 
 ### 💾 Spielstand & Meldungsprotokoll
