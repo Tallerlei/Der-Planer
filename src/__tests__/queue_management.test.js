@@ -4,7 +4,7 @@ import { isVehicleReturningToBase } from '../game/vehicles.js';
 import { GS } from '../state.js';
 
 // Stub out DOM-dependent helpers so tests can run without a browser
-vi.mock('../ui/notifications.js', () => ({ showToast: vi.fn(), showTimeAdvance: vi.fn() }));
+vi.mock('../ui/notifications.js', () => ({ showToast: vi.fn(), showTimeAdvance: vi.fn(), addLogEntry: vi.fn() }));
 vi.mock('../ui/statusbar.js',     () => ({ updateStatusBar: vi.fn() }));
 vi.mock('../game/save.js',        () => ({ autoSave: vi.fn(), loadGame: vi.fn() }));
 
