@@ -1,4 +1,5 @@
 import { APP_VERSION } from './constants.js';
+import { debounce } from './utils.js';
 import { autoSave, deleteSave, hasSave } from './game/save.js';
 import {
   registerRenderer,
@@ -212,10 +213,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const ov = document.getElementById('modal-overlay');
   if (ov) ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
 
-  // Resize map on window resize
-  window.addEventListener('resize', () => {
+  // Resize map on window resize (debounced to avoid excessive redraws)
+  window.addEventListener('resize', debounce(() => {
     const currentScreen = document.querySelector('.screen.active')?.id?.replace('screen-', '');
     if (currentScreen === 'map')    renderMapScreen();
     if (currentScreen === 'routes') drawRouteMap();
-  });
+  }, 150));
 });
