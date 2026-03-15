@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.14.0**
+> 🔖 **Version: 1.14.1**
 
 ---
 
@@ -99,7 +99,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Das Spiel läuft in 15-Minuten-Ticks; Fahrzeuge, Aufträge und Ereignisse werden in Echtzeit aktualisiert.
 
 ### 💾 Spielstand & Meldungsprotokoll
-- Spielstand wird automatisch per `localStorage` gespeichert und beim nächsten Besuch wiederhergestellt.
+- Spielstand wird **automatisch nach jedem Tageswechsel** per `localStorage` gespeichert und beim nächsten Besuch wiederhergestellt.
 - **Meldungsprotokoll**: Alle Toast-Benachrichtigungen werden persistent im Spielstand gespeichert (bis zu 200 Einträge). Das Protokoll ist über die Schaltfläche 📋 in der Statusleiste oder den Bürobereich *Meldungsprotokoll* jederzeit abrufbar – neueste Einträge zuerst, farbcodiert nach Typ.
 
 ---
