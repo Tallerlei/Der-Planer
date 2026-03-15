@@ -96,31 +96,45 @@ export function jumpToNextEvent() {
     const kmPerMinute = speedKmH / 60;
     if (kmPerMinute <= 0) continue;
 
+    const idx = v.route.currentStopIndex;
+
+    // Find the next meaningful stop (pickup, delivery, or return to base)
+    let targetIdx = -1;
+    for (let i = idx + 1; i < stops.length; i++) {
+      const action = stops[i].action;
+      if (action === 'pickup' || action === 'delivery' || action === 'return') {
+        targetIdx = i;
+        break;
+      }
+    }
+    if (targetIdx < 0) continue;
+
     let minutes = 0;
 
-    // Account for active refuel pause
+    // Account for an active refuel pause (vehicle is currently stopped)
     if ((v.refuelPauseMinutes || 0) > 0) {
       minutes += v.refuelPauseMinutes;
-    } else if (v.fuel < cat.fuelCapacity * REFUEL_THRESHOLD) {
-      // Refuel will be triggered on the next tick
-      minutes += REFUEL_DURATION_MINUTES;
     }
 
-    const idx  = v.route.currentStopIndex;
+    // Remaining distance on the current partial leg
     const from = stops[idx];
-    const to   = stops[idx + 1];
-    if (!to || !from) continue;
+    const nextStop = stops[idx + 1];
+    if (!from || !nextStop) continue;
 
-    const legDist = getDistance(from.cityId, to.cityId);
-    if (legDist <= 0) {
-      // Already at next stop – event is essentially now
+    const legDist = getDistance(from.cityId, nextStop.cityId);
+    if (legDist <= 0 && targetIdx === idx + 1) {
+      // Already at the target stop – event is essentially now
       minMinutes = 0;
       break;
     }
     const legKmDone    = (v.route.progressPct / 100) * legDist;
     const legRemaining = legDist - legKmDone;
-
     minutes += legRemaining / kmPerMinute;
+
+    // Sum full legs between the next stop and the target stop
+    for (let i = idx + 1; i < targetIdx; i++) {
+      minutes += getDistance(stops[i].cityId, stops[i + 1].cityId) / kmPerMinute;
+    }
 
     if (minutes < minMinutes) minMinutes = minutes;
   }
