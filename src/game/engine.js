@@ -568,7 +568,7 @@ export function acceptOrder(orderId, vehicleId) {
   ensureClientStats(order.clientId);
   GS.clientStats[order.clientId].accepted++;
 
-  if (vehicle.status === 'idle') {
+  if (vehicle.status === 'idle' || isVehicleReturningToBase(vehicle)) {
     startOrderForVehicle(vehicle, order);
     showToast(`Auftrag angenommen: ${order.clientName}`, 'success');
   } else {

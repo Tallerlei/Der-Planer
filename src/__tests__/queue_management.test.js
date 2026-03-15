@@ -468,33 +468,46 @@ describe('acceptOrder – Standort und km-Stand stabil bei fahrendem Fahrzeug', 
     GS.messageLog = [];
   });
 
-  it('Auftrag wird eingereiht und Route bleibt unverändert wenn Fahrzeug fährt', () => {
+  it('Auftrag wird eingereiht wenn Fahrzeug noch einen aktiven Auftrag fährt (nicht auf Rückfahrt)', () => {
     const vehicle = GS.vehicles[0];
+    // Set vehicle to be on its way TO pickup (not returning yet)
+    vehicle.route.currentStopIndex = 0;
 
-    // Confirm the vehicle is currently returning to base (isVehicleReturningToBase = true)
-    expect(isVehicleReturningToBase(vehicle)).toBe(true);
-
-    // Record original position and route
-    const originalPositionX = vehicle.position.x;
-    const originalPositionY = vehicle.position.y;
-    const originalRouteLength = vehicle.route.stops.length;
-    const originalFinalStop = vehicle.route.stops[vehicle.route.stops.length - 1];
+    expect(isVehicleReturningToBase(vehicle)).toBe(false);
 
     acceptOrder('o2', 'v1');
 
     // New order must be queued, NOT started directly
     expect(vehicle.orderQueue).toContain('o2');
+    expect(vehicle.orderQueue).toHaveLength(1);
 
-    // The original route's final stop (return to Frankfurt) must still be present
-    const finalStop = vehicle.route.stops[vehicle.route.stops.length - 1];
-    expect(finalStop.cityId).toBe(originalFinalStop.cityId);
-    expect(finalStop.action).toBe('return');
-
-    // Route should not have been replaced with o2's pickup/delivery stops
+    // Route should still contain the original pickup/delivery stops (not replaced by o2)
     const hasO2Pickup   = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'pickup');
     const hasO2Delivery = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'delivery');
     expect(hasO2Pickup).toBe(false);
     expect(hasO2Delivery).toBe(false);
+  });
+
+  it('Auftrag wird sofort gestartet wenn Fahrzeug zur Basis zurückkehrt', () => {
+    const vehicle = GS.vehicles[0];
+
+    // Confirm the vehicle is currently returning to base (isVehicleReturningToBase = true)
+    expect(isVehicleReturningToBase(vehicle)).toBe(true);
+
+    acceptOrder('o2', 'v1');
+
+    // New order must be started directly, NOT queued
+    expect(vehicle.orderQueue).not.toContain('o2');
+    expect(vehicle.orderQueue).toHaveLength(0);
+
+    // Vehicle should be driving the new order's route
+    expect(vehicle.status).toBe('driving');
+
+    // Route should now contain o2's pickup and delivery stops
+    const hasO2Pickup   = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'pickup');
+    const hasO2Delivery = vehicle.route.stops.some(s => s.orderId === 'o2' && s.action === 'delivery');
+    expect(hasO2Pickup).toBe(true);
+    expect(hasO2Delivery).toBe(true);
   });
 
   it('Auftrag wird sofort gestartet wenn Fahrzeug bereit (idle)', () => {
