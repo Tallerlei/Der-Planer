@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.13.1**
+> 🔖 **Version: 1.14.0**
 
 ---
 
@@ -83,6 +83,11 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 ### 📣 Marketing *(in Vorbereitung)*
 - Neuer Bürobereich für Werbeverträge (Zeitungsanzeigen, Radio-Spots, Sponsoring).
 - Aktive Werbeverträge beschleunigen den Bekanntheitsgrad-Aufbau und sorgen so für mehr und größere Aufträge.
+
+### ⚡ Performance
+- **Selektive DOM-Updates im Fuhrpark**: Fahrzeugkarten werden nur neu gerendert, wenn sich ihr Inhalt geändert hat (HTML-Caching pro Fahrzeug). Strukturänderungen (Kauf/Verkauf von Fahrzeugen) lösen einen vollständigen Neuaufbau aus, während stabile Zustände nur gezielt aktualisiert werden.
+- **Optimierte Finanzansicht**: KPI-Karten und Transaktionsliste werden nur dann neu in den DOM geschrieben, wenn sich der Inhalt tatsächlich geändert hat. Kreditkarten-HTML wird einmalig gerendert und danach nicht mehr neu erstellt.
+- **Debounced Resize-Handler**: Das `window.resize`-Ereignis wird erst 150 ms nach dem letzten Auslösen verarbeitet, um übermäßige Karten-Neuberechnungen beim Verändern der Fenstergröße zu vermeiden.
 
 ### 📈 Marktereignisse
 - **8 dynamische Ereignisse**: Kraftstoffpreissprünge, Streiks, Rezessionen, Konjunkturbooms, Winterstürme, Autobahnstaus, Umweltvorschriften u. a.

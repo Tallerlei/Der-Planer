@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { rand, randFloat, pick, uid, fmt, findById } from '../utils.js';
+import { describe, it, expect, vi } from 'vitest';
+import { rand, randFloat, pick, uid, fmt, findById, debounce } from '../utils.js';
 
 describe('rand', () => {
   it('returns integer within range', () => {
@@ -85,5 +85,50 @@ describe('findById', () => {
 
   it('returns undefined for empty collection', () => {
     expect(findById([], 'a')).toBeUndefined();
+  });
+});
+
+describe('debounce', () => {
+  it('delays the function call', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced();
+    expect(fn).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
+  it('resets the timer on repeated calls and only fires once', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced();
+    debounced();
+    debounced();
+    vi.advanceTimersByTime(99);
+    expect(fn).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
+  it('passes arguments to the wrapped function', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, 50);
+
+    debounced('a', 42);
+    vi.advanceTimersByTime(50);
+    expect(fn).toHaveBeenCalledWith('a', 42);
+
+    vi.useRealTimers();
   });
 });

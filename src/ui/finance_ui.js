@@ -5,6 +5,17 @@ import { advanceGameTime } from '../game/engine.js';
 import { showToast } from './notifications.js';
 import { TIME_COSTS } from '../constants.js';
 
+/**
+ * Updates an element's innerHTML only when the new content differs from
+ * the current content, avoiding unnecessary DOM rewrites.
+ */
+function _setIfChanged(el, html) {
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
+/** Loan definitions are static – rendered once and cached. */
+let _loansRendered = false;
+
 export function renderFinance() {
   const el = $('finance-kpis');
   if (!el) return;
@@ -21,28 +32,27 @@ export function renderFinance() {
     { label: 'Kraftstoffpreis', value: fmt.moneyDec(GS.market.fuelPrice) + '/L', css: '' },
   ];
 
-  el.innerHTML = kpis.map(k => `
+  _setIfChanged(el, kpis.map(k => `
     <div class="kpi-card">
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-value ${k.css}">${k.value}</div>
-    </div>`).join('');
+    </div>`).join(''));
 
   const txEl = $('transaction-list');
   if (!txEl) return;
   const txs = GS.finance.transactions.slice(0, 40);
-  if (txs.length === 0) {
-    txEl.innerHTML = '<div class="text-muted text-sm">Noch keine Transaktionen.</div>';
-    return;
-  }
-  txEl.innerHTML = txs.map(t => `
+  const txHtml = txs.length === 0
+    ? '<div class="text-muted text-sm">Noch keine Transaktionen.</div>'
+    : txs.map(t => `
     <div class="transaction-row">
       <span class="tr-date">${t.date}</span>
       <span class="tr-desc">${t.desc}</span>
       <span class="tr-amount ${t.amount >= 0 ? 'inc' : 'exp'}">${fmt.money(t.amount)}</span>
     </div>`).join('');
+  _setIfChanged(txEl, txHtml);
 
   const loanEl = $('loan-list');
-  if (loanEl) {
+  if (loanEl && !_loansRendered) {
     const loans = [
       { amount: 20000,  rate: 0.06,  months: 12, label: 'Kurzkredit' },
       { amount: 50000,  rate: 0.05,  months: 24, label: 'Standardkredit' },
@@ -61,6 +71,7 @@ export function renderFinance() {
           Kredit aufnehmen
         </button>
       </div>`).join('');
+    _loansRendered = true;
   }
 }
 

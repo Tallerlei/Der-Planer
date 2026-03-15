@@ -1,4 +1,4 @@
-import { $, fmt, uid, findById } from '../utils.js';
+import { $, fmt, uid, findById, debounce } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById } from '../state.js';
 import { TIME_COSTS, VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS } from '../constants.js';
@@ -139,41 +139,30 @@ function _getQueueTiming(v, cat) {
   });
 }
 
-export function renderFleet() {
-  const listEl = $('fleet-list');
-  if (!listEl) return;
+/**
+ * Builds the HTML string for a single vehicle card.
+ * The outer element carries a `data-vid` attribute used for targeted updates.
+ */
+function _buildVehicleCardHtml(v) {
+  const cat    = findById(DATA.VEHICLES, v.catalogId);
+  const driver = findById(GS.staff, v.driverId);
+  const statusInfo = VEHICLE_STATUS_INFO[v.status] || { badge: 'badge-neutral', label: v.status };
 
-  if (GS.vehicles.length === 0) {
-    listEl.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🚛</div>
-        <h3>Keine Fahrzeuge</h3>
-        <p>Kaufen Sie Ihr erstes Fahrzeug im Fahrzeugkatalog.</p>
-      </div>`;
-    renderTrailerPool();
-    return;
-  }
+  const healthColor = v.health > 60 ? 'green' : v.health > 30 ? 'yellow' : 'red';
+  const fuelColor   = (v.fuel / cat.fuelCapacity * 100) > 30 ? 'green' : 'red';
+  const currentLoc  = v.status === 'driving' && v.route.stops.length > 0
+    ? `→ ${_getCityName(v.route.stops[v.route.stops.length - 1].cityId)}`
+    : _getCityName(v.currentCity);
 
-  listEl.innerHTML = GS.vehicles.map(v => {
-    const cat    = findById(DATA.VEHICLES, v.catalogId);
-    const driver = findById(GS.staff, v.driverId);
-    const statusInfo = VEHICLE_STATUS_INFO[v.status] || { badge: 'badge-neutral', label: v.status };
+  const freeDrivers = GS.staff.filter(s => s.role === 'driver' && !s.vehicleId);
+  const driverOpts  = freeDrivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
 
-    const healthColor = v.health > 60 ? 'green' : v.health > 30 ? 'yellow' : 'red';
-    const fuelColor   = (v.fuel / cat.fuelCapacity * 100) > 30 ? 'green' : 'red';
-    const currentLoc  = v.status === 'driving' && v.route.stops.length > 0
-      ? `→ ${_getCityName(v.route.stops[v.route.stops.length - 1].cityId)}`
-      : _getCityName(v.currentCity);
+  const cargoInfo          = _getCargoInfo(v);
+  const allMeaningfulStops = _allMeaningfulStops(v);
+  const queueTiming        = _getQueueTiming(v, cat);
 
-    const freeDrivers = GS.staff.filter(s => s.role === 'driver' && !s.vehicleId);
-    const driverOpts  = freeDrivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-
-    const cargoInfo          = _getCargoInfo(v);
-    const allMeaningfulStops = _allMeaningfulStops(v);
-    const queueTiming        = _getQueueTiming(v, cat);
-
-    return `
-    <div class="vehicle-card">
+  return `
+    <div class="vehicle-card" data-vid="${v.id}">
       <div class="vehicle-card-header">
         <div class="vehicle-icon-box">${cat.icon}</div>
         <div class="vehicle-info">
@@ -348,7 +337,55 @@ export function renderFleet() {
         ${v.status === 'idle' ? `<button class="btn btn-danger btn-sm" title="Verkaufen: +${TIME_COSTS.sellVehicle} Min" onclick="sellVehicle('${v.id}')">💰 Verkaufen</button>` : ''}
       </div>
     </div>`;
-  }).join('');
+}
+
+/** Per-vehicle HTML cache: maps vehicle id → last rendered HTML string. */
+const _vehicleCardCache = new Map();
+
+export function renderFleet() {
+  const listEl = $('fleet-list');
+  if (!listEl) return;
+
+  if (GS.vehicles.length === 0) {
+    _vehicleCardCache.clear();
+    const emptyHtml = `
+      <div class="empty-state">
+        <div class="empty-icon">🚛</div>
+        <h3>Keine Fahrzeuge</h3>
+        <p>Kaufen Sie Ihr erstes Fahrzeug im Fahrzeugkatalog.</p>
+      </div>`;
+    if (listEl.innerHTML !== emptyHtml) listEl.innerHTML = emptyHtml;
+    renderTrailerPool();
+    return;
+  }
+
+  // Check whether the vehicle list structure (order / membership) has changed.
+  const currentIds = GS.vehicles.map(v => v.id).join(',');
+  const renderedIds = [...listEl.children]
+    .map(el => el.dataset.vid)
+    .filter(Boolean)
+    .join(',');
+
+  if (currentIds !== renderedIds) {
+    // Structure changed: full rebuild and repopulate cache.
+    _vehicleCardCache.clear();
+    listEl.innerHTML = GS.vehicles.map(v => {
+      const html = _buildVehicleCardHtml(v);
+      _vehicleCardCache.set(v.id, html);
+      return html;
+    }).join('');
+  } else {
+    // Structure unchanged: update only cards whose content has changed.
+    const cards = [...listEl.children];
+    GS.vehicles.forEach((v, i) => {
+      const newHtml = _buildVehicleCardHtml(v);
+      if (_vehicleCardCache.get(v.id) !== newHtml) {
+        _vehicleCardCache.set(v.id, newHtml);
+        if (cards[i]) cards[i].outerHTML = newHtml;
+      }
+    });
+  }
+
   renderTrailerPool();
 }
 

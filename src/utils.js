@@ -18,3 +18,16 @@ export function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
 
 /** Returns the first element of `collection` whose `.id` matches `id`, or undefined. */
 export function findById(collection, id) { return collection.find(x => x.id === id); }
+
+/**
+ * Returns a debounced version of `fn` that delays invocation until after
+ * `delay` milliseconds have elapsed since the last call.
+ * Reduces the frequency of execution for high-frequency events (e.g. resize).
+ */
+export function debounce(fn, delay) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
