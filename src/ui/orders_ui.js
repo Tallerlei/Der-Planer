@@ -376,7 +376,7 @@ export function renderOrders() {
       const returningToBase = isVehicleReturningToBase(v);
       const queueInfo = v.status === 'driving' && hasDriver && !returningToBase
         ? ` [Warteschlange: Position ${(v.orderQueue || []).length + 1}]`
-        : returningToBase && hasDriver ? ' [Startet nach Rückkehr]' : '';
+        : returningToBase && hasDriver ? ' [Startet direkt]' : '';
       const noDriverHint = !hasDriver ? ' – Kein Fahrer' : '';
       acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(getVehicleEffectiveCapacity(v))})${queueInfo}${noDriverHint}</option>`;
       return acc;
