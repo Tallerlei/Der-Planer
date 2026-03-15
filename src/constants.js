@@ -1,33 +1,33 @@
-export const APP_VERSION = '1.12.4';
+export const APP_VERSION = '1.13.0';
 
 export const TIME_COSTS = {
-  navigate:      5,
-  assignOrder:  30,
+  navigate: 5,
+  assignOrder: 30,
   dispatchRoute: 30,
-  hireStaff:    15,
-  fireStaff:    15,
-  buyVehicle:   15,
-  sellVehicle:  15,
-  maintenance:  30,
-  repair:       15,
+  hireStaff: 15,
+  fireStaff: 15,
+  buyVehicle: 15,
+  sellVehicle: 15,
+  maintenance: 30,
+  repair: 15,
   assignDriver: 10,
   removeDriver: 10,
-  takeLoan:     15,
-  refreshCand:   5,
-  buyTrailer:   15,
+  takeLoan: 15,
+  refreshCand: 5,
+  buyTrailer: 15,
   detachTrailer: 10,
   attachTrailer: 10,
 };
 
-export const REFUEL_THRESHOLD        = 0.15;
+export const REFUEL_THRESHOLD = 0.15;
 export const REFUEL_DURATION_MINUTES = 15;
-export const RENDER_THROTTLE_MS      = 950;
-export const TOAST_DISPLAY_MS        = 2200;
-export const TOAST_FADE_MS           = 400;
-export const CLOCK_FLASH_MS          = 650;
-export const ORDER_POOL_MULTIPLIER   = 2.5;
-export const MIN_ORDER_POOL          = 8;
-export const MINUTES_PER_TICK        = 1;
+export const RENDER_THROTTLE_MS = 950;
+export const TOAST_DISPLAY_MS = 2200;
+export const TOAST_FADE_MS = 400;
+export const CLOCK_FLASH_MS = 650;
+export const ORDER_POOL_MULTIPLIER = 2.5;
+export const MIN_ORDER_POOL = 8;
+export const MINUTES_PER_TICK = 1;
 
 /** Fraction of each order-generation batch guaranteed to be single-trip
  *  feasible for the current fleet (weight ≤ max vehicle capacity, requirements met). */
@@ -38,15 +38,15 @@ export const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_loa
 
 /** Centralized vehicle status badge class and German label, keyed by status string. */
 export const VEHICLE_STATUS_INFO = {
-  idle:        { badge: 'badge-success',  label: 'Bereit' },
-  driving:     { badge: 'badge-info',     label: 'Unterwegs' },
-  maintenance: { badge: 'badge-warning',  label: 'Wartung' },
-  broken:      { badge: 'badge-danger',   label: 'Defekt' },
+  idle: { badge: 'badge-success', label: 'Bereit' },
+  driving: { badge: 'badge-info', label: 'Unterwegs' },
+  maintenance: { badge: 'badge-warning', label: 'Wartung' },
+  broken: { badge: 'badge-danger', label: 'Defekt' },
 };
 
 /** German labels for meaningful route stop actions. */
 export const NEXT_ACTION_LABELS = {
-  pickup:   'Abholung',
+  pickup: 'Abholung',
   delivery: 'Lieferung',
-  return:   'Rückkehr',
+  return: 'Rückkehr',
 };

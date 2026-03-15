@@ -69,9 +69,67 @@ export function setSpeed(s) {
   GS.speed = s;
   GS.paused = (s === 0);
   startLoop();
-  document.querySelectorAll('.speed-btn').forEach(b => {
+  document.querySelectorAll('.speed-btn[data-speed]').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.speed) === s);
   });
+}
+
+export function jumpToNextEvent() {
+  if (!GS.started || GS.paused) return;
+
+  const drivingVehicles = GS.vehicles.filter(v => v.status === 'driving');
+  if (drivingVehicles.length === 0) {
+    showToast('Keine Fahrzeuge unterwegs', 'info');
+    return;
+  }
+
+  let minMinutes = Infinity;
+
+  for (const v of drivingVehicles) {
+    const stops = v.route && v.route.stops;
+    if (!stops || stops.length < 2) continue;
+
+    const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
+    if (!cat) continue;
+
+    const speedKmH = cat.speed * GS.market.speedMod;
+    const kmPerMinute = speedKmH / 60;
+    if (kmPerMinute <= 0) continue;
+
+    let minutes = 0;
+
+    // Account for active refuel pause
+    if ((v.refuelPauseMinutes || 0) > 0) {
+      minutes += v.refuelPauseMinutes;
+    } else if (v.fuel < cat.fuelCapacity * REFUEL_THRESHOLD) {
+      // Refuel will be triggered on the next tick
+      minutes += REFUEL_DURATION_MINUTES;
+    }
+
+    const idx  = v.route.currentStopIndex;
+    const from = stops[idx];
+    const to   = stops[idx + 1];
+    if (!to || !from) continue;
+
+    const legDist = getDistance(from.cityId, to.cityId);
+    if (legDist <= 0) {
+      // Already at next stop – event is essentially now
+      minMinutes = 0;
+      break;
+    }
+    const legKmDone    = (v.route.progressPct / 100) * legDist;
+    const legRemaining = legDist - legKmDone;
+
+    minutes += legRemaining / kmPerMinute;
+
+    if (minutes < minMinutes) minMinutes = minutes;
+  }
+
+  if (!isFinite(minMinutes) || minMinutes < 0) return;
+
+  // Advance at least 1 minute, always round up to ensure the event is reached
+  const minutesToAdvance = Math.max(1, Math.ceil(minMinutes));
+  advanceGameTime(minutesToAdvance);
 }
 
 // ── Central time advancement ─────────────────────────────────
