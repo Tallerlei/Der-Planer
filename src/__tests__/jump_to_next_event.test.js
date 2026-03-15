@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { jumpToNextEvent } from '../game/engine.js';
 import { GS } from '../state.js';
-import { REFUEL_DURATION_MINUTES, REFUEL_THRESHOLD } from '../constants.js';
+import { REFUEL_DURATION_MINUTES } from '../constants.js';
 
 // Stub out DOM-dependent helpers so tests can run without a browser
 vi.mock('../ui/notifications.js', () => ({ showToast: vi.fn(), showTimeAdvance: vi.fn(), addLogEntry: vi.fn() }));
@@ -37,7 +37,7 @@ function makeVehicle(overrides = {}) {
       coveredDistance: 0,
       stops: [
         { cityId: 'cityA', action: 'depart' },
-        { cityId: 'cityB', action: 'transit' },
+        { cityId: 'cityB', action: 'delivery' },
       ],
     },
     ...overrides,
@@ -89,12 +89,9 @@ describe('jumpToNextEvent', () => {
     expect(GS.time.totalMinutes).toBe(43);
   });
 
-  it('adds REFUEL_DURATION_MINUTES when vehicle fuel is below threshold', () => {
-    // fuel below threshold → REFUEL_DURATION_MINUTES (15) added
-    // 15 + 37.5 = 52.5 → Math.ceil = 53
-    const cat = { id: 'truck_small', fuelCapacity: 150 };
-    const lowFuel = cat.fuelCapacity * REFUEL_THRESHOLD - 1; // just below threshold
-    GS.vehicles = [makeVehicle({ fuel: lowFuel })];
+  it('adds REFUEL_DURATION_MINUTES when vehicle has an active refuel pause of that duration', () => {
+    // refuelPauseMinutes=REFUEL_DURATION_MINUTES (15) + legRemaining/speed=37.5 = 52.5 → Math.ceil = 53
+    GS.vehicles = [makeVehicle({ refuelPauseMinutes: REFUEL_DURATION_MINUTES })];
     jumpToNextEvent();
     expect(GS.time.totalMinutes).toBe(REFUEL_DURATION_MINUTES + 38); // 15 + 38 = 53
   });
@@ -110,7 +107,7 @@ describe('jumpToNextEvent', () => {
         coveredDistance: 0,
         stops: [
           { cityId: 'cityA', action: 'depart' },
-          { cityId: 'cityB', action: 'transit' },
+          { cityId: 'cityB', action: 'delivery' },
         ],
       }}),
     ];
