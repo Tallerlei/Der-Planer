@@ -6,6 +6,7 @@ import {
   RENDER_THROTTLE_MS, MINUTES_PER_TICK,
   ORDER_POOL_MULTIPLIER, MIN_ORDER_POOL, REP_TIER_MAX_WEIGHT, REQ_LABELS,
   FLEET_COMPATIBLE_ORDER_RATIO,
+  BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS,
 } from '../constants.js';
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction } from './finance.js';
@@ -476,12 +477,15 @@ export function generateOrders() {
     const weight  = rand(minTons, maxTons) * 1000;
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
     const loyaltyBonus = getClientReputation(client.id) >= 75 ? 1.05 : 1.0;
-    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * loyaltyBonus * randFloat(0.85, 1.15));
+    const freightFactor = CARGO_TYPE_KM_FACTORS[template.type] ?? 1.0;
+    const baseKmPrice = randFloat(BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE);
+    const baseVal = Math.round(baseKmPrice * dist * freightFactor * valueMod * loyaltyBonus);
 
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
     const deadlineDays = rand(2, 5);
     const isUrgent = Math.random() < 0.15;
+    const urgencyFactor = isUrgent ? 1.4 : 1.0;
 
     ensureClientStats(client.id);
     GS.clientStats[client.id].offered++;
@@ -499,11 +503,14 @@ export function generateOrders() {
       remainingWeight: weight,
       tripsCompleted: 0,
       requirements: [...template.requirements],
-      value: isUrgent ? Math.round(baseVal * 1.4) : baseVal,
+      value: Math.round(baseVal * urgencyFactor),
       penalty: Math.round(baseVal * 0.1 * DATA.DIFFICULTY[GS.company.difficulty].orderPenaltyMod),
       bonus: Math.round(baseVal * 0.08),
       deadlineDays: isUrgent ? 1 : deadlineDays,
       isUrgent,
+      urgencyFactor,
+      freightFactor,
+      pricePerKm: baseKmPrice,
       expiresInDays: rand(1, 2),
       receivedMinute: GS.time.totalMinutes,
       channel,
@@ -544,7 +551,9 @@ export function injectTierOrders(tier, count) {
     const weight = rand(minTons, maxTons) * 1000;
     const valueMod = GS.market.orderValueMod * diff.orderFrequency;
     const loyaltyBonus = getClientReputation(client.id) >= 75 ? 1.05 : 1.0;
-    const baseVal = Math.round(template.baseValue * (dist / 300) * valueMod * loyaltyBonus * randFloat(0.85, 1.15));
+    const freightFactor = CARGO_TYPE_KM_FACTORS[template.type] ?? 1.0;
+    const baseKmPrice = randFloat(BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE);
+    const baseVal = Math.round(baseKmPrice * dist * freightFactor * valueMod * loyaltyBonus);
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
 
@@ -569,6 +578,9 @@ export function injectTierOrders(tier, count) {
       bonus: Math.round(baseVal * 0.08),
       deadlineDays: rand(2, 5),
       isUrgent: false,
+      urgencyFactor: 1.0,
+      freightFactor,
+      pricePerKm: baseKmPrice,
       expiresInDays: 2,
       receivedMinute: GS.time.totalMinutes,
       channel,
@@ -581,6 +593,83 @@ export function injectTierOrders(tier, count) {
   }
   _render('orders-badge');
   if (document.getElementById('order-list-available')) _render('orders');
+}
+
+/**
+ * Developer balancing tool – generates simulated orders and logs per-cargo-type
+ * price statistics to the browser console.
+ *
+ * Call from DevTools: `import('/src/game/engine.js').then(m => m.runBalancingTest())`
+ * or expose it via window in main.js for quick console access.
+ *
+ * Only uses static DATA (no GS state required). Safe to call at any time.
+ * @param {number} [sampleSize=100] Number of simulated orders to generate.
+ */
+export function runBalancingTest(sampleSize = 100) {
+  const typeStats = {};
+  const allRates = [];
+
+  for (let i = 0; i < sampleSize; i++) {
+    const template = DATA.ORDER_TEMPLATES[Math.floor(Math.random() * DATA.ORDER_TEMPLATES.length)];
+    const origins  = DATA.CITIES.filter(c => c.country === 'DE');
+    const originC  = origins[Math.floor(Math.random() * origins.length)];
+    let destC;
+    do { destC = DATA.CITIES[Math.floor(Math.random() * DATA.CITIES.length)]; }
+    while (destC.id === originC.id);
+
+    const dist = getDistance(originC.id, destC.id);
+    if (!dist || dist <= 0) continue;
+
+    const freightFactor = CARGO_TYPE_KM_FACTORS[template.type] ?? 1.0;
+    const baseKmPrice   = BASE_MIN_KM_PRICE + Math.random() * (BASE_MAX_KM_PRICE - BASE_MIN_KM_PRICE);
+    const isUrgent      = Math.random() < 0.15;
+    const urgencyFactor = isUrgent ? 1.4 : 1.0;
+    const effectiveKmRate = baseKmPrice * freightFactor * urgencyFactor;
+
+    if (!typeStats[template.type]) {
+      typeStats[template.type] = { count: 0, sum: 0, min: Infinity, max: -Infinity };
+    }
+    const ts = typeStats[template.type];
+    ts.count++;
+    ts.sum += effectiveKmRate;
+    if (effectiveKmRate < ts.min) ts.min = effectiveKmRate;
+    if (effectiveKmRate > ts.max) ts.max = effectiveKmRate;
+    allRates.push(effectiveKmRate);
+  }
+
+  const overallAvg = allRates.reduce((a, b) => a + b, 0) / (allRates.length || 1);
+  const overallMin = Math.min(...allRates);
+  const overallMax = Math.max(...allRates);
+
+  console.group(`%c🔬 Balancing-Test: ${sampleSize} Aufträge`, 'font-weight:bold');
+  console.log(`Basis: ${BASE_MIN_KM_PRICE}–${BASE_MAX_KM_PRICE} €/km`);
+  console.log(`Gesamt – Ø ${overallAvg.toFixed(2)} €/km  |  Min ${overallMin.toFixed(2)}  |  Max ${overallMax.toFixed(2)}`);
+
+  const rows = Object.entries(typeStats).map(([type, s]) => ({
+    Typ: type,
+    Faktor: `×${(CARGO_TYPE_KM_FACTORS[type] ?? 1).toFixed(1)}`,
+    Anzahl: s.count,
+    'Ø €/km': s.sum / s.count,
+    'Min €/km': s.min,
+    'Max €/km': s.max,
+  }));
+  console.table(rows);
+
+  // ASCII histogram (bucket size 1 €/km, range 4–22)
+  const buckets = Array(19).fill(0);
+  for (const r of allRates) {
+    const idx = Math.min(18, Math.max(0, Math.floor(r) - 4));
+    buckets[idx]++;
+  }
+  const maxBucket = Math.max(...buckets);
+  const barWidth = 30;
+  console.log('\nHistogramm (€/km):');
+  buckets.forEach((cnt, i) => {
+    const label = `${(i + 4).toString().padStart(2)} €/km`;
+    const bar   = '█'.repeat(Math.round((cnt / maxBucket) * barWidth));
+    console.log(`  ${label} | ${bar} (${cnt})`);
+  });
+  console.groupEnd();
 }
 
 export function checkReputationTierChange(oldRep, newRep) {

@@ -4,6 +4,7 @@ import {
   RENDER_THROTTLE_MS, TOAST_DISPLAY_MS, ORDER_POOL_MULTIPLIER, MINUTES_PER_TICK,
   REP_TIER_MAX_WEIGHT, REQ_LABELS, FLEET_COMPATIBLE_ORDER_RATIO,
   VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS,
+  BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS,
 } from '../constants.js';
 
 describe('APP_VERSION', () => {
@@ -99,6 +100,52 @@ describe('NEXT_ACTION_LABELS', () => {
     for (const label of Object.values(NEXT_ACTION_LABELS)) {
       expect(typeof label).toBe('string');
       expect(label.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('BASE_MIN_KM_PRICE / BASE_MAX_KM_PRICE', () => {
+  it('are positive numbers', () => {
+    expect(BASE_MIN_KM_PRICE).toBeGreaterThan(0);
+    expect(BASE_MAX_KM_PRICE).toBeGreaterThan(0);
+  });
+
+  it('min is less than max', () => {
+    expect(BASE_MIN_KM_PRICE).toBeLessThan(BASE_MAX_KM_PRICE);
+  });
+
+  it('define the 5–12 €/km range', () => {
+    expect(BASE_MIN_KM_PRICE).toBe(5.0);
+    expect(BASE_MAX_KM_PRICE).toBe(12.0);
+  });
+});
+
+describe('CARGO_TYPE_KM_FACTORS', () => {
+  it('has entries for all standard cargo types', () => {
+    const expected = ['general', 'food', 'building', 'liquid', 'cooling', 'auto', 'heavy', 'medical', 'fuel', 'hazmat'];
+    for (const type of expected) {
+      expect(CARGO_TYPE_KM_FACTORS).toHaveProperty(type);
+      expect(typeof CARGO_TYPE_KM_FACTORS[type]).toBe('number');
+      expect(CARGO_TYPE_KM_FACTORS[type]).toBeGreaterThan(0);
+    }
+  });
+
+  it('general type has factor 1.0 (base)', () => {
+    expect(CARGO_TYPE_KM_FACTORS.general).toBe(1.0);
+  });
+
+  it('cooling type has factor 1.3 (as specified)', () => {
+    expect(CARGO_TYPE_KM_FACTORS.cooling).toBe(1.3);
+  });
+
+  it('hazmat and fuel factors are higher than cooling (ADR premium)', () => {
+    expect(CARGO_TYPE_KM_FACTORS.hazmat).toBeGreaterThan(CARGO_TYPE_KM_FACTORS.cooling);
+    expect(CARGO_TYPE_KM_FACTORS.fuel).toBeGreaterThan(CARGO_TYPE_KM_FACTORS.cooling);
+  });
+
+  it('all factors are >= 1.0 (never cheaper than standard)', () => {
+    for (const factor of Object.values(CARGO_TYPE_KM_FACTORS)) {
+      expect(factor).toBeGreaterThanOrEqual(1.0);
     }
   });
 });

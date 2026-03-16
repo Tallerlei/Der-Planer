@@ -1,7 +1,7 @@
 import { $, fmt } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
-import { TIME_COSTS, REQ_LABELS } from '../constants.js';
+import { TIME_COSTS, REQ_LABELS, BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS } from '../constants.js';
 import { canFulfillOrder, isOrderAvailable } from '../game/orders.js';
 import {
   acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
@@ -329,6 +329,17 @@ export function renderOrders() {
     const valueForKm = (tab === 'completed' && o.finalValue != null) ? o.finalValue : o.value;
     const eurPerKm  = totalKm > 0 ? Math.round(valueForKm / totalKm) : 0;
 
+    // ── €/km tooltip with factor breakdown ───────────────────────
+    const cargoTypeName = (DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || {}).label || o.cargoType;
+    const fFactor  = o.freightFactor  ?? (CARGO_TYPE_KM_FACTORS[o.cargoType] ?? 1.0);
+    const uFactor  = o.urgencyFactor  ?? (o.isUrgent ? 1.4 : 1.0);
+    const baseRate = o.pricePerKm     ?? null;
+    let kmTooltipParts = [`Basis: ${BASE_MIN_KM_PRICE}–${BASE_MAX_KM_PRICE} €/km`];
+    if (baseRate !== null) kmTooltipParts.push(`Basispreis: ${baseRate.toFixed(2)} €/km`);
+    kmTooltipParts.push(`${cargoTypeName}: ×${fFactor.toFixed(1)}`);
+    if (o.isUrgent) kmTooltipParts.push(`Eilauftrag: ×${uFactor.toFixed(1)}`);
+    const kmTooltip = kmTooltipParts.join(' · ');
+
     // ── Deadline display ─────────────────────────────────────────
     let deadlineHtml = '';
     let deadlineMetaHtml = '';
@@ -439,7 +450,7 @@ export function renderOrders() {
         ${deadlineMetaHtml}
         ${tab !== 'completed' ? `<span>🎁 Bonus: ${fmt.money(o.bonus)}</span>` : ''}
         <span>${kmLabel}</span>
-        <span>💰 ${fmt.money(eurPerKm)}/km</span>
+        <span title="${kmTooltip}">💰 ${fmt.money(eurPerKm)}/km</span>
         ${o.requirements.length ? `<span>⚠️ ${o.requirements.map(r => REQ_LABELS[r] || r).join(', ')}</span>` : ''}
       </div>
 
