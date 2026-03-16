@@ -53,6 +53,120 @@ function ensureClientStats(clientId) {
   }
 }
 
+// ── Timestamp helpers ────────────────────────────────────────
+function currentTimeSnapshot() {
+  const { day, month, year, hour, minute } = GS.time;
+  return { day, month, year, hour, minute };
+}
+
+function _fmtTS(ts) {
+  if (!ts) return '–';
+  return `${fmt.date(ts.day, ts.month, ts.year)} ${fmt.time(ts.hour, ts.minute)}`;
+}
+
+function _addDaysToDate(ts, days) {
+  const baseDays = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let { day, month, year, hour, minute } = { ...ts };
+  day += days;
+  while (true) {
+    const febDays = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 29 : 28;
+    const monthDays = month === 2 ? febDays : baseDays[month];
+    if (day <= monthDays) break;
+    day -= monthDays;
+    month++;
+    if (month > 12) { month = 1; year++; }
+  }
+  return { day, month, year, hour, minute };
+}
+
+// ── Order failure modal queue ────────────────────────────────
+const _failureQueue = [];
+let _failureModalOpen = false;
+
+function _showNextFailureModal() {
+  if (_failureModalOpen || _failureQueue.length === 0) return;
+
+  const { order, failureType, penaltyAmount } = _failureQueue.shift();
+  _failureModalOpen = true;
+
+  const prevSpeed  = GS.speed;
+  setSpeed(0);
+
+  const originName = getCityName(order.origin);
+  const destName   = getCityName(order.destination);
+  const wt         = fmt.weight(order.weight);
+
+  let title, body;
+
+  if (failureType === 'expired') {
+    const repLoss = clientRepExpiryLoss(getClientReputation(order.clientId));
+    title = '❌ Auftrag abgelaufen';
+    body = `
+      <div class="failure-modal">
+        <div class="failure-header">
+          <strong>${order.clientName}</strong>
+          <div class="text-sm text-muted">${order.cargoDesc} · ${wt} &nbsp;|&nbsp; ${originName} → ${destName}</div>
+        </div>
+        <table class="failure-timeline">
+          <tr><td>📬 Auftrag erhalten</td><td>${_fmtTS(order.receivedAt)}</td></tr>
+          <tr class="tl-miss"><td>✅ Angenommen</td><td><span class="text-muted">–</span></td></tr>
+          <tr class="tl-fail"><td>⏰ Abgelaufen</td><td>${_fmtTS(order.expiredAt)}</td></tr>
+        </table>
+        <div class="failure-impact">
+          <div class="failure-impact-row"><span>💸 Entgangener Wert</span><span class="fi-value text-danger">${fmt.money(order.value)}</span></div>
+          <div class="failure-impact-row"><span>📉 Kundenzufriedenheit</span><span class="fi-value text-danger">−${repLoss} Punkte</span></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Schließen</button></div>
+      </div>`;
+  } else {
+    const deadlineAt     = order.acceptedAt ? _addDaysToDate(order.acceptedAt, order.deadlineDays) : null;
+    const minutesTaken   = (order.completedMinute || 0) - (order.acceptedMinute || 0);
+    const deadlineMin    = order.deadlineDays * 1440;
+    const minutesLate    = minutesTaken - deadlineMin;
+    const hoursLate      = Math.floor(minutesLate / 60);
+    const minsLatePart   = minutesLate % 60;
+    const lateStr        = hoursLate > 0
+      ? `+${hoursLate} Std. ${minsLatePart} Min. verspätet`
+      : `+${minsLatePart} Min. verspätet`;
+
+    title = '⚠️ Lieferung verspätet';
+    body = `
+      <div class="failure-modal">
+        <div class="failure-header">
+          <strong>${order.clientName}</strong>
+          <div class="text-sm text-muted">${order.cargoDesc} · ${wt} &nbsp;|&nbsp; ${originName} → ${destName}</div>
+        </div>
+        <table class="failure-timeline">
+          <tr><td>📬 Auftrag erhalten</td><td>${_fmtTS(order.receivedAt)}</td></tr>
+          <tr><td>✅ Angenommen</td><td>${_fmtTS(order.acceptedAt)}</td></tr>
+          ${order.pickedUpAt ? `<tr><td>📦 Ware abgeholt</td><td>${_fmtTS(order.pickedUpAt)}</td></tr>` : ''}
+          <tr class="tl-warn"><td>📅 Deadline</td><td>${_fmtTS(deadlineAt)}</td></tr>
+          <tr class="tl-fail"><td>🚚 Geliefert</td><td>${_fmtTS(order.completedAt)} <span class="text-danger text-sm">(${lateStr})</span></td></tr>
+        </table>
+        <div class="failure-impact">
+          <div class="failure-impact-row"><span>Auftragswert</span><span class="fi-value">${fmt.money(order.value)}</span></div>
+          <div class="failure-impact-row"><span>Vertragsstrafe</span><span class="fi-value text-danger">−${fmt.money(penaltyAmount)}</span></div>
+          <div class="failure-impact-row fi-total"><span><strong>Ausgezahlt</strong></span><span class="fi-value"><strong>${fmt.money(order.finalValue)}</strong></span></div>
+          <div class="failure-impact-row"><span>📉 Kundenzufriedenheit</span><span class="fi-value text-danger">−2 Punkte</span></div>
+          <div class="failure-impact-row"><span>📉 Unternehmensansehen</span><span class="fi-value text-danger">−3 Punkte</span></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Schließen</button></div>
+      </div>`;
+  }
+
+  openModal(title, body, () => {
+    _failureModalOpen = false;
+    if (prevSpeed !== 0) setSpeed(prevSpeed);
+    // Brief delay to allow modal fade-out animation (0.15s) before showing the next one
+    setTimeout(_showNextFailureModal, 200);
+  });
+}
+
+function _enqueueOrderFailure(order, failureType, penaltyAmount = 0) {
+  _failureQueue.push({ order, failureType, penaltyAmount });
+  _showNextFailureModal();
+}
+
 // ── Game loop ────────────────────────────────────────────────
 let loopInterval = null;
 
@@ -322,6 +436,7 @@ export function processStopAction(v, stop) {
   if (!order) return;
 
   if (stop.action === 'pickup') {
+    order.pickedUpAt = currentTimeSnapshot();
     showToast(`${v.name}: Ware abgeholt in ${getCityName(stop.cityId)}`, 'info');
   } else if (stop.action === 'delivery') {
     const remaining = order.remainingWeight !== undefined ? order.remainingWeight : order.weight;
@@ -388,18 +503,20 @@ export function completeOrder(order, vehicle) {
   let finalValue = order.value;
   const onTime = minutesTaken <= deadlineMin;
 
+  let penaltyAmount = 0;
   if (onTime) {
     finalValue += order.bonus;
     showToast(`✅ Lieferung abgeschlossen: +${fmt.money(finalValue)}`, 'success');
   } else {
     const hoursLate = Math.floor((minutesTaken - deadlineMin) / 60);
-    const penalty = Math.min(order.value * 0.5, order.penalty * hoursLate);
-    finalValue = Math.max(0, order.value - penalty);
-    showToast(`⚠️ Lieferung verspätet: +${fmt.money(finalValue)} (Strafe: ${fmt.money(penalty)})`, 'warning');
+    penaltyAmount = Math.min(order.value * 0.5, order.penalty * hoursLate);
+    finalValue = Math.max(0, order.value - penaltyAmount);
+    showToast(`⚠️ Lieferung verspätet: +${fmt.money(finalValue)} (Strafe: ${fmt.money(penaltyAmount)})`, 'warning');
   }
 
   order.status = 'completed';
   order.completedMinute = now;
+  order.completedAt = currentTimeSnapshot();
   order.finalValue = finalValue;
 
   GS.orders.active.splice(idx, 1);
@@ -413,6 +530,7 @@ export function completeOrder(order, vehicle) {
   } else {
     GS.clientStats[order.clientId].failed++;
     changeClientReputation(order.clientId, -2);
+    _enqueueOrderFailure(order, 'late', penaltyAmount);
   }
 
   addTransaction(
@@ -513,11 +631,16 @@ export function generateOrders() {
       pricePerKm: baseKmPrice,
       expiresInDays: rand(1, 2),
       receivedMinute: GS.time.totalMinutes,
+      receivedAt: currentTimeSnapshot(),
       channel,
       status: 'available',
       vehicleId: null,
       acceptedMinute: null,
+      acceptedAt: null,
+      pickedUpAt: null,
       completedMinute: null,
+      completedAt: null,
+      expiredAt: null,
       finalValue: null,
     });
   }
@@ -583,11 +706,16 @@ export function injectTierOrders(tier, count) {
       pricePerKm: baseKmPrice,
       expiresInDays: 2,
       receivedMinute: GS.time.totalMinutes,
+      receivedAt: currentTimeSnapshot(),
       channel,
       status: 'available',
       vehicleId: null,
       acceptedMinute: null,
+      acceptedAt: null,
+      pickedUpAt: null,
       completedMinute: null,
+      completedAt: null,
+      expiredAt: null,
       finalValue: null,
     });
   }
@@ -687,11 +815,13 @@ export function expireOrders() {
   GS.orders.available = GS.orders.available.filter(order => {
     const ageMin = now - order.receivedMinute;
     if (ageMin > order.expiresInDays * 1440) {
+      order.expiredAt = currentTimeSnapshot();
       order.status = 'expired';
       GS.orders.declined.unshift(order);
       ensureClientStats(order.clientId);
       GS.clientStats[order.clientId].failed++;
       changeClientReputation(order.clientId, -clientRepExpiryLoss(getClientReputation(order.clientId)));
+      _enqueueOrderFailure(order, 'expired');
       return false;
     }
     return true;
@@ -724,6 +854,7 @@ export function acceptOrder(orderId, vehicleId) {
   order.status = 'accepted';
   order.vehicleId = vehicleId;
   order.acceptedMinute = GS.time.totalMinutes;
+  order.acceptedAt = currentTimeSnapshot();
   GS.orders.active.push(order);
 
   ensureClientStats(order.clientId);

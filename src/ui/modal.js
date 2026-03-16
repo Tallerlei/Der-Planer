@@ -2,14 +2,22 @@ import { $ } from '../utils.js';
 import { GS } from '../state.js';
 import { fmt } from '../utils.js';
 
-export function openModal(title, bodyHtml) {
+let _onCloseCallback = null;
+
+export function openModal(title, bodyHtml, onClose = null) {
   $('modal-title').textContent = title;
   $('modal-body').innerHTML   = bodyHtml;
   $('modal-overlay').classList.add('open');
+  _onCloseCallback = onClose;
 }
 
 export function closeModal() {
   $('modal-overlay').classList.remove('open');
+  if (_onCloseCallback) {
+    const cb = _onCloseCallback;
+    _onCloseCallback = null;
+    cb();
+  }
 }
 
 export function openEventsModal() {
