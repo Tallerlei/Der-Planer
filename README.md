@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.14.1**
+> 🔖 **Version: 1.15.0**
 
 ---
 
@@ -39,8 +39,8 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Aufträge haben eine Verfallszeit (2 Spieltage) und dynamische Preise je nach Frachttyp und Schwierigkeitsgrad.
 - **Fuhrpark-adaptives Auftragssystem**: Auftragsgewichte passen sich an die aktuelle Gesamtkapazität des Fuhrparks an. Normale Aufträge bleiben innerhalb der Flottenkapazität; 15 % der Aufträge sind **Großaufträge** (🏋️) mit höherem Gewicht und +50 % Vergütung.
 - **Garantierte erfüllbare Aufträge**: Bei jeder Auftragsgeneration sind mindestens 40 % der neuen Aufträge (mind. 1) auf die aktuelle Flotte zugeschnitten – die Gewichte bleiben innerhalb der maximalen Fahrzeugkapazität und alle Sonderanforderungen (Kühlung, ADR usw.) können vom Fuhrpark erfüllt werden.
-- **Warenklassen mit Vergütungsfaktoren**: Jede Ware gehört einer Klasse an, die die Basispauschale multipliziert – Standardware (×1,0), Kühlware (×1,4), Sperrgut (×1,2), Gefahrgut (×1,8). Eilaufträge (⚡) erhalten den Faktor 1,5.
-- **Distanzbasierte Vergütungsformel**: `Basispauschale × Distanzfaktor × Warenfaktor × Marktmodifikator × Zufallsspanne ±20 %`
+- **Warenklassen mit Vergütungsfaktoren**: Jede Ware gehört einer Klasse an, die den Basis-km-Preis multipliziert – Standardware/Baustoffe (×1,0), Lebensmittel/Flüssigkeiten (×1,1), Kühlware (×1,3), Fahrzeugteile/Schwerlast (×1,2), Kraftstoff/Gefahrgut/Medizingüter (×1,5). Eilaufträge (⚡) erhalten zusätzlich den Faktor 1,4.
+- **Distanzbasierte Vergütungsformel**: `random(5, 12) €/km × Distanz × Warenfaktor × Eilfaktor × Marktmodifikator × Kundenbindungsbonus` – die Basisspanne von 5–12 €/km garantiert faire und konsistente Wirtschaftlichkeit. Jede Auftragskarte zeigt beim €/km-Wert einen Tooltip mit vollständiger Faktor-Aufschlüsselung.
 - **Kundenbindungsbonus**: Kunden mit einem Ansehen ≥ 75 bieten 5 % bessere Konditionen.
 - **Automatischer Auftragsablauf**: Verfallene Aufträge werden automatisch entfernt und senken die Reputation beim jeweiligen Auftraggeber um −3 Punkte.
 - **Kundenstatus (Kundenansehen)**: Jeder Auftraggeber hat ein eigenes Ansehen (0–100, Start: 50), das in den Auftragskarten als Sternbewertung angezeigt wird. Erfüllte Aufträge erhöhen das Ansehen – mit **sinkenden Zuwächsen** je höher der Wert bereits ist.
