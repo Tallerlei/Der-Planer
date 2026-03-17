@@ -122,8 +122,8 @@ function sortOrders(orders, tab) {
         vb = b.receivedMinute + (b.expiresInDays * 1440) - GS.time.totalMinutes;
         break;
       case 'deadline':
-        va = a.acceptedMinute !== null ? a.acceptedMinute + a.deadlineDays * 1440 : a.deadlineDays * 1440;
-        vb = b.acceptedMinute !== null ? b.acceptedMinute + b.deadlineDays * 1440 : b.deadlineDays * 1440;
+        va = a.receivedMinute + a.deadlineDays * 1440;
+        vb = b.receivedMinute + b.deadlineDays * 1440;
         break;
       case 'completed':
         va = a.completedMinute ?? 0;
@@ -354,12 +354,10 @@ export function renderOrders() {
       const hoursLeft = Math.max(0, Math.floor(expiresIn / 60));
       deadlineHtml = `<span class="order-deadline ${hoursLeft < 12 ? 'badge-danger' : 'badge-warning'} badge">
         ⏱ noch ${hoursLeft}h</span>`;
-      const deadlineDateTime = gameMinutesToDateTime(GS.time.totalMinutes + o.deadlineDays * 1440);
+      const deadlineDateTime = gameMinutesToDateTime(o.receivedMinute + o.deadlineDays * 1440);
       deadlineMetaHtml = `<span>${o.isUrgent ? '🔴' : '📅'} Frist: ${deadlineDateTime}</span>`;
     } else if (tab === 'active') {
-      const deadlineDateTime = o.acceptedMinute !== null
-        ? gameMinutesToDateTime(o.acceptedMinute + o.deadlineDays * 1440)
-        : `${o.deadlineDays} ${o.deadlineDays === 1 ? 'Tag' : 'Tage'}`;
+      const deadlineDateTime = gameMinutesToDateTime(o.receivedMinute + o.deadlineDays * 1440);
       deadlineMetaHtml = `<span>${o.isUrgent ? '🔴' : '📅'} Frist: ${deadlineDateTime}</span>`;
     }
 
