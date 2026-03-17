@@ -87,6 +87,7 @@ const SORT_LABELS = {
   expires:    'Ablaufzeit',
   deadline:   'Frist',
   completed:  'Abschluss',
+  status:     'Status',
 };
 
 /** Returns a sorted copy of the orders array for the given tab. */
@@ -127,6 +128,10 @@ function sortOrders(orders, tab) {
       case 'completed':
         va = a.completedMinute ?? 0;
         vb = b.completedMinute ?? 0;
+        break;
+      case 'status':
+        va = (a.finalValue !== undefined && a.finalValue < a.value) ? 1 : 0;
+        vb = (b.finalValue !== undefined && b.finalValue < b.value) ? 1 : 0;
         break;
     }
     return (va - vb) * mul;
@@ -266,7 +271,7 @@ export function renderOrders() {
   let orders = [];
   if (tab === 'available') orders = GS.orders.available.filter(isOrderAvailable);
   if (tab === 'active')    orders = GS.orders.active;
-  if (tab === 'completed') orders = GS.orders.completed.slice(0, 50);
+  if (tab === 'completed') orders = GS.orders.completed.slice(0, GS.ui.completedLimit);
 
   updateSortBar(tab);
   orders = sortOrders(orders, tab);
@@ -495,7 +500,17 @@ export function renderOrders() {
        </div>`
     : '';
 
-  el.innerHTML = cards + rejectBtn;
+  let showMoreBtn = '';
+  if (tab === 'completed' && GS.orders.completed.length > GS.ui.completedLimit) {
+    const remaining = GS.orders.completed.length - GS.ui.completedLimit;
+    showMoreBtn = `<div class="order-show-more">
+      <button class="btn btn-secondary" onclick="showMoreCompletedOrders()">
+        ⬇ Weitere anzeigen (${remaining} verbleibend)
+      </button>
+    </div>`;
+  }
+
+  el.innerHTML = cards + rejectBtn + showMoreBtn;
 
   // Attach client-link click handlers via event delegation (avoids inline onclick interpolation)
   el.querySelectorAll('.client-link[data-client-id]').forEach(link => {
@@ -503,10 +518,16 @@ export function renderOrders() {
   });
 }
 
+export function showMoreCompletedOrders() {
+  GS.ui.completedLimit += 10;
+  renderOrders();
+}
+
 export function switchOrderTab(tab) {
   GS.ui.orderTab = tab;
+  if (tab === 'completed') GS.ui.completedLimit = 10;
   // Reset sort field when switching to a tab where the current field doesn't apply
-  const tabSpecificFields = { expires: 'available', deadline: 'active', completed: 'completed' };
+  const tabSpecificFields = { expires: 'available', deadline: 'active', completed: 'completed', status: 'completed' };
   const curField = GS.ui.orderSort.field;
   if (tabSpecificFields[curField] && tabSpecificFields[curField] !== tab) {
     GS.ui.orderSort.field = 'value';
