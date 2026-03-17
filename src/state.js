@@ -66,6 +66,7 @@ export const GS = {
     selectedVehicleId: null,
     orderVehicleSelection: {},
     orderSort: { field: 'value', dir: 'desc' },
+    completedLimit: 10,
   },
 
   clientReputation: {},

@@ -14,7 +14,7 @@ import { showToast } from './ui/notifications.js';
 import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
 import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle, buyTrailerForVehicle, detachTrailerFromVehicle, attachTrailerToVehicle, sellTrailer } from './ui/fleet.js';
-import { renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal, setOrderSort } from './ui/orders_ui.js';
+import { renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal, setOrderSort, showMoreCompletedOrders } from './ui/orders_ui.js';
 import {
   renderRoutePlanner, selectRouteVehicle, removeRouteStop, dispatchRoute, handleMapClick, drawRouteMap,
 } from './ui/routes.js';
@@ -70,6 +70,7 @@ Object.assign(window, {
   switchOrderTab,
   openClientModal,
   setOrderSort,
+  showMoreCompletedOrders,
 
   assignDriver,
   removeDriver,
