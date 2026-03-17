@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.15.0**
+> 🔖 **Version: 1.16.0**
 
 ---
 
@@ -42,6 +42,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Warenklassen mit Vergütungsfaktoren**: Jede Ware gehört einer Klasse an, die den Basis-km-Preis multipliziert – Standardware/Baustoffe (×1,0), Lebensmittel/Flüssigkeiten (×1,1), Kühlware (×1,3), Fahrzeugteile/Schwerlast (×1,2), Kraftstoff/Gefahrgut/Medizingüter (×1,5). Eilaufträge (⚡) erhalten zusätzlich den Faktor 1,4.
 - **Distanzbasierte Vergütungsformel**: `random(5, 12) €/km × Distanz × Warenfaktor × Eilfaktor × Marktmodifikator × Kundenbindungsbonus` – die Basisspanne von 5–12 €/km garantiert faire und konsistente Wirtschaftlichkeit. Jede Auftragskarte zeigt beim €/km-Wert einen Tooltip mit vollständiger Faktor-Aufschlüsselung.
 - **Kundenbindungsbonus**: Kunden mit einem Ansehen ≥ 75 bieten 5 % bessere Konditionen.
+- **Auftragsfehler-Popup**: Bei einem abgelaufenen oder verspätet gelieferten Auftrag erscheint ein detailliertes Pop-up mit allen relevanten Zeitstempeln (Erhalten, Angenommen, Abgeholt, Deadline, Geliefert) und den finanziellen Auswirkungen. Das Spiel wird dabei automatisch pausiert. Mehrere Fehlermeldungen werden nacheinander angezeigt.
 - **Automatischer Auftragsablauf**: Verfallene Aufträge werden automatisch entfernt und senken die Reputation beim jeweiligen Auftraggeber um −3 Punkte.
 - **Kundenstatus (Kundenansehen)**: Jeder Auftraggeber hat ein eigenes Ansehen (0–100, Start: 50), das in den Auftragskarten als Sternbewertung angezeigt wird. Erfüllte Aufträge erhöhen das Ansehen – mit **sinkenden Zuwächsen** je höher der Wert bereits ist.
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.

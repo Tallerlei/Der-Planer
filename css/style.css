@@ -1293,3 +1293,55 @@ tr:hover td { background: var(--surface2); }
   transition: opacity 0.15s;
 }
 .sb-log-btn:hover { opacity: 1; }
+
+/* ── Order failure modal ────────────────────────────────────── */
+.text-danger { color: var(--danger); }
+
+.failure-header {
+  margin-bottom: 1rem;
+}
+.failure-header strong { font-size: 1rem; }
+
+.failure-timeline {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+.failure-timeline td {
+  padding: 0.3rem 0.5rem;
+  vertical-align: middle;
+}
+.failure-timeline td:first-child {
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-right: 1rem;
+  width: 1%;
+}
+.failure-timeline td:last-child {
+  font-variant-numeric: tabular-nums;
+}
+.failure-timeline tr.tl-miss td { opacity: 0.5; }
+.failure-timeline tr.tl-fail td:first-child { color: var(--danger); }
+.failure-timeline tr.tl-warn td:first-child { color: var(--warning); }
+
+.failure-impact {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+.failure-impact-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+.failure-impact-row.fi-total {
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+  margin-top: 0.1rem;
+}
+.fi-value { text-align: right; white-space: nowrap; }
