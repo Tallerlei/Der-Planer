@@ -119,10 +119,9 @@ function _showNextFailureModal() {
         <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Schließen</button></div>
       </div>`;
   } else {
-    const deadlineAt     = order.acceptedAt ? _addDaysToDate(order.acceptedAt, order.deadlineDays) : null;
-    const minutesTaken   = (order.completedMinute || 0) - (order.acceptedMinute || 0);
-    const deadlineMin    = order.deadlineDays * 1440;
-    const minutesLate    = minutesTaken - deadlineMin;
+    const deadlineAt     = order.receivedAt ? _addDaysToDate(order.receivedAt, order.deadlineDays) : null;
+    const deadlineMinute = (order.receivedMinute || 0) + order.deadlineDays * 1440;
+    const minutesLate    = (order.completedMinute || 0) - deadlineMinute;
     const hoursLate      = Math.floor(minutesLate / 60);
     const minsLatePart   = minutesLate % 60;
     const lateStr        = hoursLate > 0
@@ -498,17 +497,16 @@ export function completeOrder(order, vehicle) {
   const idx = GS.orders.active.findIndex(o => o.id === order.id);
   if (idx < 0) return;
 
-  const minutesTaken = now - order.acceptedMinute;
-  const deadlineMin  = order.deadlineDays * 1440;
+  const deadlineMinute = order.receivedMinute + order.deadlineDays * 1440;
+  const onTime = now <= deadlineMinute;
   let finalValue = order.value;
-  const onTime = minutesTaken <= deadlineMin;
 
   let penaltyAmount = 0;
   if (onTime) {
     finalValue += order.bonus;
     showToast(`✅ Lieferung abgeschlossen: +${fmt.money(finalValue)}`, 'success');
   } else {
-    const hoursLate = Math.floor((minutesTaken - deadlineMin) / 60);
+    const hoursLate = Math.floor((now - deadlineMinute) / 60);
     penaltyAmount = Math.min(order.value * 0.5, order.penalty * hoursLate);
     finalValue = Math.max(0, order.value - penaltyAmount);
     showToast(`⚠️ Lieferung verspätet: +${fmt.money(finalValue)} (Strafe: ${fmt.money(penaltyAmount)})`, 'warning');
@@ -601,9 +599,12 @@ export function generateOrders() {
 
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
-    const deadlineDays = rand(2, 5);
     const isUrgent = Math.random() < 0.15;
     const urgencyFactor = isUrgent ? 1.4 : 1.0;
+    const expiresInDays = rand(1, 2);
+    const deadlineDays = isUrgent
+      ? expiresInDays + 1
+      : Math.max(rand(2, 5), expiresInDays + 1);
 
     ensureClientStats(client.id);
     GS.clientStats[client.id].offered++;
@@ -624,12 +625,12 @@ export function generateOrders() {
       value: Math.round(baseVal * urgencyFactor),
       penalty: Math.round(baseVal * 0.1 * DATA.DIFFICULTY[GS.company.difficulty].orderPenaltyMod),
       bonus: Math.round(baseVal * 0.08),
-      deadlineDays: isUrgent ? 1 : deadlineDays,
+      deadlineDays,
       isUrgent,
       urgencyFactor,
       freightFactor,
       pricePerKm: baseKmPrice,
-      expiresInDays: rand(1, 2),
+      expiresInDays,
       receivedMinute: GS.time.totalMinutes,
       receivedAt: currentTimeSnapshot(),
       channel,
@@ -679,6 +680,8 @@ export function injectTierOrders(tier, count) {
     const baseVal = Math.round(baseKmPrice * dist * freightFactor * valueMod * loyaltyBonus);
     const r = Math.random();
     const channel = r < 0.5 ? 'phone' : r < 0.75 ? 'fax' : 'online';
+    const expiresInDaysTier = 2;
+    const deadlineDaysTier = Math.max(rand(2, 5), expiresInDaysTier + 1);
 
     ensureClientStats(client.id);
     GS.clientStats[client.id].offered++;
@@ -699,12 +702,12 @@ export function injectTierOrders(tier, count) {
       value: baseVal,
       penalty: Math.round(baseVal * 0.1 * diff.orderPenaltyMod),
       bonus: Math.round(baseVal * 0.08),
-      deadlineDays: rand(2, 5),
+      deadlineDays: deadlineDaysTier,
       isUrgent: false,
       urgencyFactor: 1.0,
       freightFactor,
       pricePerKm: baseKmPrice,
-      expiresInDays: 2,
+      expiresInDays: expiresInDaysTier,
       receivedMinute: GS.time.totalMinutes,
       receivedAt: currentTimeSnapshot(),
       channel,
