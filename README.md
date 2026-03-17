@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.17.1**
+> 🔖 **Version: 1.18.0**
 
 ---
 
@@ -56,6 +56,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Multi-Fahrzeug-Lieferung**: Übersteigt das Auftragsgewicht die Kapazität eines einzelnen Fahrzeugs, können zusätzliche Fahrzeuge hinzugefügt werden, die die verbleibende Ladung parallel transportieren. Der Auftrag gilt erst dann als vollständig abgeschlossen, wenn die Gesamtmenge geliefert wurde.
 - **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
 - **Auftragsvolumen skaliert mit Bekanntheitsgrad**: Die Auftragsgeneration läuft ohne obere Mengenbegrenzung – die Verfallszeit (1–2 Spieltage) reguliert den Pool natürlich. Die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
+- **Fahrzeug-ETA bei Auftragsannahme**: Bei der Fahrzeugauswahl im Auftragsmenü (Tab *Verfügbare Aufträge*) zeigt jedes Fahrzeug im Dropdown an, ab wann es am Abholort sein kann – z. B. `[ab 10:30]` für denselben Spieltag oder `[ab 15.03. 10:30]` für einen späteren Tag. Für Fahrzeuge, die bereits am Abholort sind, erscheint `[ab sofort]`.
 - **Verbessertes Auftragsmenü**: Jede Auftragskarte zeigt die genaue Lieferfrist als Datum & Uhrzeit, die Streckenlänge in km (bei Mehrtransporten multipliziert mit der Anzahl der Fahrten) sowie den Wert **€/km** für direkten Lukrativitätsvergleich. Abgeschlossene Aufträge zeigen den Abschlusszeitpunkt; verspätete Lieferungen werden rot hervorgehoben und enthalten eine Aufschlüsselung der Strafzahlung. Der Auftraggeber-Name ist klickbar und öffnet eine **Unternehmensübersicht** mit aktuellem Kundenansehen und einer Statistik der angebotenen, angenommenen, erledigten und verfehlten Aufträge.
 
 ### 🗺️ Routenplaner & Europakarte
