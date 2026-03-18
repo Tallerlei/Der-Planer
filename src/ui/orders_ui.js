@@ -1,4 +1,4 @@
-import { $, fmt } from '../utils.js';
+import { $, fmt, findById } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { TIME_COSTS, REQ_LABELS, BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS } from '../constants.js';
@@ -9,7 +9,7 @@ import {
 } from '../game/engine.js';
 import { isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements } from '../game/vehicles.js';
 import { updateOrderBadge } from './statusbar.js';
-import { getDistance } from '../routing.js';
+import { getDistance, findShortestPath, routeDistance } from '../routing.js';
 import { openModal } from './modal.js';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -37,6 +37,80 @@ function clientRepDisplay(rep) {
   if (rep <= 60) return { stars: '★★★☆☆', cssClass: 'rep-mid' };
   if (rep <= 80) return { stars: '★★★★☆', cssClass: 'rep-high' };
   return { stars: '★★★★★', cssClass: 'rep-very-high' };
+}
+
+/**
+ * Estimates the minutes until a vehicle can arrive at a given pickup city.
+ * Handles idle, driving (returning to base), and driving-with-queue states.
+ * Returns null if no estimate is possible.
+ */
+function _calcMinsUntilPickup(v, cat, pickupCityId) {
+  const kmPerMin = (cat.speed * GS.market.speedMod) / 60;
+  if (kmPerMin <= 0) return null;
+
+  if (v.status === 'idle') {
+    const startCity = v.currentCity || v.homeCity;
+    return routeDistance(findShortestPath(startCity, pickupCityId).map(id => ({ cityId: id }))) / kmPerMin;
+  }
+
+  if (v.status === 'driving' && v.route?.stops?.length > 0) {
+    // Time to finish the current route (vehicle returns to homeCity at the end)
+    const stops = v.route.stops;
+    const idx = v.route.currentStopIndex;
+    let minsToRouteEnd = 0;
+    if (idx < stops.length - 1) {
+      const legDist = getDistance(stops[idx].cityId, stops[idx + 1].cityId);
+      let km = legDist * (1 - (v.route.progressPct || 0) / 100);
+      for (let i = idx + 1; i < stops.length - 1; i++) {
+        km += getDistance(stops[i].cityId, stops[i + 1].cityId);
+      }
+      minsToRouteEnd = km / kmPerMin + (v.refuelPauseMinutes || 0);
+    }
+
+    // Add time for each queued order (home → pickup → delivery → home)
+    let accMins = minsToRouteEnd;
+    let fromCity = v.homeCity;
+    for (const orderId of (v.orderQueue || [])) {
+      const qOrder = findById(GS.orders.active, orderId);
+      if (qOrder) {
+        const d1 = routeDistance(findShortestPath(fromCity, qOrder.origin).map(id => ({ cityId: id })));
+        const d2 = routeDistance(findShortestPath(qOrder.origin, qOrder.destination).map(id => ({ cityId: id })));
+        const d3 = routeDistance(findShortestPath(qOrder.destination, v.homeCity).map(id => ({ cityId: id })));
+        accMins += (d1 + d2 + d3) / kmPerMin;
+        fromCity = v.homeCity;
+      }
+    }
+
+    // Final travel from home to the order's pickup city
+    return accMins + routeDistance(findShortestPath(fromCity, pickupCityId).map(id => ({ cityId: id }))) / kmPerMin;
+  }
+
+  return null;
+}
+
+/**
+ * Formats an estimated arrival time (in minutes from now) as a compact string.
+ * Returns 'sofort' for ≤0, 'HH:MM' for same game day, or 'DD.MM. HH:MM' otherwise.
+ */
+function _fmtPickupEta(etaMins) {
+  if (etaMins === null || etaMins === undefined) return '';
+  if (etaMins <= 0) return 'sofort';
+  const arrivalTotal = GS.time.totalMinutes + etaMins;
+  const currentDayOffset = Math.floor(GS.time.totalMinutes / 1440);
+  const arrivalDayOffset = Math.floor(arrivalTotal / 1440);
+  const arrivalHour = Math.floor((arrivalTotal % 1440) / 60);
+  const arrivalMin  = Math.floor((arrivalTotal % 1440) % 60);
+  if (currentDayOffset === arrivalDayOffset) {
+    return fmt.time(arrivalHour, arrivalMin);
+  }
+  let d = 1, mo = 3, y = 1994;
+  for (let i = 0; i < arrivalDayOffset; i++) {
+    d++;
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    const dim = [0, 31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo];
+    if (d > dim) { d = 1; mo++; if (mo > 12) { mo = 1; y++; } }
+  }
+  return `${String(d).padStart(2, '0')}.${String(mo).padStart(2, '0')}. ${fmt.time(arrivalHour, arrivalMin)}`;
 }
 
 const INDUSTRY_ICONS = {
@@ -392,7 +466,9 @@ export function renderOrders() {
         ? ` [Warteschlange: Position ${(v.orderQueue || []).length + 1}]`
         : returningToBase && hasDriver ? ' [Startet direkt]' : '';
       const noDriverHint = !hasDriver ? ' – Kein Fahrer' : '';
-      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(getVehicleEffectiveCapacity(v))})${queueInfo}${noDriverHint}</option>`;
+      const minsUntilPickup = hasDriver ? _calcMinsUntilPickup(v, cat, o.origin) : null;
+      const etaHint = minsUntilPickup !== null ? ` [ab ${_fmtPickupEta(minsUntilPickup)}]` : '';
+      acc.vOptsForOrder += `<option value="${v.id}"${v.id === savedVehicleId ? ' selected' : ''}${!hasDriver ? ' disabled' : ''}>${v.name} (${fmt.weight(getVehicleEffectiveCapacity(v))})${queueInfo}${etaHint}${noDriverHint}</option>`;
       return acc;
     }, { eligibleVehicles: [], vOptsForOrder: '' });
 
