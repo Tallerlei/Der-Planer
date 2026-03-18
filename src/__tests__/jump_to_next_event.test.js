@@ -118,6 +118,13 @@ describe('jumpToNextEvent', () => {
     expect(GS.time.totalMinutes).toBe(113);
   });
 
+  it('still advances time when the game is paused', () => {
+    GS.paused   = true;
+    GS.vehicles = [makeVehicle()];
+    jumpToNextEvent();
+    expect(GS.time.totalMinutes).toBe(38);
+  });
+
   it('picks the minimum advance across multiple vehicles', () => {
     // v1: progressPct=50, legRemaining=50 → 37.5 min
     // v2: progressPct=75, legRemaining=25 → 18.75 min → ceil=19
