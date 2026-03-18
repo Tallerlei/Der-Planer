@@ -53,6 +53,28 @@ function ensureClientStats(clientId) {
   }
 }
 
+/** Records a daily snapshot of company and per-client reputation into GS.reputationHistory.
+ *  Keeps the last 30 entries so the dashboard can show a 30-day trend. */
+export function recordReputationSnapshot() {
+  if (!GS.reputationHistory) GS.reputationHistory = [];
+  const clients = {};
+  if (GS.clientReputation) {
+    for (const [id, rep] of Object.entries(GS.clientReputation)) {
+      clients[id] = rep;
+    }
+  }
+  GS.reputationHistory.push({
+    day: GS.time.day,
+    month: GS.time.month,
+    year: GS.time.year,
+    company: GS.company.reputation || 50,
+    clients,
+  });
+  if (GS.reputationHistory.length > 30) {
+    GS.reputationHistory.splice(0, GS.reputationHistory.length - 30);
+  }
+}
+
 // ── Timestamp helpers ────────────────────────────────────────
 function currentTimeSnapshot() {
   const { day, month, year, hour, minute } = GS.time;
@@ -291,6 +313,7 @@ export function advanceGameTime(minutes, label) {
   }
   if (newDayNum > prevDayNum) {
     expireOrders();
+    recordReputationSnapshot();
     autoSave();
   }
 
