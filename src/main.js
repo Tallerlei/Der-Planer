@@ -11,7 +11,7 @@ import {
   refreshCandidates,
 } from './game/engine.js';
 import { showToast } from './ui/notifications.js';
-import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal } from './ui/modal.js';
+import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal, openReputationDashboard } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
 import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle, buyTrailerForVehicle, detachTrailerFromVehicle, attachTrailerToVehicle, sellTrailer } from './ui/fleet.js';
 import { renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal, setOrderSort, showMoreCompletedOrders } from './ui/orders_ui.js';
@@ -99,6 +99,7 @@ Object.assign(window, {
   openSettingsModal,
   openStatsModal,
   openLogModal,
+  openReputationDashboard,
   closeModal,
 
   setMapZoom,

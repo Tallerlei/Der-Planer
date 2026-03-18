@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.18.2**
+> 🔖 **Version: 1.19.0**
 
 ---
 
@@ -22,6 +22,11 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Starte mit einem kleinen Budget (abhängig vom Schwierigkeitsgrad) und baue dein Unternehmen auf.
 - Verwalte dein Büro und erweitere es mit neuen Räumen.
 - Führe **Pressekonferenzen** durch und reagiere diplomatisch auf Krisen oder Erfolge, um deine Reputation zu steigern.
+- **Ansehen-Dashboard**: Im Büro öffnet die Kachel **🏆 Ansehen** eine zentrale Übersicht über alle Reputationswerte:
+  - **Unternehmensansehen (0–100)**: Fortschrittsbalken, Bekanntheitsgrad-Stufe (1–5), konkreter Effekttext (z. B. „Maximale Auftragsgröße 26.000 kg") und Trendpfeil.
+  - **Kundenansehen** für jeden bekannten Auftraggeber: Sternebewertung, Balken, Abschluss-/Fehlerstatistik und Effektbeschreibung (inkl. Loyalitätsbonus bei ≥ 75).
+  - **30-Tage-Verlaufsgraph** (Sparkline-SVG) für Unternehmensansehen und jeden Kunden, damit Trends frühzeitig erkannt werden.
+  - **Frühwarnsystem**: Fällt ein Wert unter die Warnstufe (< 25) oder Gefahrenstufe (< 10), erscheint ein farbiger Badge (gelb/rot) direkt auf der Bürokachel – ohne das Dashboard öffnen zu müssen.
 
 ### 🚛 Fuhrparkmanagement
 - **8 Fahrzeugtypen**: vom kleinen Transporter (2 t) bis zum Schwerlastzug (60 t).
