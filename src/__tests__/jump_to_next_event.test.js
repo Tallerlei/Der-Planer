@@ -96,6 +96,28 @@ describe('jumpToNextEvent', () => {
     expect(GS.time.totalMinutes).toBe(REFUEL_DURATION_MINUTES + 38); // 15 + 38 = 53
   });
 
+  it('skips pickup stops and jumps to the next delivery instead', () => {
+    // Route: depart(A) → pickup(B) → delivery(C)
+    // progressPct=50 on first leg (A→B, 100 km) → remaining=50 km on first leg
+    // First leg: 50 km / (80/60) = 37.5 min
+    // Second leg (B→C, 100 km): 100 / (80/60) = 75 min
+    // Total to delivery at C: 37.5 + 75 = 112.5 → Math.ceil = 113
+    GS.vehicles = [makeVehicle({
+      route: {
+        currentStopIndex: 0,
+        progressPct: 50,
+        coveredDistance: 0,
+        stops: [
+          { cityId: 'cityA', action: 'depart' },
+          { cityId: 'cityB', action: 'pickup', orderId: 'o1' },
+          { cityId: 'cityC', action: 'delivery', orderId: 'o1' },
+        ],
+      },
+    })];
+    jumpToNextEvent();
+    expect(GS.time.totalMinutes).toBe(113);
+  });
+
   it('picks the minimum advance across multiple vehicles', () => {
     // v1: progressPct=50, legRemaining=50 → 37.5 min
     // v2: progressPct=75, legRemaining=25 → 18.75 min → ceil=19
