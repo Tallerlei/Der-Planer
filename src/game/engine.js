@@ -212,11 +212,11 @@ export function jumpToNextEvent() {
 
     const idx = v.route.currentStopIndex;
 
-    // Find the next meaningful stop (pickup, delivery, or return to base)
+    // Find the next meaningful stop (delivery or return to base; skip pickups)
     let targetIdx = -1;
     for (let i = idx + 1; i < stops.length; i++) {
       const action = stops[i].action;
-      if (action === 'pickup' || action === 'delivery' || action === 'return') {
+      if (action === 'delivery' || action === 'return') {
         targetIdx = i;
         break;
       }
