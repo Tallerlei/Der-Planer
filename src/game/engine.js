@@ -189,7 +189,7 @@ export function setSpeed(s) {
 }
 
 export function jumpToNextEvent() {
-  if (!GS.started || GS.paused) return;
+  if (!GS.started) return;
 
   const drivingVehicles = GS.vehicles.filter(v => v.status === 'driving');
   if (drivingVehicles.length === 0) {
