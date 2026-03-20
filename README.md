@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.19.0**
+> 🔖 **Version: 1.20.0**
 
 ---
 
@@ -66,6 +66,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ### 🗺️ Routenplaner & Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
+- **Atlas-Kartendesign**: Die Karte zeigt vereinfachte **Ländergrenzen** für über 30 europäische Staaten mit farbkodierten Länderflächen sowie **topografische Bergschatten** für die Alpen, Pyrenäen, Karpaten, Apenninen und das Skandinavische Gebirge.
 - Plane Multi-Punkt-Routen mit automatischer Abholungs- und Lieferlogik.
 - **Straßennetz-Routing**: Fahrzeuge folgen dem realen Straßennetz (Dijkstra-Algorithmus) statt direkter Luftlinien – mit automatisch eingefügten Transitstopps über Autobahnkreuze.
 - Verfolge deine Flotte in Echtzeit auf der Europakarte; Fahrzeuge starten und enden stets am richtigen Standort.
