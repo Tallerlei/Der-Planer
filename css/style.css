@@ -949,7 +949,7 @@ tr:hover td { background: var(--surface2); }
 
 #map-screen-canvas {
   border-radius: var(--radius);
-  background: #0a1628;
+  background: #dfddd0;
   border: 1px solid var(--border);
   display: block;
   width: 100%;
@@ -980,7 +980,7 @@ tr:hover td { background: var(--surface2); }
   position: relative;
 }
 .legend-autobahn {
-  background: rgba(30,100,210,0.85);
+  background: rgba(20,65,170,0.85);
 }
 .legend-autobahn::after {
   content: '';
@@ -988,10 +988,10 @@ tr:hover td { background: var(--surface2); }
   top: 50%; left: 0; right: 0;
   height: 1px;
   margin-top: -0.5px;
-  background: repeating-linear-gradient(to right, rgba(200,220,255,0.7) 0 5px, transparent 5px 8px);
+  background: repeating-linear-gradient(to right, rgba(255,255,255,0.5) 0 5px, transparent 5px 8px);
 }
 .legend-national {
-  background: rgba(255,190,40,0.7);
+  background: rgba(160,90,20,0.75);
   height: 3px;
   margin-top: 0.5px;
 }
@@ -999,8 +999,8 @@ tr:hover td { background: var(--surface2); }
 /* Diamond legend icon */
 .legend-diamond {
   width: 9px; height: 9px;
-  background: rgba(30,100,210,0.9);
-  border: 1px solid rgba(200,220,255,0.7);
+  background: rgba(20,65,170,0.9);
+  border: 1px solid rgba(255,255,255,0.8);
   transform: rotate(45deg);
   flex-shrink: 0;
 }
