@@ -7,25 +7,33 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0d1117;
-  --surface:   #161b22;
-  --surface2:  #21262d;
-  --border:    #30363d;
-  --accent:    #e94560;
-  --accent2:   #58a6ff;
+  --bg:        #0f141e;
+  --surface:   rgba(22, 27, 34, 0.65);
+  --surface2:  rgba(33, 38, 45, 0.75);
+  --border:    rgba(255, 255, 255, 0.08);
+  --accent:    #ff4a68;
+  --accent-hover: #ff6b84;
+  --accent-glow: rgba(255, 74, 104, 0.4);
+  --accent2:   #4da3ff;
   --success:   #3fb950;
   --warning:   #d29922;
   --danger:    #f85149;
   --text:      #e6edf3;
   --text-muted:#8b949e;
-  --radius:    6px;
-  --shadow:    0 4px 16px rgba(0,0,0,.5);
+  --radius:    12px;
+  --radius-sm: 8px;
+  --shadow:    0 8px 32px rgba(0,0,0,0.4);
+  --shadow-sm: 0 4px 16px rgba(0,0,0,0.3);
+  --glass-blur: blur(12px);
 }
 
 html, body {
   height: 100%;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(26, 32, 64, 0.6) 0%, transparent 50%),
+    radial-gradient(circle at 85% 30%, rgba(88, 166, 255, 0.08) 0%, transparent 50%);
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
@@ -48,14 +56,15 @@ html, body {
 #status-bar {
   display: none;
   align-items: center;
-  justify-content: space-between;
-  background: var(--surface);
+  background: rgba(13, 17, 23, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
-  padding: 0.4rem 1rem;
+  padding: 0.5rem 1rem;
+  gap: 1.5rem;
   flex-shrink: 0;
-  gap: 0.5rem;
-  flex-wrap: wrap;
   z-index: 100;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
 #status-bar.visible { display: flex; }
@@ -101,14 +110,17 @@ html, body {
 #sidebar {
   display: none;
   flex-direction: column;
-  width: 56px;
-  background: var(--surface);
+  width: 68px;
+  background: rgba(22, 27, 34, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border-right: 1px solid var(--border);
   flex-shrink: 0;
   align-items: center;
-  padding: 0.5rem 0;
-  gap: 0.25rem;
+  padding: 1rem 0;
+  gap: 0.75rem;
   z-index: 90;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.2);
 }
 
 #sidebar.visible { display: flex; }
@@ -118,20 +130,21 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius);
-  border: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 1.4rem;
-  transition: all 0.15s;
+  font-size: 1.6rem;
+  transition: all 0.2s ease;
   position: relative;
 }
+.nav-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--border); transform: translateY(-2px); }
+.nav-btn.active { background: linear-gradient(135deg, var(--accent), #e93a55); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); border-color: transparent; }
 
-.nav-btn:hover { background: var(--surface2); color: var(--text); }
-.nav-btn.active { background: var(--accent); color: #fff; }
+
 
 .nav-btn .nav-label {
   font-size: 0.5rem;
@@ -184,9 +197,16 @@ html, body {
 /* ── Cards ────────────────────────────────────────────────── */
 .card {
   background: var(--surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow);
 }
 
 .card-header {
@@ -371,7 +391,7 @@ tr:hover td { background: var(--surface2); }
   justify-content: center;
   min-height: 100vh;
   padding: 2rem;
-  background: radial-gradient(ellipse at 50% 0%, #1a2040 0%, var(--bg) 70%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(26,32,64,0.8) 0%, transparent 70%);
 }
 
 .menu-logo {
