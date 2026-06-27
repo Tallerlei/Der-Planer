@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.20.0**
+> 🔖 **Version: 1.21.0**
 
 ---
 
@@ -17,6 +17,10 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 ---
 
 ## ✨ Features
+
+### 🎨 Modernes, ansprechendes UI
+- **Glassmorphism-Design**: Elegante, halbtransparente Panels und Cards.
+- Überarbeitete Typografie, schicke Verläufe und bessere visuelle Hierarchie.
 
 ### 🏢 Unternehmensführung
 - Starte mit einem kleinen Budget (abhängig vom Schwierigkeitsgrad) und baue dein Unternehmen auf.
