@@ -3,6 +3,8 @@
    Dark logistics theme
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
 /* ── Reset & base ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -156,8 +158,6 @@ html, body {
   box-shadow: 0 4px 12px var(--accent-glow);
   border-color: transparent;
 }
-
-
 
 .nav-btn .nav-label {
   font-size: 0.5rem;
