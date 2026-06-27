@@ -10,9 +10,12 @@
   --bg:        #0f141e;
   --surface:   rgba(22, 27, 34, 0.65);
   --surface2:  rgba(33, 38, 45, 0.75);
+  --surface-dim: rgba(13, 17, 23, 0.8);
+  --surface-transparent: rgba(22, 27, 34, 0.4);
   --border:    rgba(255, 255, 255, 0.08);
   --accent:    #ff4a68;
   --accent-hover: #ff6b84;
+  --accent-dark: #e93a55;
   --accent-glow: rgba(255, 74, 104, 0.4);
   --accent2:   #4da3ff;
   --success:   #3fb950;
@@ -56,7 +59,7 @@ html, body {
 #status-bar {
   display: none;
   align-items: center;
-  background: rgba(13, 17, 23, 0.8);
+  background: var(--surface-dim);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
@@ -111,7 +114,7 @@ html, body {
   display: none;
   flex-direction: column;
   width: 68px;
-  background: rgba(22, 27, 34, 0.4);
+  background: var(--surface-transparent);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border-right: 1px solid var(--border);
@@ -142,7 +145,7 @@ html, body {
   position: relative;
 }
 .nav-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--border); transform: translateY(-2px); }
-.nav-btn.active { background: linear-gradient(135deg, var(--accent), #e93a55); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); border-color: transparent; }
+.nav-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); border-color: transparent; }
 
 
 
