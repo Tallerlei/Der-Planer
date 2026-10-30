@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.17.1';
+export const APP_VERSION = '1.21.0';
 
 export const TIME_COSTS = {
   navigate: 5,
@@ -54,6 +54,10 @@ export const FLEET_COMPATIBLE_ORDER_RATIO = 0.4;
 
 export const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
 export const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' };
+
+/** Reputation warning thresholds for the dashboard and office indicator. */
+export const REP_WARNING_THRESHOLD = 25;
+export const REP_DANGER_THRESHOLD  = 10;
 
 /** Centralized vehicle status badge class and German label, keyed by status string. */
 export const VEHICLE_STATUS_INFO = {

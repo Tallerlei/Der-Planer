@@ -71,6 +71,7 @@ export const GS = {
 
   clientReputation: {},
   clientStats: {},
+  reputationHistory: [],  // Daily snapshots: [{day,month,year,company,clients:{id:rep}}]
 
   notifications: [],
   messageLog: [],

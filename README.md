@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.17.1**
+> 🔖 **Version: 1.21.0**
 
 ---
 
@@ -18,10 +18,19 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ## ✨ Features
 
+### 🎨 Modernes, ansprechendes UI
+- **Glassmorphism-Design**: Elegante, halbtransparente Panels und Cards.
+- Überarbeitete Typografie, schicke Verläufe und bessere visuelle Hierarchie.
+
 ### 🏢 Unternehmensführung
 - Starte mit einem kleinen Budget (abhängig vom Schwierigkeitsgrad) und baue dein Unternehmen auf.
 - Verwalte dein Büro und erweitere es mit neuen Räumen.
 - Führe **Pressekonferenzen** durch und reagiere diplomatisch auf Krisen oder Erfolge, um deine Reputation zu steigern.
+- **Ansehen-Dashboard**: Im Büro öffnet die Kachel **🏆 Ansehen** eine zentrale Übersicht über alle Reputationswerte:
+  - **Unternehmensansehen (0–100)**: Fortschrittsbalken, Bekanntheitsgrad-Stufe (1–5), konkreter Effekttext (z. B. „Maximale Auftragsgröße 26.000 kg") und Trendpfeil.
+  - **Kundenansehen** für jeden bekannten Auftraggeber: Sternebewertung, Balken, Abschluss-/Fehlerstatistik und Effektbeschreibung (inkl. Loyalitätsbonus bei ≥ 75).
+  - **30-Tage-Verlaufsgraph** (Sparkline-SVG) für Unternehmensansehen und jeden Kunden, damit Trends frühzeitig erkannt werden.
+  - **Frühwarnsystem**: Fällt ein Wert unter die Warnstufe (< 25) oder Gefahrenstufe (< 10), erscheint ein farbiger Badge (gelb/rot) direkt auf der Bürokachel – ohne das Dashboard öffnen zu müssen.
 
 ### 🚛 Fuhrparkmanagement
 - **8 Fahrzeugtypen**: vom kleinen Transporter (2 t) bis zum Schwerlastzug (60 t).
@@ -56,10 +65,12 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Multi-Fahrzeug-Lieferung**: Übersteigt das Auftragsgewicht die Kapazität eines einzelnen Fahrzeugs, können zusätzliche Fahrzeuge hinzugefügt werden, die die verbleibende Ladung parallel transportieren. Der Auftrag gilt erst dann als vollständig abgeschlossen, wenn die Gesamtmenge geliefert wurde.
 - **Nicht erfüllbare Aufträge ablehnen**: Ein Klick auf den Button lehnt alle nicht erfüllbaren Aufträge auf einmal ab (mit Bestätigungsdialog).
 - **Auftragsvolumen skaliert mit Bekanntheitsgrad**: Die Auftragsgeneration läuft ohne obere Mengenbegrenzung – die Verfallszeit (1–2 Spieltage) reguliert den Pool natürlich. Die maximale Auftragstonnage steigt mit dem Bekanntheitsgrad (Stufe 1–5). Beim Erreichen einer neuen Bekanntheitsgrad-Stufe werden sofort zwei neue Aufträge der neuen Kategorie eingespeist.
+- **Fahrzeug-ETA bei Auftragsannahme**: Bei der Fahrzeugauswahl im Auftragsmenü (Tab *Verfügbare Aufträge*) zeigt jedes Fahrzeug im Dropdown an, ab wann es am Abholort sein kann – z. B. `[ab 10:30]` für denselben Spieltag oder `[ab 15.03. 10:30]` für einen späteren Tag. Für Fahrzeuge, die bereits am Abholort sind, erscheint `[ab sofort]`.
 - **Verbessertes Auftragsmenü**: Jede Auftragskarte zeigt die genaue Lieferfrist als Datum & Uhrzeit, die Streckenlänge in km (bei Mehrtransporten multipliziert mit der Anzahl der Fahrten) sowie den Wert **€/km** für direkten Lukrativitätsvergleich. Abgeschlossene Aufträge zeigen den Abschlusszeitpunkt; verspätete Lieferungen werden rot hervorgehoben und enthalten eine Aufschlüsselung der Strafzahlung. Der Auftraggeber-Name ist klickbar und öffnet eine **Unternehmensübersicht** mit aktuellem Kundenansehen und einer Statistik der angebotenen, angenommenen, erledigten und verfehlten Aufträge.
 
 ### 🗺️ Routenplaner & Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
+- **Atlas-Kartendesign**: Die Karte zeigt vereinfachte **Ländergrenzen** für über 30 europäische Staaten mit farbkodierten Länderflächen sowie **topografische Bergschatten** für die Alpen, Pyrenäen, Karpaten, Apenninen und das Skandinavische Gebirge.
 - Plane Multi-Punkt-Routen mit automatischer Abholungs- und Lieferlogik.
 - **Straßennetz-Routing**: Fahrzeuge folgen dem realen Straßennetz (Dijkstra-Algorithmus) statt direkter Luftlinien – mit automatisch eingefügten Transitstopps über Autobahnkreuze.
 - Verfolge deine Flotte in Echtzeit auf der Europakarte; Fahrzeuge starten und enden stets am richtigen Standort.
