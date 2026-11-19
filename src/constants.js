@@ -1,9 +1,8 @@
-export const APP_VERSION = '1.22.2';
+export const APP_VERSION = '1.23.0';
 
 export const TIME_COSTS = {
   navigate: 5,
   assignOrder: 30,
-  dispatchRoute: 30,
   hireStaff: 15,
   fireStaff: 15,
   buyVehicle: 15,

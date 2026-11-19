@@ -1,7 +1,7 @@
 # 🧾 Offene Punkte – Der Planer: Reloaded
 
 Sammlung bekannter Bugs, nicht umgesetzter Features und offener Designfragen zur späteren Bearbeitung.
-Stand: Version 1.22.2 (19.11.2026). Erledigte Punkte abhaken (`[x]`) oder entfernen.
+Stand: Version 1.23.0 (19.11.2026). Erledigte Punkte abhaken (`[x]`) oder entfernen.
 
 Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Designfrage · ⚪ Pflege / Kleinigkeiten
 
@@ -16,10 +16,11 @@ Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Desig
 - **Lösungsidee:** Kredite in `GS.finance.loans` speichern (Restschuld, Rate, Restlaufzeit), in `processMonthEnd()` abbuchen, Kreditlimit (z. B. abhängig von Ansehen/Flottenwert), aktive Kredite im Finanz-Screen anzeigen, optional Sondertilgung.
 - **Erledigt in 1.22.2:** Kredite werden mit laufzeitgerechter Annuität monatlich getilgt, sind im Finanz-Screen sichtbar und unterliegen einem von Ansehen und Flottenwert abhängigen Kreditrahmen.
 
-### [ ] 2. Routenplaner bewirkt nichts
+### [x] 2. Routenplaner bewirkt nichts
 - **Wo:** `src/ui/routes.js` → `addRouteStop()`, `dispatchRoute()`; `src/game/engine.js` → `processStopAction()`
 - **Problem:** `addRouteStop` verknüpft Stopps mit *verfügbaren* Aufträgen, `processStopAction` verarbeitet aber nur *angenommene* (`GS.orders.active`). Eine geplante Route kostet nur Kraftstoff – keine Abholung, keine Lieferung, keine Bezahlung. Außerdem fehlt ein Rückkehr-Stopp: Das Fahrzeug bleibt in der letzten Stadt stehen.
 - **Lösungsidee:** Nur angenommene Aufträge (des gewählten Fahrzeugs) als Pickup/Delivery verknüpfen oder Aufträge beim Disponieren automatisch annehmen; Rückkehr zum Firmensitz anhängen; Kapazität/Reihenfolge (Pickup vor Delivery) validieren. Alternativ Feature entfernen und Text („steuern automatisch Abholung und Lieferung an“) anpassen.
+- **Erledigt in 1.23.0:** Der wirkungslose manuelle Routenplaner wurde vollständig entfernt; die auftragsbasierte automatische Routensteuerung bleibt bestehen.
 
 ### [ ] 3. Wartung kann „hängen bleiben“
 - **Wo:** `src/ui/fleet.js` → `sendToMaintenance()`

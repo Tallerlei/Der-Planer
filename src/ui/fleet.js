@@ -7,7 +7,6 @@ import { createVehicle, updatePositionForVehicle, getVehicleEffectiveCapacity } 
 import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
 import { getDistance, findShortestPath, routeDistance } from '../routing.js';
 import { showToast } from './notifications.js';
-import { navigateToScreen } from './screens.js';
 import { vehicleThumbHtml } from '../three/assets.js';
 
 /**
@@ -335,7 +334,6 @@ function _buildVehicleCardHtml(v) {
       })()}
 
       <div class="vehicle-actions">
-        ${v.status === 'idle' ? `<button class="btn btn-secondary btn-sm" title="Route planen: +${TIME_COSTS.navigate} Min" onclick="openRouteForVehicle('${v.id}')">🗺️ Route planen</button>` : ''}
         ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" title="Wartung: +${TIME_COSTS.maintenance} Min" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
         ${v.status === 'broken' ? `<button class="btn btn-danger btn-sm" title="Reparieren: +${TIME_COSTS.repair} Min" onclick="repairVehicle('${v.id}')">🔧 Reparieren</button>` : ''}
         ${v.status === 'idle' ? `<button class="btn btn-danger btn-sm" title="Verkaufen: +${TIME_COSTS.sellVehicle} Min" onclick="sellVehicle('${v.id}')">💰 Verkaufen</button>` : ''}
@@ -560,12 +558,6 @@ export function buyVehicle(catalogId) {
   $('fleet-list')     && ($('fleet-list').style.display     = '');
   $('trailer-pool')   && ($('trailer-pool').style.display   = '');
   renderFleet();
-}
-
-export function openRouteForVehicle(vehicleId) {
-  GS.ui.routeVehicleId = vehicleId;
-  GS.ui.routeStops = [];
-  navigateToScreen('routes');
 }
 
 export function renderTrailerPool() {

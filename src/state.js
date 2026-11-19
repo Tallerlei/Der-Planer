@@ -55,8 +55,6 @@ export const GS = {
   ui: {
     currentScreen: 'menu',
     orderTab: 'available',
-    routeVehicleId: null,
-    routeStops: [],
     mapHighlight: null,
     lastOrderCheckMin: 0,
     lastEventCheckMin: 0,

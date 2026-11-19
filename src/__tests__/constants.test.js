@@ -15,7 +15,7 @@ describe('APP_VERSION', () => {
 
 describe('TIME_COSTS', () => {
   it('has all required action costs', () => {
-    const expected = ['navigate', 'assignOrder', 'dispatchRoute', 'hireStaff',
+    const expected = ['navigate', 'assignOrder', 'hireStaff',
       'fireStaff', 'buyVehicle', 'sellVehicle', 'maintenance', 'repair',
       'assignDriver', 'removeDriver', 'takeLoan', 'refreshCand',
       'buyTrailer', 'detachTrailer', 'attachTrailer'];

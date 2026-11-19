@@ -72,9 +72,6 @@
         📋<span class="nav-label">Aufträge</span>
         <span class="nav-badge" id="badge-orders">0</span>
       </button>
-      <button class="nav-btn" data-screen="routes"    onclick="navigateToScreen('routes')"    title="Routenplanung (+5 Min)">
-        🗺️<span class="nav-label">Route</span>
-      </button>
       <button class="nav-btn" data-screen="personnel" onclick="navigateToScreen('personnel')" title="Personal (+5 Min)">
         👥<span class="nav-label">Personal</span>
       </button>
@@ -143,27 +140,6 @@
         <div id="order-list-available" class="card-grid card-grid-2"></div>
         <div id="order-list-active"    class="card-grid card-grid-2" style="display:none"></div>
         <div id="order-list-completed" class="card-grid card-grid-2" style="display:none"></div>
-      </div>
-
-      <!-- ═══ ROUTE PLANNER ═══ -->
-      <div id="screen-routes" class="screen">
-        <div class="page-header">
-          <h2>🗺️ <span>Routenplanung</span></h2>
-          <button id="btn-dispatch" class="btn btn-primary" title="Route starten: +30 Min">🚀 Route starten</button>
-        </div>
-        <p class="text-sm text-muted" style="margin-bottom:1rem">
-          Planen Sie Mehrpunkt-Routen: Klicken Sie Städte auf der Karte an, um Stopps hinzuzufügen.
-          Fahrzeuge steuern automatisch Abholung und Lieferung an.
-        </p>
-        <div class="route-layout">
-          <div class="route-panel">
-            <div id="route-vehicle-panel"></div>
-            <div class="card-header" style="margin-top:.5rem">📍 Stopps</div>
-            <div id="route-stops" class="route-stops"></div>
-            <div id="route-summary" class="route-summary"></div>
-          </div>
-          <canvas id="map-canvas"></canvas>
-        </div>
       </div>
 
       <!-- ═══ PERSONNEL ═══ -->
@@ -335,7 +311,7 @@
         </p>
         <ul style="padding-left:1.25rem;line-height:2;font-size:.85rem;color:var(--text-muted)">
           <li>🚛 Fuhrpark mit 8 Fahrzeugtypen (Kleintransporter bis Schwerlastzug)</li>
-          <li>🗺️ Mehrpunkt-Routenplanung mit über 40 europäischen Städten</li>
+          <li>🗺️ Live-Karte mit über 40 europäischen Städten und Straßennetz-Routing</li>
           <li>📋 Dynamisches Auftragssystem (Telefon, Fax, Online)</li>
           <li>👥 Personalmanagement: Fahrer, Mechaniker, Buchhalter u.v.m.</li>
           <li>💰 Vollständiges Finanzsystem mit Krediten und Buchführung</li>

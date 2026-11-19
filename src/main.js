@@ -13,11 +13,8 @@ import {
 import { showToast } from './ui/notifications.js';
 import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal, openReputationDashboard } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
-import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, openRouteForVehicle, buyTrailerForVehicle, detachTrailerFromVehicle, attachTrailerToVehicle, sellTrailer } from './ui/fleet.js';
+import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, buyTrailerForVehicle, detachTrailerFromVehicle, attachTrailerToVehicle, sellTrailer } from './ui/fleet.js';
 import { renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal, setOrderSort, showMoreCompletedOrders } from './ui/orders_ui.js';
-import {
-  renderRoutePlanner, selectRouteVehicle, removeRouteStop, dispatchRoute, handleMapClick, drawRouteMap,
-} from './ui/routes.js';
 import { renderPersonnel, fireStaff, hireStaff } from './ui/personnel.js';
 import { renderFinance, takeLoan } from './ui/finance_ui.js';
 import { renderOffice, officeAction } from './ui/office.js';
@@ -65,7 +62,6 @@ onThumbsReady(() => {
 registerScreenRenderer('office',    renderOffice);
 registerScreenRenderer('fleet',     renderFleet);
 registerScreenRenderer('orders',    renderOrders);
-registerScreenRenderer('routes',    renderRoutePlanner);
 registerScreenRenderer('personnel', renderPersonnel);
 registerScreenRenderer('finance',   renderFinance);
 registerScreenRenderer('map',       renderMapScreen);
@@ -98,15 +94,10 @@ Object.assign(window, {
   repairVehicle,
   sellVehicle,
   buyVehicle,
-  openRouteForVehicle,
   buyTrailerForVehicle,
   detachTrailerFromVehicle,
   attachTrailerToVehicle,
   sellTrailer,
-
-  selectRouteVehicle,
-  removeRouteStop,
-  dispatchRoute,
 
   fireStaff,
   hireStaff,
@@ -148,10 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Skip-to-next-event button
   const skipBtn = document.getElementById('btn-skip-event');
   if (skipBtn) skipBtn.addEventListener('click', jumpToNextEvent);
-
-  // Map canvas click (route planner)
-  const mc = document.getElementById('map-canvas');
-  if (mc) mc.addEventListener('click', handleMapClick);
 
   // Map screen canvas
   const msc = document.getElementById('map-screen-canvas');
@@ -233,10 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
     t.addEventListener('click', () => switchOrderTab(t.dataset.tab));
   });
 
-  // Dispatch route
-  const dispBtn = document.getElementById('btn-dispatch');
-  if (dispBtn) dispBtn.addEventListener('click', dispatchRoute);
-
   // Modal close on overlay click
   const ov = document.getElementById('modal-overlay');
   if (ov) ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
@@ -244,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Resize map on window resize (debounced to avoid excessive redraws)
   window.addEventListener('resize', debounce(() => {
     const currentScreen = document.querySelector('.screen.active')?.id?.replace('screen-', '');
-    if (currentScreen === 'map')    renderMapScreen();
-    if (currentScreen === 'routes') drawRouteMap();
+    if (currentScreen === 'map') renderMapScreen();
   }, 150));
 });

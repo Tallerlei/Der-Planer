@@ -19,6 +19,8 @@ export function loadGame() {
     if (!Array.isArray(GS.finance.loans))      GS.finance.loans      = [];
     if (!GS.ui.orderSort)    GS.ui.orderSort    = { field: 'value', dir: 'desc' };
     if (!GS.ui.completedLimit) GS.ui.completedLimit = 10;
+    delete GS.ui.routeVehicleId;
+    delete GS.ui.routeStops;
     GS.vehicles.forEach(v => {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
       if (v.orderQueue === undefined) v.orderQueue = [];

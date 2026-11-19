@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.22.2**
+> 🔖 **Version: 1.23.0**
 
 ---
 
@@ -10,7 +10,7 @@
 
 *Der Planer: Reloaded* ist ein im Browser spielbares Wirtschafts- und Logistikspiel.
 Du übernimmst die Leitung einer kleinen Spedition und baust sie zu einem europaweit tätigen Transportunternehmen aus.
-Kaufe Fahrzeuge, stelle Personal ein, nimm Frachtaufträge an, plane Routen quer durch Europa und behalte deine Finanzen im Blick – alles in Echtzeit.
+Kaufe Fahrzeuge, stelle Personal ein, disponiere Frachtaufträge quer durch Europa und behalte deine Finanzen im Blick – alles in Echtzeit.
 
 Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, und speichert den Spielstand automatisch im localStorage des Browsers.
 
@@ -104,10 +104,9 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Fahrzeug-ETA bei Auftragsannahme**: Bei der Fahrzeugauswahl im Auftragsmenü (Tab *Verfügbare Aufträge*) zeigt jedes Fahrzeug im Dropdown an, ab wann es am Abholort sein kann – z. B. `[ab 10:30]` für denselben Spieltag oder `[ab 15.03. 10:30]` für einen späteren Tag. Für Fahrzeuge, die bereits am Abholort sind, erscheint `[ab sofort]`.
 - **Verbessertes Auftragsmenü**: Jede Auftragskarte zeigt die genaue Lieferfrist als Datum & Uhrzeit, die Streckenlänge in km (bei Mehrtransporten multipliziert mit der Anzahl der Fahrten) sowie den Wert **€/km** für direkten Lukrativitätsvergleich. Abgeschlossene Aufträge zeigen den Abschlusszeitpunkt; verspätete Lieferungen werden rot hervorgehoben und enthalten eine Aufschlüsselung der Strafzahlung. Der Auftraggeber-Name ist klickbar und öffnet eine **Unternehmensübersicht** mit aktuellem Kundenansehen und einer Statistik der angebotenen, angenommenen, erledigten und verfehlten Aufträge.
 
-### 🗺️ Routenplaner & Europakarte
+### 🗺️ Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
 - **Atlas-Kartendesign**: Die Karte zeigt vereinfachte **Ländergrenzen** für über 30 europäische Staaten mit farbkodierten Länderflächen sowie **topografische Bergschatten** für die Alpen, Pyrenäen, Karpaten, Apenninen und das Skandinavische Gebirge.
-- Plane Multi-Punkt-Routen mit automatischer Abholungs- und Lieferlogik.
 - **Straßennetz-Routing**: Fahrzeuge folgen dem realen Straßennetz (Dijkstra-Algorithmus) statt direkter Luftlinien – mit automatisch eingefügten Transitstopps über Autobahnkreuze.
 - Verfolge deine Flotte in Echtzeit auf der Europakarte; Fahrzeuge starten und enden stets am richtigen Standort.
 - **Straßentypen-Visualisierung**: Autobahnen als breite, blaue Linien mit weißer Mittellinie; Bundesstraßen als gelbe Linien (nur in Zoom-Stufe 2 sichtbar).
@@ -228,7 +227,6 @@ Der-Planer/
 │   │   ├── screens.js      # Bildschirmnavigation
 │   │   ├── fleet.js        # Fuhrpark-Screen
 │   │   ├── orders_ui.js    # Auftrags-Screen
-│   │   ├── routes.js       # Routenplaner-Screen
 │   │   ├── personnel.js    # Personal-Screen
 │   │   ├── finance_ui.js   # Finanz-Screen
 │   │   ├── office.js       # Büro-Screen

@@ -98,7 +98,6 @@ export function renderOffice() {
   const rooms = [
     { icon: '📞', name: 'Aufträge',           desc: `${pendingOrders} neue Aufträge`,        screen: 'orders',    badge: pendingOrders || null, badgeClass: '' },
     { icon: '🚛', name: 'Fuhrpark',            desc: `${GS.vehicles.length} Fahrzeuge`,      screen: 'fleet',     badge: brokenVehicles || null, badgeClass: '' },
-    { icon: '🗺️', name: 'Routenplanung',      desc: 'Mehrpunkt-Routen',                      screen: 'routes',    badge: null, badgeClass: '' },
     { icon: '👥', name: 'Personal',            desc: `${GS.staff.length} Mitarbeiter`,        screen: 'personnel', badge: null, badgeClass: '' },
     { icon: '💰', name: 'Buchhaltung',         desc: fmt.money(GS.finance.balance),           screen: 'finance',   badge: null, badgeClass: '' },
     { icon: '🗺️', name: 'Karte',              desc: `${activeVehicles} unterwegs`,           screen: 'map',       badge: null, badgeClass: '' },
