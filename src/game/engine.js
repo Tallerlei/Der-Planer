@@ -7,6 +7,7 @@ import {
   ORDER_POOL_MULTIPLIER, MIN_ORDER_POOL, REP_TIER_MAX_WEIGHT, REQ_LABELS,
   FLEET_COMPATIBLE_ORDER_RATIO,
   BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS,
+  GOLD_ORDER_CHANCE,
 } from '../constants.js';
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction } from './finance.js';
@@ -17,12 +18,22 @@ import { checkMarketEvents } from './events.js';
 import { autoSave, loadGame } from './save.js';
 import { showToast, showTimeAdvance, addLogEntry } from '../ui/notifications.js';
 import { updateStatusBar } from '../ui/statusbar.js';
-import { openModal, closeModal } from '../ui/modal.js';
+import { openModal, closeModal, queueModal } from '../ui/modal.js';
+import {
+  registerProgressHook, emitProgressEvent, createProgressState, ensureProgressState,
+  recordDelivery, makeGoldOrder, announceGoldOrder, checkProgress, showChapterIntroIfNeeded,
+  getVehicleDriver, getDriverSkill, driverFuelFactor, grantDriverXp, xpForDelivery,
+} from './progression.js';
+import { maybeTriggerRoadEvent } from './road_events.js';
+import { triggerPressConference } from './press.js';
 
 // ── Renderer registry (avoids circular deps with UI modules) ─
 const _renderers = {};
 export function registerRenderer(name, fn) { _renderers[name] = fn; }
 function _render(name) { if (_renderers[name]) _renderers[name](); }
+
+registerProgressHook('rep-changed', ({ oldRep, newRep }) => checkReputationTierChange(oldRep, newRep));
+registerProgressHook('progress-check', () => checkProgress());
 
 function getCityName(id) { return cityById[id] ? cityById[id].name : id; }
 
@@ -101,6 +112,13 @@ function _addDaysToDate(ts, days) {
   return { day, month, year, hour, minute };
 }
 
+/** Converts absolute game minutes (0 = 01.03.1994 00:00) into a timestamp snapshot. */
+function _minutesToTS(totalMin) {
+  const m = Math.max(0, Math.round(totalMin));
+  const base = { day: 1, month: 3, year: 1994, hour: Math.floor((m % 1440) / 60), minute: m % 60 };
+  return _addDaysToDate(base, Math.floor(m / 1440));
+}
+
 // ── Order failure modal queue ────────────────────────────────
 const _failureQueue = [];
 let _failureModalOpen = false;
@@ -111,9 +129,6 @@ function _showNextFailureModal() {
   const { order, failureType, penaltyAmount } = _failureQueue.shift();
   _failureModalOpen = true;
 
-  const prevSpeed  = GS.speed;
-  setSpeed(0);
-
   const originName = getCityName(order.origin);
   const destName   = getCityName(order.destination);
   const wt         = fmt.weight(order.weight);
@@ -121,24 +136,38 @@ function _showNextFailureModal() {
   let title, body;
 
   if (failureType === 'expired') {
-    const repLoss = clientRepExpiryLoss(getClientReputation(order.clientId));
-    title = '❌ Auftrag abgelaufen';
+    // Values recorded at expiry time (fallback for orders expired before this was stored)
+    const repLoss   = order.expiryRepLoss ?? clientRepExpiryLoss(getClientReputation(order.clientId));
+    const repBefore = order.expiryRepBefore;
+    const windowEnd = _minutesToTS(order.receivedMinute + order.expiresInDays * 1440);
+    const windowHours = Math.round(order.expiresInDays * 24);
+    title = '⌛ Auftrag nicht angenommen – verfallen';
     body = `
       <div class="failure-modal">
         <div class="failure-header">
           <strong>${order.clientName}</strong>
           <div class="text-sm text-muted">${order.cargoDesc} · ${wt} &nbsp;|&nbsp; ${originName} → ${destName}</div>
         </div>
+        <div class="failure-explain">
+          Dieses Angebot lag unter <em>📞 Verfügbar</em> und wurde nicht innerhalb der Annahmefrist
+          von ${windowHours} Stunden angenommen. <strong>${order.clientName}</strong> ist verärgert,
+          weil keine Antwort kam. Eine Strafzahlung fällt nicht an.
+        </div>
         <table class="failure-timeline">
-          <tr><td>📬 Auftrag erhalten</td><td>${_fmtTS(order.receivedAt)}</td></tr>
-          <tr class="tl-miss"><td>✅ Angenommen</td><td><span class="text-muted">–</span></td></tr>
-          <tr class="tl-fail"><td>⏰ Abgelaufen</td><td>${_fmtTS(order.expiredAt)}</td></tr>
+          <tr><td>📬 Angebot erhalten</td><td>${_fmtTS(order.receivedAt)}</td></tr>
+          <tr class="tl-fail"><td>⌛ Annahmefrist endete</td><td>${_fmtTS(windowEnd)}</td></tr>
+          <tr class="tl-miss"><td>✅ Angenommen</td><td>Nein – weder angenommen noch abgelehnt</td></tr>
         </table>
         <div class="failure-impact">
-          <div class="failure-impact-row"><span>💸 Entgangener Wert</span><span class="fi-value text-danger">${fmt.money(order.value)}</span></div>
-          <div class="failure-impact-row"><span>📉 Kundenzufriedenheit</span><span class="fi-value text-danger">−${repLoss} Punkte</span></div>
+          <div class="failure-impact-row"><span>💸 Entgangener Auftragswert</span><span class="fi-value text-muted">${fmt.money(order.value)} (nicht verdient)</span></div>
+          <div class="failure-impact-row"><span>💶 Strafzahlung</span><span class="fi-value">keine</span></div>
+          <div class="failure-impact-row"><span>📉 Kundenansehen ${order.clientName}</span><span class="fi-value text-danger">${repBefore !== undefined ? `${repBefore} → ${repBefore - repLoss} ` : ''}(−${repLoss} Punkte)</span></div>
         </div>
-        <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Schließen</button></div>
+        <div class="failure-tip">
+          💡 <strong>Tipp:</strong> Angebote, die du nicht übernehmen willst, rechtzeitig mit <strong>✗ Ablehnen</strong>
+          ablehnen – das kostet kein Ansehen. Der Countdown <em>⏱ noch Xh</em> auf der Auftragskarte zeigt die verbleibende Annahmefrist.
+        </div>
+        <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Verstanden</button></div>
       </div>`;
   } else {
     const deadlineAt     = order.receivedAt ? _addDaysToDate(order.receivedAt, order.deadlineDays) : null;
@@ -175,11 +204,25 @@ function _showNextFailureModal() {
       </div>`;
   }
 
-  openModal(title, body, () => {
+  openPausedDialog(title, body, () => {
     _failureModalOpen = false;
-    if (prevSpeed !== 0) setSpeed(prevSpeed);
     // Brief delay to allow modal fade-out animation (0.15s) before showing the next one
     setTimeout(_showNextFailureModal, 200);
+  });
+}
+
+/**
+ * Queues a modal dialog that pauses the game while it is visible and
+ * restores the previous speed when it closes.
+ */
+export function openPausedDialog(title, body, onClose = null) {
+  let prevSpeed = 0;
+  queueModal(title, body, () => {
+    if (prevSpeed !== 0 && GS.started) setSpeed(prevSpeed);
+    if (onClose) onClose();
+  }, () => {
+    prevSpeed = GS.speed;
+    if (GS.speed !== 0) setSpeed(0);
   });
 }
 
@@ -250,6 +293,10 @@ export function jumpToNextEvent() {
     // Account for an active refuel pause (vehicle is currently stopped)
     if ((v.refuelPauseMinutes || 0) > 0) {
       minutes += v.refuelPauseMinutes;
+    }
+    // Account for a stop caused by a road event (traffic jam, workshop …)
+    if ((v.stopMinutes || 0) > 0) {
+      minutes += v.stopMinutes;
     }
 
     // Remaining distance on the current partial leg
@@ -329,6 +376,10 @@ export function advanceGameTime(minutes, label) {
     checkMarketEvents();
   }
 
+  const hourChanged = Math.floor(GS.time.totalMinutes / 60) > Math.floor(prevTotal / 60);
+  if (hourChanged) maybeTriggerRoadEvent();
+  if (hourChanged || label) checkProgress();
+
   updateStatusBar();
 
   if (label) showTimeAdvance(actualMinutes, label);
@@ -370,7 +421,10 @@ export function processMonthEnd() {
   GS.finance.monthRevenue  = 0;
   GS.finance.monthExpenses = 0;
 
-  if (GS.finance.balance < 0) showToast('⚠️ Achtung: Ihr Kontostand ist negativ!', 'danger');
+  if (GS.finance.balance < 0) {
+    showToast('⚠️ Achtung: Ihr Kontostand ist negativ!', 'danger');
+    triggerPressConference('crisis');
+  }
 }
 
 // ── Vehicle movement ─────────────────────────────────────────
@@ -385,8 +439,16 @@ export function tickVehicles(minutesPassed) {
     const kmPerMinute = speedKmH / 60;
 
     let remainingMinutes = minutesPassed;
+    const fuelFactor = driverFuelFactor(getDriverSkill(v));
 
     while (remainingMinutes > 0 && v.status === 'driving') {
+      if ((v.stopMinutes || 0) > 0) {
+        const pause = Math.min(v.stopMinutes, remainingMinutes);
+        remainingMinutes -= pause;
+        v.stopMinutes -= pause;
+        continue;
+      }
+
       if ((v.refuelPauseMinutes || 0) > 0) {
         const pause = Math.min(v.refuelPauseMinutes, remainingMinutes);
         remainingMinutes -= pause;
@@ -418,7 +480,7 @@ export function tickVehicles(minutesPassed) {
       const kmThisTick = kmPerMinute * remainingMinutes;
       const kmActual = Math.min(kmThisTick, legRemaining);
 
-      const fuelUsed = (kmActual / 100) * cat.fuelConsumption;
+      const fuelUsed = (kmActual / 100) * cat.fuelConsumption * fuelFactor;
       v.fuel = Math.max(0, v.fuel - fuelUsed);
       v.odometer += kmActual;
       GS.stats.kmDriven += kmActual;
@@ -465,6 +527,9 @@ export function processStopAction(v, stop) {
     const deliveredWeight = Math.min(getVehicleEffectiveCapacity(v), remaining);
     order.remainingWeight = Math.max(0, remaining - deliveredWeight);
     order.tripsCompleted  = (order.tripsCompleted || 0) + 1;
+
+    const onTimeNow = GS.time.totalMinutes <= order.receivedMinute + order.deadlineDays * 1440;
+    grantDriverXp(getVehicleDriver(v), xpForDelivery(getDistance(order.origin, order.destination), onTimeNow));
 
     v.orderQueue = v.orderQueue || [];
     if (order.remainingWeight <= 0) {
@@ -527,12 +592,19 @@ export function completeOrder(order, vehicle) {
   let penaltyAmount = 0;
   if (onTime) {
     finalValue += order.bonus;
-    showToast(`✅ Lieferung abgeschlossen: +${fmt.money(finalValue)}`, 'success');
   } else {
     const hoursLate = Math.floor((now - deadlineMinute) / 60);
     penaltyAmount = Math.min(order.value * 0.5, order.penalty * hoursLate);
     finalValue = Math.max(0, order.value - penaltyAmount);
     showToast(`⚠️ Lieferung verspätet: +${fmt.money(finalValue)} (Strafe: ${fmt.money(penaltyAmount)})`, 'warning');
+  }
+
+  const streakBonus = recordDelivery(order, onTime, finalValue);
+  finalValue += streakBonus;
+  order.streakBonus = streakBonus;
+  if (onTime) {
+    const bonusInfo = streakBonus > 0 ? ` (🔥 Serienbonus +${fmt.money(streakBonus)})` : '';
+    showToast(`${order.isGold ? '💎' : '✅'} Lieferung abgeschlossen: +${fmt.money(finalValue)}${bonusInfo}`, 'success');
   }
 
   order.status = 'completed';
@@ -548,6 +620,7 @@ export function completeOrder(order, vehicle) {
   if (onTime) {
     GS.clientStats[order.clientId].completed++;
     changeClientReputation(order.clientId, clientRepCompletionGain(getClientReputation(order.clientId)));
+    if (order.isGold) changeClientReputation(order.clientId, 3);
   } else {
     GS.clientStats[order.clientId].failed++;
     changeClientReputation(order.clientId, -2);
@@ -563,6 +636,14 @@ export function completeOrder(order, vehicle) {
   if (onTime) GS.company.reputation = Math.min(100, oldRep + 2);
   else GS.company.reputation = Math.max(0, oldRep - 3);
   checkReputationTierChange(oldRep, GS.company.reputation);
+
+  emitProgressEvent('delivery', { order, onTime, amount: finalValue, streakBonus });
+  const progress = ensureProgressState();
+  if (!onTime && progress.recentLate.length >= 3) {
+    if (triggerPressConference('delay')) progress.recentLate = [];
+  }
+  if (onTime && progress.streak === 10) triggerPressConference('streak');
+  checkProgress();
 
   updateStatusBar();
 }
@@ -667,6 +748,11 @@ export function generateOrders() {
       expiredAt: null,
       finalValue: null,
     });
+
+    if (useFleetFit && Math.random() < GOLD_ORDER_CHANCE) {
+      const gold = makeGoldOrder(GS.orders.available[GS.orders.available.length - 1]);
+      announceGoldOrder(gold);
+    }
   }
 
   _render('orders-badge');
@@ -832,6 +918,7 @@ export function checkReputationTierChange(oldRep, newRep) {
   if (newTier > oldTier) {
     injectTierOrders(newTier, 2);
     showToast(`⭐ Bekanntheitsgrad Stufe ${newTier} erreicht – neue Aufträge verfügbar!`, 'success');
+    triggerPressConference('growth');
   }
   GS.company.reputationTier = newTier;
 }
@@ -846,7 +933,10 @@ export function expireOrders() {
       GS.orders.declined.unshift(order);
       ensureClientStats(order.clientId);
       GS.clientStats[order.clientId].failed++;
-      changeClientReputation(order.clientId, -clientRepExpiryLoss(getClientReputation(order.clientId)));
+      const repBefore = getClientReputation(order.clientId);
+      changeClientReputation(order.clientId, -clientRepExpiryLoss(repBefore));
+      order.expiryRepBefore = repBefore;
+      order.expiryRepLoss   = repBefore - getClientReputation(order.clientId);
       _enqueueOrderFailure(order, 'expired');
       return false;
     }
@@ -1137,6 +1227,7 @@ export function startNewGame() {
   GS.stats = { totalRevenue: 0, totalExpenses: 0, ordersCompleted: 0, ordersFailed: 0, kmDriven: 0 };
   GS.clientReputation = {};
   GS.clientStats      = {};
+  GS.progress         = createProgressState();
 
   const starterVan = createVehicle('transit', 'frankfurt');
   GS.vehicles.push(starterVan);
@@ -1163,6 +1254,8 @@ export function startNewGame() {
   _render('screen-show-office');
   showToast(`Willkommen, ${name}! Ihr Unternehmen startet heute.`, 'success');
   addTransaction('Startkapital', 0);
+  emitProgressEvent('game-started');
+  showChapterIntroIfNeeded();
 }
 
 export function loadAndContinue() {
@@ -1175,6 +1268,8 @@ export function loadAndContinue() {
   if (!GS.company.reputationTier) GS.company.reputationTier = getReputationTier(GS.company.reputation || 50);
   if (!GS.clientReputation) GS.clientReputation = {};
   if (!GS.clientStats)      GS.clientStats      = {};
+  ensureProgressState();
+  GS.vehicles.forEach(v => { if (v.stopMinutes === undefined) v.stopMinutes = 0; });
   GS.started = true;
   document.getElementById('status-bar').classList.add('visible');
   document.getElementById('sidebar').classList.add('visible');
@@ -1183,6 +1278,8 @@ export function loadAndContinue() {
   startLoop();
   _render('screen-show-office');
   showToast('Spielstand geladen.', 'success');
+  emitProgressEvent('game-started');
+  showChapterIntroIfNeeded();
 }
 
 // ── Staff candidate refresh ───────────────────────────────────

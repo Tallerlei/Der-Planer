@@ -8,6 +8,7 @@ import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
 import { getDistance, findShortestPath, routeDistance } from '../routing.js';
 import { showToast } from './notifications.js';
 import { navigateToScreen } from './screens.js';
+import { vehicleThumbHtml } from '../three/assets.js';
 
 /**
  * Checks whether a vehicle is idle (available for operations).
@@ -63,7 +64,7 @@ function _minsToStopIdx(v, cat, targetStopIdx) {
   for (let i = idx + 1; i < targetStopIdx; i++) {
     km += getDistance(stops[i].cityId, stops[i + 1].cityId);
   }
-  return (km / kmPerMin) + (v.refuelPauseMinutes || 0);
+  return (km / kmPerMin) + (v.refuelPauseMinutes || 0) + (v.stopMinutes || 0);
 }
 
 /**
@@ -164,12 +165,15 @@ function _buildVehicleCardHtml(v) {
   return `
     <div class="vehicle-card" data-vid="${v.id}">
       <div class="vehicle-card-header">
-        <div class="vehicle-icon-box">${cat.icon}</div>
+        <div class="vehicle-icon-box">${vehicleThumbHtml(v.catalogId, cat.icon, 'vehicle-thumb', v.trailerId)}</div>
         <div class="vehicle-info">
           <div class="vehicle-name">${v.name}</div>
           <div class="vehicle-model">${cat.model}</div>
         </div>
-        <span class="badge ${statusInfo.badge}">${statusInfo.label}</span>
+        <div class="vehicle-status-col">
+          <span class="badge ${statusInfo.badge}">${statusInfo.label}</span>
+          ${v.status === 'driving' && v.stopMinutes > 0 ? `<span class="badge badge-warning" title="Aufenthalt durch ein Unterwegs-Ereignis">⏸ ${Math.ceil(v.stopMinutes)} Min Halt</span>` : ''}
+        </div>
       </div>
 
       <div class="vehicle-stats">
@@ -410,6 +414,7 @@ export function renderCatalog() {
       </div>` : '';
     return `
     <div class="catalog-card">
+      <div class="catalog-thumb">${vehicleThumbHtml(cat.id, `<span class="catalog-thumb-emoji">${cat.icon}</span>`, 'catalog-thumb-img')}</div>
       <h3>${cat.icon} ${cat.name}</h3>
       <div class="text-muted text-sm">${cat.model}</div>
       <div class="catalog-desc">${cat.description}</div>
@@ -486,10 +491,13 @@ export function repairVehicle(vehicleId) {
   const cost = Math.round(cat.purchasePrice * 0.05);
   if (GS.finance.balance < cost) { showToast('Nicht genug Geld für die Reparatur.', 'danger'); return; }
   addTransaction(`Reparatur: ${v.name}`, -cost);
-  v.status = 'idle';
+  const hasRouteLeft = v.route && v.route.stops && v.route.stops.length > 1
+    && v.route.currentStopIndex < v.route.stops.length - 1;
+  v.status = hasRouteLeft ? 'driving' : 'idle';
   v.health = 80;
   v.fuel   = cat.fuelCapacity;
-  showToast(`${v.name} repariert!`, 'success');
+  if (hasRouteLeft && GS.progress) GS.progress.breakdownsSurvived++;
+  showToast(hasRouteLeft ? `${v.name} repariert – setzt die Fahrt fort!` : `${v.name} repariert!`, 'success');
   advanceGameTime(TIME_COSTS.repair, 'Fahrzeugreparatur');
   renderFleet();
 }

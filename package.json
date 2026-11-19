@@ -10,8 +10,11 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
     "vite": "^5.4.10",
-    "vitest": "^2.1.8",
-    "@vitest/coverage-v8": "^2.1.8"
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
   }
 }

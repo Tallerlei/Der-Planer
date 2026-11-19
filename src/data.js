@@ -434,29 +434,62 @@ export const DATA = {
   PRESS_CONFERENCE: [
     {
       situation: 'accident',
+      icon: '🚑',
       question: 'Einer Ihrer Fahrer hatte einen Unfall. Wie reagieren Sie?',
       options: [
-        { text: 'Wir bedauern den Vorfall aufrichtig und kümmern uns um alle Betroffenen.', reputationMod: +5 },
-        { text: 'Unser Fahrer trägt keine Schuld. Das war ein technisches Versagen.', reputationMod: -3 },
-        { text: 'Kein Kommentar. Unser Rechtsteam klärt alles.', reputationMod: -8 }
+        { text: 'Wir bedauern den Vorfall aufrichtig und kümmern uns um alle Betroffenen.', reputationMod: +5, headline: 'Spedition zeigt Herz: Chef kümmert sich persönlich um Unfallopfer' },
+        { text: 'Unser Fahrer trägt keine Schuld. Das war ein technisches Versagen.', reputationMod: -3, headline: 'Schrott-LKW auf unseren Straßen? Spedition schiebt Schuld auf Technik' },
+        { text: 'Kein Kommentar. Unser Rechtsteam klärt alles.', reputationMod: -8, headline: 'Mauern statt Mitgefühl: Spedition schweigt nach Unfall' }
       ]
     },
     {
       situation: 'delay',
+      icon: '⏰',
       question: 'Mehrere Lieferungen waren verspätet. Was sagen Sie dazu?',
       options: [
-        { text: 'Wir haben in neue Routenplanung investiert, das wird sich nicht wiederholen.', reputationMod: +8 },
-        { text: 'Externe Faktoren wie Wetter haben uns leider behindert.', reputationMod: +2 },
-        { text: 'Wir arbeiten daran.', reputationMod: -2 }
+        { text: 'Wir haben in neue Routenplanung investiert, das wird sich nicht wiederholen.', reputationMod: +8, headline: 'Fehler eingestanden, Besserung gelobt: Spedition investiert in Planung' },
+        { text: 'Externe Faktoren wie Wetter haben uns leider behindert.', reputationMod: +2, headline: 'Wetter schuld? Spedition erklärt Verspätungen' },
+        { text: 'Wir arbeiten daran.', reputationMod: -2, headline: '„Wir arbeiten daran“ – Kunden warten weiter' }
       ]
     },
     {
       situation: 'growth',
+      icon: '📈',
       question: 'Ihr Unternehmen wächst stark. Wohin geht die Reise?',
       options: [
-        { text: 'Wir setzen auf Nachhaltigkeit und Elektro-LKWs.', reputationMod: +10 },
-        { text: 'Wir werden europaweit expandieren.', reputationMod: +6 },
-        { text: 'Profit kommt zuerst – das erwartet unsere Investoren.', reputationMod: -5 }
+        { text: 'Wir setzen auf Nachhaltigkeit und Elektro-LKWs.', reputationMod: +10, headline: 'Visionär! Spedition plant Elektro-LKW – 30 Jahre vor allen anderen' },
+        { text: 'Wir werden europaweit expandieren.', reputationMod: +6, headline: 'Expansionskurs: Aufstrebende Spedition greift nach Europa' },
+        { text: 'Profit kommt zuerst – das erwartet unsere Investoren.', reputationMod: -5, headline: 'Gier statt Gemeinwohl? Spedition setzt nur auf Profit' }
+      ]
+    },
+    {
+      situation: 'streak',
+      icon: '🔥',
+      question: 'Zehn pünktliche Lieferungen in Folge! Was ist Ihr Geheimnis?',
+      options: [
+        { text: 'Unsere Fahrerinnen und Fahrer sind die Besten der Branche – ihnen gebührt der Dank.', reputationMod: +6, headline: 'Chef lobt sein Team: Pünktlichkeits-Rekord dank starker Fahrer' },
+        { text: 'Gute Planung, frischer Kaffee und eine Prise Glück.', reputationMod: +3, headline: 'Kaffee als Erfolgsgeheimnis? Spedition liefert und liefert' },
+        { text: 'Ich allein habe das möglich gemacht.', reputationMod: -4, headline: 'Ego-Trip: Spedition-Chef feiert sich selbst' }
+      ]
+    },
+    {
+      situation: 'crisis',
+      icon: '📉',
+      question: 'Gerüchte besagen, Ihr Unternehmen sei pleite. Stimmt das?',
+      options: [
+        { text: 'Wir haben einen klaren Sanierungsplan und stehen zu unseren Verpflichtungen.', reputationMod: +4, headline: 'Krise im Griff? Spedition legt Sanierungsplan vor' },
+        { text: 'Das sind Lügen der Konkurrenz!', reputationMod: -2, headline: 'Spedition wittert Verschwörung – Kunden bleiben skeptisch' },
+        { text: 'Kein Kommentar.', reputationMod: -6, headline: 'Schweigen im Pleite-Poker: Spedition gibt keine Auskunft' }
+      ]
+    },
+    {
+      situation: 'breakdown',
+      icon: '🔧',
+      question: 'Einer Ihrer LKW liegt mit Motorschaden am Straßenrand. Ist Ihr Fuhrpark marode?',
+      options: [
+        { text: 'Pannen passieren. Unsere Wartungsintervalle liegen über dem Branchenstandard.', reputationMod: +3, headline: 'Panne ja, Pfusch nein: Spedition verweist auf strenge Wartung' },
+        { text: 'Wir modernisieren unsere Flotte Schritt für Schritt.', reputationMod: +5, headline: 'Modernisierung angekündigt: Spedition investiert in neue Flotte' },
+        { text: 'Der Hersteller ist schuld, nicht wir.', reputationMod: -3, headline: 'Schwarzer Peter für den Hersteller: Spedition weist Verantwortung zurück' }
       ]
     }
   ],

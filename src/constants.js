@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.21.0';
+export const APP_VERSION = '1.22.1';
 
 export const TIME_COSTS = {
   navigate: 5,
@@ -54,6 +54,27 @@ export const FLEET_COMPATIBLE_ORDER_RATIO = 0.4;
 
 export const REP_TIER_MAX_WEIGHT = { 1: 3000, 2: 8000, 3: 15000, 4: 26000, 5: Infinity };
 export const REQ_LABELS = { cooling: 'Kühlung', adr: 'ADR-Zulassung', heavy_load: 'Schwerlastgenehmigung' };
+
+/** Punctuality streak: each consecutive on-time delivery adds this bonus fraction (capped). */
+export const STREAK_BONUS_PER_STEP = 0.025;
+export const STREAK_BONUS_MAX      = 0.25;
+
+/** Gold orders: rare, lucrative VIP orders with a short acceptance window. */
+export const GOLD_ORDER_CHANCE       = 0.06;
+export const GOLD_ORDER_VALUE_MULT   = 2.5;
+export const GOLD_ORDER_EXPIRY_DAYS  = 0.5;
+
+/** Driver experience: XP needed per level step = current skill × this value. */
+export const DRIVER_XP_PER_LEVEL = 120;
+export const DRIVER_MAX_SKILL    = 5;
+export const DRIVER_TITLES = { 1: 'Neuling', 2: 'Fahrer', 3: 'Routinier', 4: 'Kapitän der Landstraße', 5: 'Legende' };
+
+/** Interactive road events: chance per driving vehicle per game hour and global cooldown. */
+export const ROAD_EVENT_CHANCE_PER_VEHICLE_HOUR = 0.05;
+export const ROAD_EVENT_COOLDOWN_MINUTES        = 360;
+
+/** Minimum game days between two press conferences. */
+export const PRESS_COOLDOWN_DAYS = 5;
 
 /** Reputation warning thresholds for the dashboard and office indicator. */
 export const REP_WARNING_THRESHOLD = 25;

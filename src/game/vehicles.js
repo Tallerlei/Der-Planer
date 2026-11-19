@@ -31,6 +31,7 @@ export function createVehicle(catalogId, homeCityId, trailerId = null) {
     },
     position: homeCity ? { x: homeCity.x, y: homeCity.y } : { x: 0, y: 0 },
     refuelPauseMinutes: 0,
+    stopMinutes: 0,
     orderQueue: [],
   };
 }

@@ -384,6 +384,9 @@ export function renderOrders() {
     const urgentBadge = o.isUrgent
       ? `<span class="badge badge-danger urgent-badge${tab === 'completed' ? ' urgent-badge-done' : ''}" title="Eilauftrag – kurze Frist, höhere Vergütung">⚡ Eilauftrag</span>`
       : '';
+    const goldBadge = o.isGold
+      ? `<span class="badge badge-gold" title="Goldauftrag – stark erhöhte Vergütung, aber nur kurz verfügbar">💎 Goldauftrag</span>`
+      : '';
 
     // ── Distance & trip calculation ──────────────────────────────
     const km = getDistance(o.origin, o.destination);
@@ -486,6 +489,7 @@ export function renderOrders() {
           ${isLate ? '⚠️ Verspätet' : '✅ Pünktlich'} – Gezahlt: ${fmt.money(o.finalValue)}
         </span>
         ${isLate ? `<span class="badge badge-danger">Strafe: ${fmt.money(penalty)}</span>` : ''}
+        ${o.streakBonus > 0 ? `<span class="badge badge-warning">🔥 Serienbonus: ${fmt.money(o.streakBonus)}</span>` : ''}
         <span>🕐 Erledigt: ${completedAt}</span>
       </div>`;
     }
@@ -494,6 +498,8 @@ export function renderOrders() {
     let cardClass = 'order-card';
     if (tab === 'completed') {
       if (o.finalValue < o.value) cardClass += ' order-card-failed';
+    } else if (o.isGold) {
+      cardClass += ' order-card-gold';
     } else if (o.isUrgent) {
       cardClass += ' order-card-urgent';
     }
@@ -517,6 +523,7 @@ export function renderOrders() {
         </div>
         <div style="text-align:right">
           <div class="order-value">${fmt.money(o.value)}</div>
+          ${goldBadge}
           ${urgentBadge}
           ${deadlineHtml}
         </div>

@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.21.0**
+> 🔖 **Version: 1.22.1**
 
 ---
 
@@ -21,6 +21,40 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 ### 🎨 Modernes, ansprechendes UI
 - **Glassmorphism-Design**: Elegante, halbtransparente Panels und Cards.
 - Überarbeitete Typografie, schicke Verläufe und bessere visuelle Hierarchie.
+- **Belohnungs-Effekte**: Konfetti bei Erfolgen, Kapitelabschlüssen und Goldaufträgen, schwebende **+€-Anzeigen** am Kontostand nach jeder Lieferung und animierte Erfolgs-Banner. Animationen respektieren die Systemeinstellung *Bewegung reduzieren*.
+- **Statusleisten-Chips**: 🔥 aktuelle Pünktlichkeits-Serie mit Bonus, 🏅 freigeschaltete Erfolge und 📖 aktuelles Story-Kapitel (jeweils anklickbar).
+
+### 🧊 3D-Grafik (three.js)
+- **Prozedurale 3D-Fahrzeugmodelle** im Low-Poly-Stil für alle 8 Fahrzeugtypen – inklusive passender Aufbauten (Koffer, Plane, Kühlaggregat, Tank, ADR-Warntafeln, Tieflader mit Bagger) und Anhängervarianten.
+- **Gerenderte Fahrzeugbilder** im Fahrzeugkatalog, in den Fuhrpark-Karten und in den Unterwegs-Ereignissen.
+- **Live-Firmenhof im Büro**: Eine animierte 3D-Szene zeigt Halle (mit dem eigenen Firmennamen), Bürogebäude und Parkplätze. Fahrzeuge am Firmensitz stehen auf dem Hof, ausfahrende Fahrzeuge setzen zurück und fahren los, zurückkehrende fahren ein. Tageslicht, Straßenlaternen und Fensterbeleuchtung folgen der Spieluhrzeit; auf der Straße fährt Verkehr vorbei.
+- **Animiertes Hauptmenü**: Ein Sattelzug fährt im Sonnenuntergang über die Landstraße.
+- three.js wird erst bei Bedarf nachgeladen; ohne WebGL fällt das Spiel automatisch auf Emoji-Symbole zurück.
+
+### 📖 Story-Kampagne (Story-Modus)
+- **6 Kapitel** mit Geschichte rund um das Erbe von Onkel Heinz und die Konkurrenz von *Brummer & Söhne* – vom geerbten Transporter bis zum Logistik-Imperium.
+- Jedes Kapitel hat 2–4 **Ziele** (z. B. pünktliche Lieferungen, Umsatz, Flottengröße, Spezialfracht, Länder, Ansehen) und eine **Geldbelohnung** (5.000 € bis 100.000 €).
+- **Zielübersicht im Büro** mit Fortschrittsbalken, Kapitel-Intro- und Abschluss-Dialoge sowie ein Kampagnen-Überblick.
+
+### 🏅 Erfolge
+- **25 Erfolge** (davon 2 geheim) für Meilensteine wie Lieferanzahl, Serien, Goldaufträge, Flottengröße, Kontostand, gefahrene Kilometer, Länder, Fahrer-Legenden, Pressearbeit, riskante Entscheidungen u. v. m.
+- Erfolgsgalerie mit Freischaltdatum – erreichbar über die Statusleiste oder die Bürokachel **🏅 Erfolge**. Verfügbar in Story- und Sandbox-Modus.
+
+### 🔥 Pünktlichkeits-Serie
+- Jede pünktliche Lieferung in Folge erhöht den **Serienbonus** um 2,5 % (max. +25 %) auf die Auszahlung. Eine verspätete Lieferung setzt die Serie zurück.
+
+### 💎 Goldaufträge
+- Seltene **VIP-Aufträge** (ca. 6 % der fuhrparktauglichen Aufträge) mit **2,5-facher Vergütung** und doppeltem Bonus – aber nur **12 Stunden** annehmbar. Goldene, schimmernde Auftragskarte, Sondermeldung bei Eingang und Extra-Kundenansehen bei pünktlicher Lieferung.
+
+### 🎲 Unterwegs-Ereignisse
+- Während der Fahrt melden sich Fahrer per CB-Funk mit **Entscheidungen**: Stau-Abkürzung, Zeitdruck & Blitzer, Motorwarnleuchte, Anhalter, Übermüdung, dubiose Beiladung, Kühe auf der Fahrbahn, Fernsehteam.
+- Riskante Optionen können Zeit oder Geld bringen – oder Bußgelder, Ansehensverluste, Verzögerungen und Schäden. Erfahrene Fahrer erhöhen die Erfolgschancen.
+- **Echte Pannen**: Fahrzeuge mit schlechtem Zustand (oder nach riskanten Entscheidungen) bleiben liegen. Abschleppdienst, eigener Mechaniker oder später im Fuhrpark reparieren – nach der Reparatur setzt das Fahrzeug seine Route fort.
+- Das Spiel pausiert während eines Ereignisses; Aufenthalte werden in Fuhrpark-Karten und ETAs berücksichtigt.
+
+### 🎤 Pressekonferenzen
+- Nach Unfällen, Pannen, mehreren Verspätungen, Wachstumsschüben (neue Bekanntheitsgrad-Stufe), langen Pünktlichkeits-Serien oder negativem Kontostand stellt die Presse Fragen.
+- Die Antwort beeinflusst das Unternehmensansehen; das Ergebnis erscheint als Schlagzeile der *Frankfurter Logistik-Rundschau*.
 
 ### 🏢 Unternehmensführung
 - Starte mit einem kleinen Budget (abhängig vom Schwierigkeitsgrad) und baue dein Unternehmen auf.
@@ -51,8 +85,10 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Warenklassen mit Vergütungsfaktoren**: Jede Ware gehört einer Klasse an, die den Basis-km-Preis multipliziert – Standardware/Baustoffe (×1,0), Lebensmittel/Flüssigkeiten (×1,1), Kühlware (×1,3), Fahrzeugteile/Schwerlast (×1,2), Kraftstoff/Gefahrgut/Medizingüter (×1,5). Eilaufträge (⚡) erhalten zusätzlich den Faktor 1,4.
 - **Distanzbasierte Vergütungsformel**: `random(5, 12) €/km × Distanz × Warenfaktor × Eilfaktor × Marktmodifikator × Kundenbindungsbonus` – die Basisspanne von 5–12 €/km garantiert faire und konsistente Wirtschaftlichkeit. Jede Auftragskarte zeigt beim €/km-Wert einen Tooltip mit vollständiger Faktor-Aufschlüsselung.
 - **Kundenbindungsbonus**: Kunden mit einem Ansehen ≥ 75 bieten 5 % bessere Konditionen.
-- **Auftragsfehler-Popup**: Bei einem abgelaufenen oder verspätet gelieferten Auftrag erscheint ein detailliertes Pop-up mit allen relevanten Zeitstempeln (Erhalten, Angenommen, Abgeholt, Deadline, Geliefert) und den finanziellen Auswirkungen. Das Spiel wird dabei automatisch pausiert. Mehrere Fehlermeldungen werden nacheinander angezeigt.
-- **Automatischer Auftragsablauf**: Verfallene Aufträge werden automatisch entfernt und senken die Reputation beim jeweiligen Auftraggeber um −3 Punkte.
+- **Auftragsfehler-Popup**: Bei einem verfallenen oder verspätet gelieferten Auftrag erscheint ein detailliertes Pop-up mit den finanziellen Auswirkungen. Das Spiel wird dabei automatisch pausiert. Mehrere Fehlermeldungen werden nacheinander angezeigt.
+  - *Verspätete Lieferung*: Zeitstempel (Erhalten, Angenommen, Abgeholt, Deadline, Geliefert), Verspätung und Aufschlüsselung der Vertragsstrafe.
+  - *Verfallenes Angebot*: Erklärung, dass das Angebot nicht innerhalb der Annahmefrist angenommen wurde, Zeitpunkt des Fristendes, entgangener Auftragswert (keine Strafzahlung), Kundenansehen vorher → nachher sowie ein Tipp zum rechtzeitigen Ablehnen.
+- **Automatischer Auftragsablauf**: Angebote, die nicht innerhalb ihrer Annahmefrist angenommen werden, verfallen automatisch (geprüft beim Tageswechsel). Es fällt keine Strafzahlung an, aber das Ansehen beim jeweiligen Auftraggeber sinkt – je höher das Kundenansehen, desto größer der Verlust: `round(12 × √(Ansehen / 100))` Punkte, z. B. −6 bei Ansehen 25, −8 bei 50 und −12 bei 100. **Abgelehnte** Angebote (✗ Ablehnen) kosten dagegen kein Ansehen.
 - **Kundenstatus (Kundenansehen)**: Jeder Auftraggeber hat ein eigenes Ansehen (0–100, Start: 50), das in den Auftragskarten als Sternbewertung angezeigt wird. Erfüllte Aufträge erhöhen das Ansehen – mit **sinkenden Zuwächsen** je höher der Wert bereits ist.
 - Verwalte verfügbare, aktive und abgeschlossene Aufträge in übersichtlichen Tabs – **mit aktuellen Zählern** in jedem Tab.
 - **Auftragsortierung**: Die Auftragsliste kann nach verschiedenen Kriterien sortiert werden – **Wert**, **Gewicht**, **Entfernung**, **€/km** (alle Tabs), **Ablaufzeit** (verfügbare Aufträge), **Frist** (aktive Aufträge) sowie **Abschlusszeitpunkt** und **Status** (Pünktlich/Verspätet, abgeschlossene Aufträge). Ein Klick auf ein aktives Sortierkriterium kehrt die Reihenfolge um (auf-/absteigend).
@@ -87,6 +123,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **7 Mitarbeiterrollen**: LKW-Fahrer (€ 2.400/Monat), Mechaniker, Buchhalter, Telefonistin, Manager, Rechtsanwältin u. a.
 - Stelle Personal ein oder entlasse es – Gehälter werden monatlich automatisch abgebucht.
 - Zufallsgenerierte deutsche Namen für alle Mitarbeiter.
+- **Fahrer-Erfahrung**: Fahrer sammeln pro Lieferung XP (abhängig von Strecke und Pünktlichkeit) und steigen bis **Stufe 5** auf – vom *Neuling* bis zur *Legende*. Erfahrene Fahrer verbrauchen bis zu 12 % weniger Kraftstoff und meistern riskante Unterwegs-Entscheidungen öfter. Rang und XP-Balken werden im Personal-Screen angezeigt.
 
 ### 💶 Finanzsystem
 - Vollständiges Finanzsystem mit Einnahmen, Ausgaben, Transaktionsprotokoll und KPIs.
@@ -121,8 +158,8 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 | Modus      | Beschreibung                                    |
 |------------|-------------------------------------------------|
-| **Story**   | Geführter Einstieg mit vordefinierten Zielen   |
-| **Sandbox** | Freies Spiel ohne festgelegte Vorgaben         |
+| **Story**   | 6-teilige Kampagne mit Kapitelzielen und Belohnungen |
+| **Sandbox** | Freies Spiel ohne Story – Erfolge, Goldaufträge und Ereignisse inklusive |
 
 | Schwierigkeit | Startkapital | Auftragsfrequenz | Ereigniswahrscheinlichkeit |
 |---------------|-------------|------------------|---------------------------|
@@ -180,6 +217,9 @@ Der-Planer/
 │   │   ├── finance.js  # Transaktionen, Buchführung
 │   │   ├── staff.js    # Personalverwaltung
 │   │   ├── events.js   # Marktereignisse
+│   │   ├── progression.js # Kampagne, Erfolge, Serien, Goldaufträge, Fahrer-XP
+│   │   ├── road_events.js # Interaktive Unterwegs-Ereignisse & Pannen
+│   │   ├── press.js    # Pressekonferenzen
 │   │   └── save.js     # localStorage-Persistenz
 │   ├── ui/
 │   │   ├── statusbar.js    # Statusleiste und Auftrags-Badges
@@ -192,12 +232,22 @@ Der-Planer/
 │   │   ├── personnel.js    # Personal-Screen
 │   │   ├── finance_ui.js   # Finanz-Screen
 │   │   ├── office.js       # Büro-Screen
+│   │   ├── dialogs.js      # Ereignis-, Presse-, Kapitel- und Erfolgsdialoge
+│   │   ├── fx.js           # Konfetti, +€-Anzeigen, Erfolgs-Banner
 │   │   └── map.js          # Karte (Canvas-Rendering)
+│   ├── three/
+│   │   ├── assets.js            # Leichtgewichtige Fassade (lädt three.js bei Bedarf)
+│   │   ├── vehicle_models.js    # Prozedurale 3D-Fahrzeugmodelle
+│   │   ├── thumbnail_renderer.js # Rendert Fahrzeugbilder für die UI
+│   │   ├── depot_scene.js       # Live-3D-Firmenhof im Büro
+│   │   └── menu_scene.js        # Animierter Hauptmenü-Hintergrund
 │   └── __tests__/
 │       ├── utils.test.js       # Tests für Hilfsfunktionen
 │       ├── routing.test.js     # Tests für Wegfindungsalgorithmus
 │       ├── constants.test.js   # Tests für Spielkonstanten
-│       └── orders.test.js      # Tests für Auftragslogik
+│       ├── orders.test.js      # Tests für Auftragslogik
+│       ├── progression.test.js # Tests für Kampagne, Erfolge, Serien, Fahrer-XP
+│       └── road_events.test.js # Tests für Unterwegs-Ereignisse & Pressekonferenzen
 ├── vite.config.js      # Vite-Konfiguration
 └── package.json        # npm-Skripte und Abhängigkeiten
 ```
@@ -212,7 +262,7 @@ Der Spielstand wird automatisch per `localStorage` gespeichert und beim nächste
 |------------------|---------------------------------------------------|
 | Sprache          | HTML5, CSS3, Vanilla JavaScript (ES Modules)      |
 | Build-System     | [Vite](https://vitejs.dev/) – schneller Dev-Server und Bundles |
-| Test-Framework   | [Vitest](https://vitest.dev/) – 97 Unit-Tests     |
+| Test-Framework   | [Vitest](https://vitest.dev/) – 149 Unit-Tests    |
 | Persistenz       | Browser `localStorage`                            |
-| Grafik           | HTML5 Canvas (Karten & Routen)                    |
+| Grafik           | HTML5 Canvas (Karten & Routen), [three.js](https://threejs.org/) (3D-Fahrzeuge, Firmenhof, Menü) |
 | Deployment       | [GitHub Pages](https://tallerlei.github.io/Der-Planer/) via GitHub Actions |

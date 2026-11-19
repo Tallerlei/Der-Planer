@@ -5,12 +5,35 @@ import { DATA } from '../data.js';
 import { getReputationTier } from '../game/orders.js';
 
 let _onCloseCallback = null;
+const _modalQueue = [];
 
 export function openModal(title, bodyHtml, onClose = null) {
   $('modal-title').textContent = title;
   $('modal-body').innerHTML   = bodyHtml;
   $('modal-overlay').classList.add('open');
   _onCloseCallback = onClose;
+}
+
+export function isModalOpen() {
+  const ov = $('modal-overlay');
+  return !!ov && ov.classList.contains('open');
+}
+
+/**
+ * Queues a modal so it never overwrites one that is currently open.
+ * `body` may be a function evaluated when the modal is actually shown.
+ * `onOpen` runs right before the modal becomes visible.
+ */
+export function queueModal(title, body, onClose = null, onOpen = null) {
+  _modalQueue.push({ title, body, onClose, onOpen });
+  _drainModalQueue();
+}
+
+function _drainModalQueue() {
+  if (isModalOpen() || _modalQueue.length === 0) return;
+  const next = _modalQueue.shift();
+  if (next.onOpen) next.onOpen();
+  openModal(next.title, typeof next.body === 'function' ? next.body() : next.body, next.onClose);
 }
 
 export function closeModal() {
@@ -20,6 +43,7 @@ export function closeModal() {
     _onCloseCallback = null;
     cb();
   }
+  if (_modalQueue.length > 0) setTimeout(_drainModalQueue, 200);
 }
 
 export function openEventsModal() {

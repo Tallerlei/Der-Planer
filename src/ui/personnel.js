@@ -6,6 +6,25 @@ import { addTransaction } from '../game/finance.js';
 import { createStaff, generateHireCandidates } from '../game/staff.js';
 import { advanceGameTime } from '../game/engine.js';
 import { showToast } from './notifications.js';
+import { getDriverTitle, xpForNextLevel } from '../game/progression.js';
+import { DRIVER_MAX_SKILL } from '../constants.js';
+
+function _driverXpHtml(s) {
+  const maxed = s.skill >= DRIVER_MAX_SKILL;
+  const need = xpForNextLevel(s.skill);
+  const xp = s.xp || 0;
+  const pct = maxed ? 100 : Math.min(100, Math.round((xp / need) * 100));
+  return `
+    <div class="staff-stat">
+      <span class="ss-label">Rang</span>
+      <span class="driver-title driver-title-${s.skill}">${'⭐'.repeat(s.skill)} ${getDriverTitle(s.skill)}</span>
+    </div>
+    <div class="staff-stat driver-xp" title="${maxed ? 'Höchste Stufe erreicht' : `${xp} / ${need} XP bis Stufe ${s.skill + 1}`}">
+      <span class="ss-label">Erfahrung</span>
+      <div class="xp-bar"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
+      <span class="xp-text">${maxed ? 'MAX' : `${xp}/${need} XP`} · ${s.deliveries || 0} Lieferungen</span>
+    </div>`;
+}
 
 export function renderPersonnel() {
   const listEl = $('staff-list');
@@ -40,6 +59,7 @@ export function renderPersonnel() {
               <span class="ss-label">Qualifikation</span>
               <div class="skill-dots">${dots}</div>
             </div>
+            ${s.role === 'driver' ? _driverXpHtml(s) : ''}
             ${vehicle ? `<div class="staff-stat"><span class="ss-label">Fahrzeug</span><span class="ss-value">${vehicle.name}</span></div>` : ''}
             ${s.certifications.length ? `
             <div class="staff-stat">
@@ -66,7 +86,7 @@ export function renderPersonnel() {
       <div class="hire-icon">${role.icon}</div>
       <div class="hire-info">
         <div class="hire-name">${c.name}</div>
-        <div class="hire-details">${role.label} · Qualifikation: <div class="skill-dots" style="display:inline-flex">${dots}</div></div>
+        <div class="hire-details">${role.label}${c.role === 'driver' ? ` „${getDriverTitle(c.skill)}“` : ''} · Qualifikation: <div class="skill-dots" style="display:inline-flex">${dots}</div></div>
         ${c.certifications.length ? `<div class="hire-details">Zertifikate: ${c.certifications.join(', ')}</div>` : ''}
       </div>
       <div style="text-align:right">

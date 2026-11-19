@@ -40,6 +40,12 @@
       <span class="label">📅</span>
       <span class="value" id="sb-date">–</span>
     </div>
+    <div class="status-item sb-streak" id="sb-streak" title="Pünktlichkeits-Serie: Jede pünktliche Lieferung in Folge erhöht den Bonus (max. +25 %). Eine Verspätung setzt die Serie zurück.">
+      <span class="label">🔥</span>
+      <span class="value" id="sb-streak-value">0</span>
+    </div>
+    <button class="sb-chip" id="sb-achievements" onclick="openAchievementsModal()" title="Erfolge anzeigen">🏅 <span id="sb-ach-value">0</span></button>
+    <button class="sb-chip" id="sb-chapter" onclick="openCampaignModal()" title="Story-Kampagne anzeigen">📖 <span id="sb-chapter-value">–</span></button>
     <div class="speed-controls">
       <span class="label" style="margin-right:.25rem">⏩</span>
       <button class="speed-btn active" data-speed="0" title="Pause">⏸</button>
@@ -89,6 +95,10 @@
           <h2>🏢 Ihr Büro</h2>
           <p id="office-date"></p>
         </div>
+        <div id="office-depot" class="office-depot">
+          <div class="depot-caption" id="depot-caption"></div>
+        </div>
+        <div id="office-goals" class="office-goals"></div>
         <div id="office-rooms" class="office-grid"></div>
       </div>
 
@@ -250,6 +260,7 @@
 
   <!-- ═══ MAIN MENU (shown by default) ═══ -->
   <div id="screen-menu" class="screen active">
+    <div id="menu-scene" class="menu-scene" aria-hidden="true"></div>
     <div class="menu-logo">
       <h1>Der Planer</h1>
       <p>Reloaded &mdash; Europas führende Speditionssimulation</p>
@@ -296,11 +307,11 @@
             <div class="mode-grid">
               <div class="mode-option selected" data-mode="story">
                 <span class="mode-title">📖 Story-Modus</span>
-                <span class="mode-desc">Schrittweise wachsende Herausforderungen, Pressekonferenzen und persönliche Ereignisse</span>
+                <span class="mode-desc">6 Story-Kapitel mit Zielen &amp; Belohnungen – vom geerbten Transporter zum Logistik-Imperium</span>
               </div>
               <div class="mode-option" data-mode="sandbox">
                 <span class="mode-title">🏖️ Sandbox</span>
-                <span class="mode-desc">Freies Spiel ohne Zeitdruck – bauen Sie Ihr Imperium in Ihrem Tempo</span>
+                <span class="mode-desc">Freies Spiel ohne Story – Erfolge, Goldaufträge &amp; Ereignisse inklusive</span>
               </div>
             </div>
           </div>
@@ -324,6 +335,10 @@
           <li>👥 Personalmanagement: Fahrer, Mechaniker, Buchhalter u.v.m.</li>
           <li>💰 Vollständiges Finanzsystem mit Krediten und Buchführung</li>
           <li>📰 Marktdynamik: Kraftstoffpreise, Wirtschaftslage, Wetterereignisse</li>
+          <li>📖 Story-Kampagne mit 6 Kapiteln und 25 Erfolge</li>
+          <li>🎲 Unterwegs-Ereignisse, Pannen &amp; Pressekonferenzen</li>
+          <li>🔥 Pünktlichkeits-Serien, 💎 Goldaufträge &amp; ⭐ Fahrer-Level</li>
+          <li>🧊 3D-Fahrzeugmodelle und live animierter Firmenhof</li>
           <li>💾 Automatisches Speichern im Browser</li>
         </ul>
         <p style="margin-top:.75rem;font-size:.75rem;color:var(--text-muted)">

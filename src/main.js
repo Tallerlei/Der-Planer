@@ -29,6 +29,9 @@ import {
   updateZoomButtons,
 } from './ui/map.js';
 import { updateOrderBadge } from './ui/statusbar.js';
+import { registerDialogs, openAchievementsModal, openCampaignModal } from './ui/dialogs.js';
+import { registerProgressHook } from './game/progression.js';
+import { startMenuScene, stopMenuScene, ensureVehicleThumbs, onThumbsReady } from './three/assets.js';
 
 
 // ── Register renderers with the engine ────────────────────────
@@ -40,6 +43,23 @@ registerRenderer('office',   renderOffice);
 registerRenderer('personnel', renderPersonnel);
 registerRenderer('orders-badge', updateOrderBadge);
 registerRenderer('screen-show-office', () => showScreen('office'));
+
+// ── Gameplay dialogs (road events, press, campaign, achievements) ──
+registerDialogs();
+registerProgressHook('game-started', () => {
+  stopMenuScene();
+  ensureVehicleThumbs();
+});
+
+// Re-render screens that show vehicle images once the 3D thumbnails are ready
+onThumbsReady(() => {
+  const screen = document.querySelector('.screen.active')?.id?.replace('screen-', '');
+  if (screen === 'fleet') {
+    renderFleet();
+    const catalog = document.getElementById('catalog-list');
+    if (catalog && catalog.style.display !== 'none') renderCatalog();
+  }
+});
 
 // ── Register screen renderers ─────────────────────────────────
 registerScreenRenderer('office',    renderOffice);
@@ -100,6 +120,8 @@ Object.assign(window, {
   openStatsModal,
   openLogModal,
   openReputationDashboard,
+  openAchievementsModal,
+  openCampaignModal,
   closeModal,
 
   setMapZoom,
@@ -141,6 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
     msc.addEventListener('click',      handleMapScreenClick);
     msc.addEventListener('wheel',      handleMapScreenWheel, { passive: false });
   }
+
+  // Animated 3D menu background + background-render vehicle images
+  startMenuScene(document.getElementById('menu-scene'));
+  setTimeout(() => ensureVehicleThumbs(), 1500);
 
   // Check for saved game
   if (hasSave()) {

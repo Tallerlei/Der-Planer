@@ -30,6 +30,8 @@ export function createStaff(role, skill) {
     certifications: certs,
     vehicleId: null,
     hiredAt: { ...GS.time },
+    xp: 0,
+    deliveries: 0,
   };
 }
 
