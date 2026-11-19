@@ -1192,6 +1192,26 @@ tr:hover td { background: var(--surface2); }
 }
 .loan-card h3 { margin-bottom: 0.5rem; }
 .loan-details { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+.credit-overview {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+.active-loan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.active-loan-row:last-child { border-bottom: 0; }
+.active-loan-values { display: grid; text-align: right; gap: 0.15rem; }
 
 /* ══════════════════════════════════════════════════════════
    ACTION-BASED TIME SYSTEM

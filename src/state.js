@@ -23,6 +23,7 @@ export const GS = {
     monthRevenue: 0,
     monthExpenses: 0,
     transactions: [],
+    loans: [],
   },
 
   vehicles: [],

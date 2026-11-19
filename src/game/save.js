@@ -16,6 +16,7 @@ export function loadGame() {
     if (!Array.isArray(GS.messageLog))        GS.messageLog        = [];
     if (!Array.isArray(GS.trailers))           GS.trailers          = [];
     if (!Array.isArray(GS.reputationHistory))  GS.reputationHistory = [];
+    if (!Array.isArray(GS.finance.loans))      GS.finance.loans      = [];
     if (!GS.ui.orderSort)    GS.ui.orderSort    = { field: 'value', dir: 'desc' };
     if (!GS.ui.completedLimit) GS.ui.completedLimit = 10;
     GS.vehicles.forEach(v => {

@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.22.1**
+> 🔖 **Version: 1.22.2**
 
 ---
 
@@ -127,7 +127,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ### 💶 Finanzsystem
 - Vollständiges Finanzsystem mit Einnahmen, Ausgaben, Transaktionsprotokoll und KPIs.
-- **Kreditsystem** mit variablen Zinssätzen.
+- **Kreditsystem** mit variablen Zinssätzen, laufzeitgerechten Monatsraten, automatischer monatlicher Tilgung und einem von Ansehen und Flottenwert abhängigen Kreditrahmen.
 - Monatliche Kosten: Gehälter, Kraftstoff, Fahrzeugwartung.
 
 ### 📣 Marketing *(in Vorbereitung)*
@@ -136,7 +136,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ### ⚡ Performance
 - **Selektive DOM-Updates im Fuhrpark**: Fahrzeugkarten werden nur neu gerendert, wenn sich ihr Inhalt geändert hat (HTML-Caching pro Fahrzeug). Strukturänderungen (Kauf/Verkauf von Fahrzeugen) lösen einen vollständigen Neuaufbau aus, während stabile Zustände nur gezielt aktualisiert werden.
-- **Optimierte Finanzansicht**: KPI-Karten und Transaktionsliste werden nur dann neu in den DOM geschrieben, wenn sich der Inhalt tatsächlich geändert hat. Kreditkarten-HTML wird einmalig gerendert und danach nicht mehr neu erstellt.
+- **Optimierte Finanzansicht**: KPI-Karten, Transaktionen sowie Kredit- und Restschuldanzeige werden nur dann neu in den DOM geschrieben, wenn sich der Inhalt tatsächlich geändert hat.
 - **Debounced Resize-Handler**: Das `window.resize`-Ereignis wird erst 150 ms nach dem letzten Auslösen verarbeitet, um übermäßige Karten-Neuberechnungen beim Verändern der Fenstergröße zu vermeiden.
 
 ### 📈 Marktereignisse

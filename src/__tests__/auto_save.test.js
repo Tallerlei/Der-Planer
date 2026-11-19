@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { advanceGameTime } from '../game/engine.js';
+import { LOAN_OPTIONS, grantLoan } from '../game/finance.js';
 import { GS } from '../state.js';
 
 // Stub out DOM-dependent helpers so tests can run without a browser
@@ -75,5 +76,20 @@ describe('Automatisches Speichern nach Tageswechsel', () => {
     advanceGameTime(3000);
 
     expect(autoSave).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Monatliche Kreditverarbeitung', () => {
+  it('bucht am Monatswechsel die Kreditrate ab', () => {
+    GS.time.day = 31;
+    GS.time.totalMinutes = 1439;
+    grantLoan(LOAN_OPTIONS.find(loan => loan.id === 'short'));
+    const balanceAfterLoan = GS.finance.balance;
+
+    advanceGameTime(1);
+
+    expect(GS.time.month).toBe(4);
+    expect(GS.finance.balance).toBeLessThan(balanceAfterLoan);
+    expect(GS.finance.loans[0].remainingMonths).toBe(11);
   });
 });

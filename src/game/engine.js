@@ -10,7 +10,7 @@ import {
   GOLD_ORDER_CHANCE,
 } from '../constants.js';
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
-import { addTransaction } from './finance.js';
+import { addTransaction, processLoanPayments } from './finance.js';
 import { createStaff, generateHireCandidates } from './staff.js';
 import { createVehicle, updatePositionForVehicle, startOrderForVehicle, isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements } from './vehicles.js';
 import { getReputationTier, canFulfillOrder, getFleetCapabilities } from './orders.js';
@@ -417,6 +417,8 @@ export function processMonthEnd() {
     v.health = Math.min(100, v.health + 5);
   }
   if (totalMaint > 0) addTransaction('Fahrzeugwartung', -Math.round(totalMaint));
+
+  processLoanPayments();
 
   GS.finance.monthRevenue  = 0;
   GS.finance.monthExpenses = 0;
@@ -1216,6 +1218,9 @@ export function startNewGame() {
   GS.company.werbevertrag_booster = 0.0;
 
   GS.finance.balance    = diffConfig.startMoney;
+  GS.finance.monthRevenue  = 0;
+  GS.finance.monthExpenses = 0;
+  GS.finance.loans      = [];
   GS.market.fuelPrice   = diffConfig.fuelPriceBase;
   GS.time               = { day: 1, month: 3, year: 1994, hour: 8, minute: 0, totalMinutes: 480 };
 
@@ -1266,6 +1271,7 @@ export function loadAndContinue() {
   if (GS.company.werbevertrag_aktiv  === undefined) GS.company.werbevertrag_aktiv  = false;
   if (GS.company.werbevertrag_booster === undefined) GS.company.werbevertrag_booster = 0.0;
   if (!GS.company.reputationTier) GS.company.reputationTier = getReputationTier(GS.company.reputation || 50);
+  if (!Array.isArray(GS.finance.loans)) GS.finance.loans = [];
   if (!GS.clientReputation) GS.clientReputation = {};
   if (!GS.clientStats)      GS.clientStats      = {};
   ensureProgressState();
