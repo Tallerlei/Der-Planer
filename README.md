@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.23.0**
+> 🔖 **Version: 1.23.1**
 
 ---
 
@@ -71,6 +71,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Kaufe, warte und verkaufe Fahrzeuge (MAN, Volvo, Scania, DAF, Mercedes Actros u. a.).
 - Weise Fahrern Fahrzeuge zu und entferne sie wieder, wenn Fahrzeug und Fahrer sich am Firmensitz befinden.
 - Fahrzeuge können in den Zuständen *untätig*, *fahrend* oder *Wartung* sein.
+- **Wartungsdauer in Spielzeit**: Wartungen dauern 120 Spielminuten, pausieren mit dem Spiel und werden über das Speichern und Laden hinweg fortgesetzt.
 - Treibstoffverbrauch und Verschleiß werden realistisch simuliert.
 - **Automatische Tankstopps**: Sinkt der Kraftstoffstand unter 15 %, hält das Fahrzeug selbständig an einer Tankstelle (15 Min. Verzögerung); die Kraftstoffkosten werden automatisch verbucht.
 - **Anhänger-System**: Fahrzeuge mit Anhänger-Slot können beim Kauf mit einem passenden Anhänger ausgestattet werden. Sattelzug, Kühllaster und Tankzug unterstützen große Auflieger (Planenauflieger, Pritschenauflieger, Kühlauflieger, Tankauflieger); der Kleintransporter kann mit kleinen Anhängern (Kastenanhänger, Pritschenanhänger) ausgerüstet werden. Anhänger erhöhen die Nutzlast und ermöglichen zusätzliche Frachtanforderungen (z. B. Kühlung, ADR).
@@ -144,7 +145,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ### ⏱️ Zeitsteuerung
 - Einstellbare Spielgeschwindigkeit: **Pause / 1× / 5×**.
-- **⏭ Nächstes Ereignis**: Springt automatisch zum nächsten relevanten Spielereignis – entweder die Ankunft eines Fahrzeugs an einem Standort oder der Abschluss eines Auftrags. Spart Wartezeit, ohne die manuelle Kontrolle zu verlieren.
+- **⏭ Nächstes Ereignis**: Springt automatisch zum nächsten relevanten Spielereignis – entweder die Ankunft eines Fahrzeugs, der Abschluss eines Auftrags oder das Ende einer Wartung. Spart Wartezeit, ohne die manuelle Kontrolle zu verlieren.
 - Das Spiel läuft in 15-Minuten-Ticks; Fahrzeuge, Aufträge und Ereignisse werden in Echtzeit aktualisiert.
 
 ### 💾 Spielstand & Meldungsprotokoll

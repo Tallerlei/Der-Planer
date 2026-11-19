@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.23.0';
+export const APP_VERSION = '1.23.1';
 
 export const TIME_COSTS = {
   navigate: 5,
@@ -39,6 +39,7 @@ export const CARGO_TYPE_KM_FACTORS = {
 
 export const REFUEL_THRESHOLD = 0.15;
 export const REFUEL_DURATION_MINUTES = 15;
+export const MAINTENANCE_DURATION_MINUTES = 120;
 export const RENDER_THROTTLE_MS = 950;
 export const TOAST_DISPLAY_MS = 2200;
 export const TOAST_FADE_MS = 400;

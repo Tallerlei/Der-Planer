@@ -25,6 +25,16 @@ export function loadGame() {
       if (v.refuelPauseMinutes === undefined) v.refuelPauseMinutes = 0;
       if (v.orderQueue === undefined) v.orderQueue = [];
       if (v.trailerId === undefined) v.trailerId = null;
+      if (v.status === 'maintenance') {
+        if (!Number.isFinite(v.maintenanceUntilMinute)
+          || v.maintenanceUntilMinute <= GS.time.totalMinutes) {
+          v.status = 'idle';
+          v.health = 100;
+          delete v.maintenanceUntilMinute;
+        }
+      } else {
+        delete v.maintenanceUntilMinute;
+      }
       updatePositionForVehicle(v);
     });
     [...GS.orders.available, ...GS.orders.active].forEach(o => {

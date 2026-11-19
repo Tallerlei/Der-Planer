@@ -1,7 +1,7 @@
 import { $, fmt, uid, findById, debounce } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById } from '../state.js';
-import { TIME_COSTS, VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS } from '../constants.js';
+import { TIME_COSTS, VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS, MAINTENANCE_DURATION_MINUTES } from '../constants.js';
 import { addTransaction } from '../game/finance.js';
 import { createVehicle, updatePositionForVehicle, getVehicleEffectiveCapacity } from '../game/vehicles.js';
 import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
@@ -171,6 +171,9 @@ function _buildVehicleCardHtml(v) {
         </div>
         <div class="vehicle-status-col">
           <span class="badge ${statusInfo.badge}">${statusInfo.label}</span>
+          ${v.status === 'maintenance' && Number.isFinite(v.maintenanceUntilMinute)
+            ? `<span class="badge badge-warning">🔧 noch ${Math.max(0, Math.ceil(v.maintenanceUntilMinute - GS.time.totalMinutes))} Min</span>`
+            : ''}
           ${v.status === 'driving' && v.stopMinutes > 0 ? `<span class="badge badge-warning" title="Aufenthalt durch ein Unterwegs-Ereignis">⏸ ${Math.ceil(v.stopMinutes)} Min Halt</span>` : ''}
         </div>
       </div>
@@ -334,7 +337,7 @@ function _buildVehicleCardHtml(v) {
       })()}
 
       <div class="vehicle-actions">
-        ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" title="Wartung: +${TIME_COSTS.maintenance} Min" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
+        ${v.status === 'idle' && v.health < 70 ? `<button class="btn btn-warning btn-sm" title="Wartungsauftrag: +${TIME_COSTS.maintenance} Min · Dauer ${MAINTENANCE_DURATION_MINUTES} Min" onclick="sendToMaintenance('${v.id}')">🔧 Wartung</button>` : ''}
         ${v.status === 'broken' ? `<button class="btn btn-danger btn-sm" title="Reparieren: +${TIME_COSTS.repair} Min" onclick="repairVehicle('${v.id}')">🔧 Reparieren</button>` : ''}
         ${v.status === 'idle' ? `<button class="btn btn-danger btn-sm" title="Verkaufen: +${TIME_COSTS.sellVehicle} Min" onclick="sellVehicle('${v.id}')">💰 Verkaufen</button>` : ''}
       </div>
@@ -471,14 +474,9 @@ export function sendToMaintenance(vehicleId) {
   const cost = Math.round((100 - v.health) * cat.purchasePrice * 0.002);
   if (GS.finance.balance < cost) { showToast('Nicht genug Geld für die Wartung.', 'danger'); return; }
   v.status = 'maintenance';
+  v.maintenanceUntilMinute = GS.time.totalMinutes + MAINTENANCE_DURATION_MINUTES;
   addTransaction(`Wartung: ${v.name}`, -cost);
-  v.health = 100;
   advanceGameTime(TIME_COSTS.maintenance, 'Wartungsauftrag');
-  setTimeout(() => {
-    v.status = 'idle';
-    showToast(`${v.name} ist wieder einsatzbereit.`, 'success');
-    if ($('fleet-list')) renderFleet();
-  }, 5000);
   renderFleet();
 }
 

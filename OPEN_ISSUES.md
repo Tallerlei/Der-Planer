@@ -1,7 +1,7 @@
 # 🧾 Offene Punkte – Der Planer: Reloaded
 
 Sammlung bekannter Bugs, nicht umgesetzter Features und offener Designfragen zur späteren Bearbeitung.
-Stand: Version 1.23.0 (19.11.2026). Erledigte Punkte abhaken (`[x]`) oder entfernen.
+Stand: Version 1.23.1 (19.11.2026). Erledigte Punkte abhaken (`[x]`) oder entfernen.
 
 Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Designfrage · ⚪ Pflege / Kleinigkeiten
 
@@ -22,10 +22,11 @@ Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Desig
 - **Lösungsidee:** Nur angenommene Aufträge (des gewählten Fahrzeugs) als Pickup/Delivery verknüpfen oder Aufträge beim Disponieren automatisch annehmen; Rückkehr zum Firmensitz anhängen; Kapazität/Reihenfolge (Pickup vor Delivery) validieren. Alternativ Feature entfernen und Text („steuern automatisch Abholung und Lieferung an“) anpassen.
 - **Erledigt in 1.23.0:** Der wirkungslose manuelle Routenplaner wurde vollständig entfernt; die auftragsbasierte automatische Routensteuerung bleibt bestehen.
 
-### [ ] 3. Wartung kann „hängen bleiben“
+### [x] 3. Wartung kann „hängen bleiben“
 - **Wo:** `src/ui/fleet.js` → `sendToMaintenance()`
 - **Problem:** Das Ende der Wartung läuft über ein `setTimeout` von 5 Sekunden Echtzeit. Wird währenddessen gespeichert und neu geladen, bleibt das Fahrzeug dauerhaft im Status `maintenance`. Zudem ist die Dauer unabhängig von Pause/Spielgeschwindigkeit.
 - **Lösungsidee:** Wartungsende als Spielzeit speichern (`v.maintenanceUntilMinute`) und in `advanceGameTime()` prüfen; beim Laden alte `maintenance`-Fahrzeuge ohne Endzeit auf `idle` setzen.
+- **Erledigt in 1.23.1:** Wartung läuft jetzt 120 Minuten in Spielzeit, bleibt beim Speichern erhalten, pausiert korrekt und alte hängende Spielstände werden beim Laden bereinigt.
 
 ### [ ] 4. Anhänger werden beim Umleiten/Hinzufügen ignoriert
 - **Wo:** `src/game/engine.js` → `_validateVehicleForOrder()` (genutzt von `reassignOrder()` und `addVehicleToOrder()`)

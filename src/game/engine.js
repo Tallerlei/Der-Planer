@@ -3,6 +3,7 @@ import { GS, cityById } from '../state.js';
 import { fmt, rand, randFloat, pick, uid } from '../utils.js';
 import {
   TIME_COSTS, REFUEL_THRESHOLD, REFUEL_DURATION_MINUTES,
+  MAINTENANCE_DURATION_MINUTES,
   RENDER_THROTTLE_MS, MINUTES_PER_TICK,
   ORDER_POOL_MULTIPLIER, MIN_ORDER_POOL, REP_TIER_MAX_WEIGHT, REQ_LABELS,
   FLEET_COMPATIBLE_ORDER_RATIO,
@@ -257,12 +258,18 @@ export function jumpToNextEvent() {
   if (!GS.started) return;
 
   const drivingVehicles = GS.vehicles.filter(v => v.status === 'driving');
-  if (drivingVehicles.length === 0) {
+  const maintenanceVehicles = GS.vehicles.filter(v =>
+    v.status === 'maintenance' && Number.isFinite(v.maintenanceUntilMinute)
+  );
+  if (drivingVehicles.length === 0 && maintenanceVehicles.length === 0) {
     showToast('Keine Fahrzeuge unterwegs', 'info');
     return;
   }
 
-  let minMinutes = Infinity;
+  let minMinutes = maintenanceVehicles.reduce(
+    (min, vehicle) => Math.min(min, Math.max(0, vehicle.maintenanceUntilMinute - GS.time.totalMinutes)),
+    Infinity
+  );
 
   for (const v of drivingVehicles) {
     const stops = v.route && v.route.stops;
@@ -329,6 +336,22 @@ export function jumpToNextEvent() {
   advanceGameTime(minutesToAdvance);
 }
 
+function processDueVehicleMaintenance() {
+  let completed = false;
+  for (const vehicle of GS.vehicles) {
+    if (vehicle.status !== 'maintenance') continue;
+    if (!Number.isFinite(vehicle.maintenanceUntilMinute)) continue;
+    if (vehicle.maintenanceUntilMinute > GS.time.totalMinutes) continue;
+
+    vehicle.status = 'idle';
+    vehicle.health = 100;
+    delete vehicle.maintenanceUntilMinute;
+    showToast(`${vehicle.name} ist wieder einsatzbereit.`, 'success');
+    completed = true;
+  }
+  return completed;
+}
+
 // ── Central time advancement ─────────────────────────────────
 export function advanceGameTime(minutes, label) {
   if (!GS.started) return;
@@ -358,6 +381,7 @@ export function advanceGameTime(minutes, label) {
       processMonthEnd();
     }
   }
+  processDueVehicleMaintenance();
   if (newDayNum > prevDayNum) {
     expireOrders();
     recordReputationSnapshot();
