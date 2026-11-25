@@ -1,7 +1,7 @@
 # 🧾 Offene Punkte – Der Planer: Reloaded
 
 Sammlung bekannter Bugs, nicht umgesetzter Features und offener Designfragen zur späteren Bearbeitung.
-Stand: Version 1.23.1 (19.11.2026). Erledigte Punkte abhaken (`[x]`) oder entfernen.
+Stand: Version 1.25.1 (20.11.2026). Erledigte Punkte abhaken (`[x]`) oder entfernen.
 
 Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Designfrage · ⚪ Pflege / Kleinigkeiten
 
@@ -28,10 +28,10 @@ Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Desig
 - **Lösungsidee:** Wartungsende als Spielzeit speichern (`v.maintenanceUntilMinute`) und in `advanceGameTime()` prüfen; beim Laden alte `maintenance`-Fahrzeuge ohne Endzeit auf `idle` setzen.
 - **Erledigt in 1.23.1:** Wartung läuft jetzt 120 Minuten in Spielzeit, bleibt beim Speichern erhalten, pausiert korrekt und alte hängende Spielstände werden beim Laden bereinigt.
 
-### [ ] 4. Anhänger werden beim Umleiten/Hinzufügen ignoriert
+### [x] 4. Anhänger werden beim Umleiten/Hinzufügen ignoriert
 - **Wo:** `src/game/engine.js` → `_validateVehicleForOrder()` (genutzt von `reassignOrder()` und `addVehicleToOrder()`)
 - **Problem:** Geprüft werden nur `cat.requirements` des Fahrzeugs, nicht die des Anhängers. Ein Sattelzug mit Kühlauflieger kann Kühlware annehmen (`acceptOrder` nutzt `getVehicleEffectiveRequirements`), aber ein solcher Auftrag kann nicht auf ihn umgeleitet oder mit ihm unterstützt werden.
-- **Lösungsidee:** `getVehicleEffectiveRequirements(vehicle)` verwenden; Test in `src/__tests__/queue_management.test.js` ergänzen.
+- **Erledigt in 1.25.0:** Umleitung und Zusatzfahrzeug prüfen dieselben kombinierten Fahrzeug-/Anhängeranforderungen wie die Auftragsannahme.
 
 ### [ ] 5. „Aufträge fehlgeschlagen“ zeigt immer 0
 - **Wo:** `src/ui/modal.js` → `openStatsModal()`; `src/game/engine.js` → `completeOrder()`, `expireOrders()`
@@ -42,24 +42,24 @@ Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Desig
 
 ## 🟡 Beschrieben, aber ohne Wirkung
 
-### [ ] 6. Vier von sechs Mitarbeiterrollen haben keinen Effekt
+### [x] 6. Vier von sechs Mitarbeiterrollen haben keinen Effekt
 - **Wo:** `src/data.js` → `STAFF_ROLES`
 - **Problem:** Nur der Mechaniker wirkt (Wartungsrabatt, Pannenhilfe). Ohne Effekt, aber mit Gehalt:
   - Buchhalterin – „senkt Steuerlast“ (es gibt keine Steuern)
   - Telefonistin – „erhöht Auftragseingang“
   - Manager – „erhöht Effizienz“
   - Rechtsanwältin – „reduziert Strafen“
-- **Lösungsideen:** Telefonistin → mehr/größere Aufträge pro Generierung; Rechtsanwältin → geringere Vertragsstrafen bei Verspätung; Manager → geringere Zeitkosten (`TIME_COSTS`); Buchhalterin → monatliche Steuer/Abgabe einführen und reduzieren oder Kostenreduktion bei Gehältern/Wartung. Effekte jeweils mit `skill` skalieren.
+- **Erledigt in 1.25.0:** Alle Rollen besitzen jetzt einen mit Qualifikation skalierten Betriebsbonus (Auftragsvolumen/Zuschläge, Zeitkosten, Lohnkosten, Strafen und Fahrzeugverschleiß).
 
-### [ ] 7. Mitarbeiterzufriedenheit ohne Auswirkung
+### [x] 7. Mitarbeiterzufriedenheit ohne Auswirkung
 - **Wo:** `src/game/engine.js` → `processMonthEnd()`; `src/ui/personnel.js`
 - **Problem:** Zufriedenheit sinkt monatlich (Untergrenze 40) bzw. ändert sich durch Unterwegs-Ereignisse, hat aber keine Folgen.
-- **Lösungsidee:** Kündigung bei niedriger Zufriedenheit, Leistungsmalus, Gehaltserhöhung/Bonus als Gegenmaßnahme.
+- **Erledigt in 1.25.0:** Zufriedenheit beeinflusst Fahrtempo, erzeugt Kündigungswarnungen und kann bei dauerhaft sehr niedrigen Werten zum Personalverlust führen. Bezahlt wird ein gezielter Bonus als Gegenmaßnahme.
 
-### [ ] 8. ADR-Zertifikat der Fahrer wird nicht geprüft
+### [x] 8. ADR-Zertifikat der Fahrer wird nicht geprüft
 - **Wo:** `src/game/staff.js` → `createStaff()` (vergibt `ADR`); `src/game/engine.js` → `acceptOrder()`
 - **Problem:** Jeder Fahrer darf Gefahrgut transportieren; das Zertifikat ist rein kosmetisch.
-- **Lösungsidee:** Für Aufträge mit `adr` einen Fahrer mit `ADR` verlangen (Hinweis in Auftragskarte/Fahrzeugauswahl), optional ADR-Schulung kaufen.
+- **Erledigt in 1.25.0:** Für ADR-Aufträge werden Fahrzeugausrüstung und Fahrerzertifikat gemeinsam geprüft.
 
 ### [ ] 9. Effekte einiger Marktereignisse fehlen
 - **Wo:** `src/data.js` → `MARKET_EVENTS`; `src/game/events.js` → `applyEvent()`
@@ -71,19 +71,19 @@ Legende: 🔴 Bug / Exploit · 🟡 beschrieben, aber ohne Wirkung · 🟠 Desig
   Außerdem verlangsamt „Autobahnsperre A3 Frankfurt–Köln“ über `speedMod` **alle** Fahrzeuge in ganz Europa.
 - **Lösungsidee:** Effekte implementieren (z. B. Fahrer streiken tageweise, Verbrauchszuschlag in `tickVehicles`, monatliche Abgabe für Fahrzeuge mit hohem km-Stand); Autobahnsperre nur auf betroffene Verbindung anwenden (Routing-Gewicht).
 
-### [ ] 10. Schwierigkeitswert `competitorActivity` ungenutzt
+### [x] 10. Schwierigkeitswert `competitorActivity` ungenutzt
 - **Wo:** `src/data.js` → `DIFFICULTY`
-- **Lösungsidee:** Konkurrenz einführen, die Angebote „wegschnappt“ (frühere Verfallszeit) oder Preise drückt – oder Wert entfernen.
+- **Erledigt in 1.25.0:** Die Konkurrenzintensität verändert die Gewinnchance bei Vertragsausschreibungen.
 
 ### [ ] 11. Marketing ist nur ein Platzhalter
 - **Wo:** `index.html` → `#screen-marketing`; `GS.company.werbevertrag_aktiv`, `werbevertrag_booster`
 - **Problem:** Screen zeigt „demnächst verfügbar“; die Spielstandfelder werden nie verwendet. README listet Marketing als „in Vorbereitung“.
 - **Lösungsidee:** Werbeverträge (Zeitung, Radio, Sponsoring) mit monatlichen Kosten, die Ansehen/Bekanntheitsgrad und Auftragsvolumen steigern.
 
-### [ ] 12. Fahrzeugverschleiß praktisch nicht vorhanden
+### [x] 12. Fahrzeugverschleiß praktisch nicht vorhanden
 - **Wo:** `src/game/engine.js` → `tickVehicles()` (`health -= km × 0.0001`), `processMonthEnd()` (`health += 5`)
 - **Problem:** 10.000 km kosten nur 1 % Zustand, jeden Monat kommen +5 % dazu. Kostenpflichtige Wartung ist damit sinnlos; Pannen durch schlechten Zustand entstehen nur über Unterwegs-Ereignisse.
-- **Lösungsidee:** Verschleiß auf z. B. 1 % pro 300–500 km anheben, monatliche Regeneration streichen (dafür Mechaniker-Effekt), niedriger Zustand → höherer Verbrauch/geringere Geschwindigkeit/mehr Pannen.
+- **Erledigt in 1.25.0:** Verschleiß liegt bei 1 % pro 500 km, wird durch Mechaniker reduziert, beeinflusst Geschwindigkeit und Verbrauch, und monatliche Wartungsgebühren reparieren Fahrzeuge nicht mehr automatisch.
 
 ---
 

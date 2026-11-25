@@ -2,21 +2,34 @@ import { $, fmt, findById } from '../utils.js';
 import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { TIME_COSTS, REQ_LABELS, BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS } from '../constants.js';
-import { canFulfillOrder, isOrderAvailable } from '../game/orders.js';
+import { canFulfillOrder, getFleetCapabilities, isOrderAvailable } from '../game/orders.js';
 import {
   acceptOrder, declineOrder, declineUnfulfillableOrders, getClientReputation,
-  getVehicleActiveOrderId, isCargoLoaded,
+  getVehicleActiveOrderId, isCargoLoaded, dispatchTour,
+  bidForContract, declineContractTender, TENDER_IGNORE_REP_LOSS,
 } from '../game/engine.js';
 import { isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements } from '../game/vehicles.js';
+import { projectTour } from '../game/tours.js';
 import { updateOrderBadge } from './statusbar.js';
 import { getDistance, findShortestPath, routeDistance } from '../routing.js';
-import { openModal } from './modal.js';
+import { closeModal, openModal } from './modal.js';
+import {
+  BID_STRATEGIES, ensureContracts, ensureTenders, getContractReliability,
+  getTenderWinChance,
+} from '../game/contracts.js';
+import { ensureTutorialState, getActiveTutorialStep } from '../game/tutorial.js';
+import { emitProgressEvent } from '../game/progression.js';
+import {
+  getDriverByVehicle, getDriverRemainingMinutes,
+  getOperatorTenderBonus, driverMeetsRequirements,
+} from '../game/staff.js';
 
 // ── Helpers ───────────────────────────────────────────────────
 
 /** Converts a game totalMinutes value to a formatted date+time string (DD.MM.YYYY HH:MM).
  *  The game clock starts at 01.03.1994 (totalMinutes=0 → midnight of that day). */
 function gameMinutesToDateTime(totalMin) {
+  totalMin = Math.round(totalMin);
   const dayOffset = Math.floor(totalMin / 1440);
   const hour = Math.floor((totalMin % 1440) / 60);
   const mn   = totalMin % 60;
@@ -118,6 +131,475 @@ const INDUSTRY_ICONS = {
   tech: '💻', medical: '🏥', fashion: '👗', sports: '⚽',
   industrial: '🔧', paper: '📄', furniture: '🪑', general: '📦',
 };
+
+function _pathDistance(fromCity, toCity) {
+  return routeDistance(findShortestPath(fromCity, toCity).map(cityId => ({ cityId })));
+}
+
+function _formatDuration(minutes) {
+  const rounded = Math.max(0, Math.round(minutes || 0));
+  const hours = Math.floor(rounded / 60);
+  const remainder = rounded % 60;
+  if (hours === 0) return `${remainder} Min`;
+  return `${hours} Std${remainder ? ` ${remainder} Min` : ''}`;
+}
+
+function _formatMargin(minutes) {
+  const rounded = Math.round(minutes || 0);
+  return `${rounded >= 0 ? '+' : '−'}${_formatDuration(Math.abs(rounded))}`;
+}
+
+function _formatDeadlineStatus(stop) {
+  if (stop.status === 'late') return `Verspätet ${_formatMargin(stop.marginMinutes)}`;
+  if (stop.status === 'tight') return `Knapp ${_formatMargin(stop.marginMinutes)}`;
+  return `Pünktlich ${_formatMargin(stop.marginMinutes)}`;
+}
+
+function _tourPlannerDraft() {
+  if (!GS.ui.routeDraft) {
+    GS.ui.routeDraft = { vehicleId: null, orderIds: [], returnToBase: false };
+  }
+  return GS.ui.routeDraft;
+}
+
+function _tourVehicles() {
+  return GS.vehicles.filter(vehicle =>
+    vehicle.status === 'idle' &&
+    vehicle.driverId
+  );
+}
+
+function _tourEligibleOrders(vehicle) {
+  if (!vehicle) return [];
+  const requirements = getVehicleEffectiveRequirements(vehicle);
+  const capacity = getVehicleEffectiveCapacity(vehicle);
+  return GS.orders.available.filter(order =>
+    isOrderAvailable(order) &&
+    order.weight <= capacity &&
+    order.requirements.every(requirement => requirements.includes(requirement)) &&
+    driverMeetsRequirements(getDriverByVehicle(vehicle), order.requirements)
+  );
+}
+
+function _getTourProjection(vehicle, orders, returnToBase) {
+  return projectTour(vehicle, orders, returnToBase);
+}
+
+function _renderTourPlanner() {
+  const draft = _tourPlannerDraft();
+  const vehicles = _tourVehicles();
+  const vehicle = vehicles.find(item => item.id === draft.vehicleId) || vehicles[0] || null;
+  if (vehicle) draft.vehicleId = vehicle.id;
+  else draft.orderIds = [];
+
+  const eligible = vehicle ? _tourEligibleOrders(vehicle) : [];
+  draft.orderIds = draft.orderIds.filter(id => eligible.some(order => order.id === id));
+  const selected = draft.orderIds
+    .map(id => eligible.find(order => order.id === id))
+    .filter(Boolean);
+  const selectedIds = new Set(selected.map(order => order.id));
+  const projection = vehicle && selected.length > 0
+    ? _getTourProjection(vehicle, selected, draft.returnToBase)
+    : null;
+  const restMinutes = projection
+    ? projection.rests.reduce((sum, rest) => sum + rest.duration, 0)
+    : 0;
+
+  const unselected = eligible
+    .filter(order => !selectedIds.has(order.id))
+    .sort((a, b) => (b.isTutorial ? 1 : 0) - (a.isTutorial ? 1 : 0));
+  const guide = _tourTutorialGuide(vehicle, selected, unselected, eligible.length, projection);
+  const plannerHtml = `
+    <div class="tour-planner">
+      ${guide.html}
+      <div class="tour-planner-intro">
+        Kombiniere mehrere Aufträge zu einer zusammenhängenden Fahrt. Die Reihenfolge entscheidet über
+        Leerfahrten, Auslastung und das Endziel des Fahrzeugs.
+      </div>
+
+      <div class="tour-setup-grid">
+        <label class="form-group">
+          <span class="form-label">Fahrzeug</span>
+          <select class="form-control" onchange="selectTourVehicle(this.value)" ${vehicles.length === 0 ? 'disabled' : ''}>
+            ${vehicles.length === 0
+              ? '<option>Kein bereites Fahrzeug mit Fahrer</option>'
+              : vehicles.map(item => `
+                  <option value="${item.id}" ${item.id === vehicle.id ? 'selected' : ''}>
+                    ${item.name} · ${fmt.weight(getVehicleEffectiveCapacity(item))} · ${getCityName(item.currentCity)}
+                    · ${Number.isFinite(getDriverByVehicle(item)?.restUntilMinute) ? `Ruhe bis ${gameMinutesToDateTime(getDriverByVehicle(item).restUntilMinute)}` : `Schicht: ${_formatDuration(getDriverRemainingMinutes(getDriverByVehicle(item)))} frei`}
+                  </option>`).join('')}
+          </select>
+        </label>
+        <label class="tour-return-option">
+          <input type="checkbox" onchange="setTourReturn(this.checked)" ${draft.returnToBase ? 'checked' : ''}>
+          <span>
+            <strong>Danach zur Zentrale zurückkehren</strong>
+            <small>Ohne Rückfahrt bleibt das Fahrzeug am letzten Ziel und kann von dort neue Ladung aufnehmen.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="tour-columns">
+        <section class="tour-column">
+          <div class="tour-column-title">📦 Frachtmarkt</div>
+          ${unselected.length === 0
+            ? '<div class="tour-empty">Keine weiteren passenden Aufträge.</div>'
+            : unselected.map(order => {
+                const fromCity = selected.length > 0
+                  ? selected[selected.length - 1].destination
+                  : vehicle?.currentCity;
+                const deadhead = vehicle ? _pathDistance(fromCity, order.origin) : 0;
+                const backload = deadhead <= 200 && selected.length > 0;
+                return `
+                  <button class="tour-cargo-option ${backload ? 'tour-cargo-backload' : ''} ${order.isContract ? 'tour-cargo-contract' : ''} ${order.isTutorial ? 'tour-cargo-training' : ''} ${guide.targetOrderId === order.id ? 'tutorial-target' : ''}"
+                    onclick="toggleTourOrder('${order.id}')">
+                    ${order.isTutorial ? '<span class="tour-training-label">🎓 Übungsauftrag</span>' : ''}
+                    <span class="tour-cargo-route">${getCityName(order.origin)} → ${getCityName(order.destination)}</span>
+                    <span>${order.clientName} · ${fmt.weight(order.weight)} · ${fmt.money(order.value)}</span>
+                    <span class="${backload ? 'tour-backload-label' : ''}">
+                      ${backload ? '↩ Rückladung · ' : ''}${deadhead === 0 ? 'direkt erreichbar' : `${fmt.km(deadhead)} Leerfahrt`}
+                    </span>
+                    <span class="tour-order-deadline">Frist: ${gameMinutesToDateTime(order.receivedMinute + order.deadlineDays * 1440)}</span>
+                  </button>`;
+              }).join('')}
+        </section>
+
+        <section class="tour-column tour-route-column">
+          <div class="tour-column-title">🧭 Geplante Tour</div>
+          ${selected.length === 0
+            ? '<div class="tour-empty tour-empty-route">Wähle links mindestens einen Auftrag aus.</div>'
+            : selected.map((order, index) => `
+                <div class="tour-stop-card">
+                  <div class="tour-stop-number">${index + 1}</div>
+                  <div class="tour-stop-copy">
+                    <strong>${getCityName(order.origin)} → ${getCityName(order.destination)}</strong>
+                    <span>${order.cargoDesc} · ${fmt.money(order.value)}</span>
+                    ${projection ? (() => {
+                      const stop = projection.stops.find(item => item.order.id === order.id);
+                      return stop ? `
+                        <span class="tour-stop-eta ${stop.status}">
+                          📍 ${gameMinutesToDateTime(stop.pickupMinute)}
+                          · 🏁 ${gameMinutesToDateTime(stop.deliveryMinute)}
+                          · ${_formatDeadlineStatus(stop)}
+                        </span>` : '';
+                    })() : ''}
+                  </div>
+                  <div class="tour-stop-actions">
+                    <button class="btn btn-secondary btn-xs" ${index === 0 ? 'disabled' : ''}
+                      onclick="moveTourOrder('${order.id}', -1)" title="Nach oben">▲</button>
+                    <button class="btn btn-secondary btn-xs" ${index === selected.length - 1 ? 'disabled' : ''}
+                      onclick="moveTourOrder('${order.id}', 1)" title="Nach unten">▼</button>
+                    <button class="btn btn-danger btn-xs" onclick="toggleTourOrder('${order.id}')" title="Entfernen">✕</button>
+                  </div>
+                  <details class="tour-order-details">
+                    <summary>Auftragsdetails</summary>
+                    <div>
+                      <span>Gewicht</span><strong>${fmt.weight(order.weight)}</strong>
+                      <span>Vergütung</span><strong>${fmt.money(order.value)} + ${fmt.money(order.bonus || 0)} Bonus</strong>
+                      <span>Annahme endet</span><strong>${gameMinutesToDateTime(order.receivedMinute + order.expiresInDays * 1440)}</strong>
+                      <span>Lieferfrist</span><strong>${gameMinutesToDateTime(order.receivedMinute + order.deadlineDays * 1440)}</strong>
+                      <span>Strafe</span><strong>${fmt.money(order.penalty || 0)} je Stunde</strong>
+                      <span>Anforderungen</span><strong>${order.requirements.length ? order.requirements.map(req => REQ_LABELS[req] || req).join(', ') : 'keine'}</strong>
+                    </div>
+                  </details>
+                </div>`).join('')}
+          ${projection ? `
+            <div class="tour-final-stop">🏁 Ende in ${getCityName(projection.finalCity)}</div>
+            ${projection.hasDeadlineRisk ? `<div class="tour-risk-banner">⚠️ ${projection.stops.filter(stop => stop.status !== 'safe').length} Lieferfrist${projection.stops.filter(stop => stop.status !== 'safe').length === 1 ? '' : 'en'} ist knapp oder wird verfehlt.</div>` : ''}
+            ${projection.rests.length > 0 ? `
+              <div class="tour-rest-plan">
+                <strong>⏸️ Pflichtpause im Tourenverlauf</strong>
+                ${projection.rests.map(rest => `<span>${gameMinutesToDateTime(rest.startMinute)} – ${gameMinutesToDateTime(rest.endMinute)} · ${_formatDuration(rest.duration)} Ruhe</span>`).join('')}
+              </div>` : ''}
+            ${projection.postTourRestMinutes > 0 ? `
+              <div class="tour-rest-plan">
+                <strong>🌙 Nach Tourende</strong>
+                <span>${_formatDuration(projection.postTourRestMinutes)} Ruhepause · Fahrer wieder verfügbar ${gameMinutesToDateTime(projection.availableMinute)}</span>
+              </div>` : ''}
+            <div class="tour-projection">
+              <div><span>Beladen</span><strong>${fmt.km(projection.loadedKm)}</strong></div>
+              <div><span>Leerfahrt</span><strong>${fmt.km(projection.emptyKm)}</strong></div>
+              <div><span>Auslastung</span><strong>${projection.utilization} %</strong></div>
+              <div><span>Reine Fahrt</span><strong>${_formatDuration(projection.drivingMinutes)}</strong></div>
+              <div><span>Ruhezeit</span><strong>${_formatDuration(restMinutes)}</strong></div>
+              <div><span>Gesamtdauer</span><strong>${_formatDuration(projection.durationMinutes)}</strong></div>
+              <div><span>Umsatz + Bonus</span><strong class="text-success">${fmt.money(projection.revenue)}</strong></div>
+              <div><span>Kraftstoffkosten</span><strong class="text-danger">${fmt.money(Math.round(projection.fuelCost))}</strong></div>
+              <div><span>Deckungsbeitrag vor Fixkosten</span><strong class="${projection.projectedProfit >= 0 ? 'text-success' : 'text-danger'}">${fmt.money(Math.round(projection.projectedProfit))}</strong></div>
+              <div><span>Fahrer danach</span><strong class="text-success">${_formatDuration(projection.remainingDrivingMinutes)} Schicht frei</strong></div>
+              <div><span>Wieder verfügbar</span><strong>${gameMinutesToDateTime(projection.availableMinute)}</strong></div>
+            </div>` : ''}
+        </section>
+      </div>
+
+      <div class="modal-footer tour-planner-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+        <button class="btn ${projection?.hasDeadlineRisk ? 'btn-warning' : 'btn-primary'} ${guide.highlightStart ? 'tutorial-target' : ''}" ${!projection ? 'disabled' : ''}
+          onclick="dispatchPlannedTour()">
+          🚚 Tour starten
+        </button>
+      </div>
+    </div>`;
+  openModal('🗺️ Tour planen', plannerHtml);
+}
+
+function _renderContractStrip() {
+  const element = $('contract-strip');
+  if (!element) return;
+  const contracts = ensureContracts().filter(contract => contract.active !== false);
+  if (contracts.length === 0) {
+    element.innerHTML = '';
+    element.style.display = 'none';
+    return;
+  }
+  element.style.display = '';
+  element.innerHTML = contracts.map(contract => {
+    const reliability = getContractReliability(contract);
+    const available = GS.orders.available.some(order => order.contractId === contract.id);
+    const state = available
+      ? 'Vertragsladung verfügbar'
+      : `Nächste Ladung: ${gameMinutesToDateTime(contract.nextReleaseMinute)}`;
+    return `
+      <div class="contract-card ${reliability < 70 ? 'contract-card-risk' : ''}">
+        <div class="contract-mark">📄</div>
+        <div class="contract-copy">
+          <span class="contract-eyebrow">Wochenvertrag</span>
+          <strong>${contract.title}</strong>
+          <span>${getCityName(contract.origin)} → ${getCityName(contract.destination)} · ${fmt.weight(contract.weight)} · alle ${Math.round((contract.periodMinutes || 7 * 1440) / 1440)} Tage · ${state}</span>
+        </div>
+        <div class="contract-health">
+          <span>Zuverlässigkeit</span>
+          <strong>${reliability} %</strong>
+          <div class="contract-health-bar"><span style="width:${reliability}%"></span></div>
+          <small>${contract.missedDeliveries} / ${contract.maxMisses || 3} Ausfälle</small>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function _renderTenderStrip() {
+  const element = $('tender-strip');
+  if (!element) return;
+  const tenders = ensureTenders().filter(tender => tender.status === 'open');
+  if (tenders.length === 0) {
+    element.innerHTML = '';
+    element.style.display = 'none';
+    return;
+  }
+  element.style.display = '';
+  element.innerHTML = tenders.map(tender => `
+    <button class="tender-card" onclick="openTenderModal('${tender.id}')">
+      <span class="tender-icon">📨</span>
+      <span class="tender-copy">
+        <span class="contract-eyebrow">Vertragsausschreibung</span>
+        <strong>${tender.title}</strong>
+        <span>${tender.clientName} · ${tender.route} · ${fmt.weight(tender.weight)} · Ende in ${gameMinutesToDateTime(tender.expiresMinute)}</span>
+      </span>
+      <span class="tender-cta">Angebot abgeben →</span>
+    </button>`).join('');
+}
+
+export function openTenderModal(tenderId) {
+  const tender = ensureTenders().find(item => item.id === tenderId);
+  if (!tender || tender.status !== 'open') return;
+  emitProgressEvent('tutorial-action', { action: 'tender-opened' });
+  const competitorQuote = Math.round(tender.baseValue * tender.competitorFactor);
+  const capabilities = getFleetCapabilities();
+  const canBid =
+    tender.weight <= capabilities.maxCapacity &&
+    tender.requirements.every(requirement => capabilities.metReqs.has(requirement)) &&
+    (GS.company.reputation || 50) >= tender.minRep;
+  const bidBlockReason = tender.weight > capabilities.maxCapacity
+    ? `Deine größte verfügbare Nutzlast ist ${fmt.weight(capabilities.maxCapacity)} – benötigt werden ${fmt.weight(tender.weight)}.`
+    : tender.requirements.some(requirement => !capabilities.metReqs.has(requirement))
+      ? 'Deinem Fuhrpark fehlt die benötigte Sonderausrüstung.'
+      : (GS.company.reputation || 50) < tender.minRep
+        ? `Dieses Kundenbriefing erfordert mindestens ${tender.minRep} Ansehen.`
+        : '';
+  const html = `
+    <div class="tender-dialog">
+      <div class="tender-dialog-head">
+        <span>📨</span>
+        <div><h3>${tender.title}</h3><p>${tender.clientName} · ${tender.route}</p></div>
+      </div>
+      <div class="tender-facts">
+        <div><span>Fracht</span><strong>${tender.cargo}</strong></div>
+        <div><span>Gewicht</span><strong>${fmt.weight(tender.weight)}</strong></div>
+        <div><span>Referenzwert</span><strong>${fmt.money(tender.baseValue)}</strong></div>
+        <div><span>Hauptkonkurrent</span><strong>${tender.competitor}</strong></div>
+        <div><span>Geschätztes Konkurrenzangebot</span><strong>${fmt.money(competitorQuote)}</strong></div>
+        <div><span>Anforderungen</span><strong>${tender.requirements.length ? tender.requirements.map(req => REQ_LABELS[req] || req).join(', ') : 'Standardfracht'}</strong></div>
+      </div>
+      <p class="text-sm text-muted">Ein günstigeres Angebot gewinnt häufiger, senkt aber den wöchentlichen Erlös. Ansehen und deine Telefonzentrale verbessern jede Strategie.</p>
+      ${bidBlockReason ? `<div class="tender-blocked">🔒 ${bidBlockReason}</div>` : ''}
+      <div class="bid-options">
+        ${Object.entries(BID_STRATEGIES).map(([id, strategy]) => {
+          const chance = getTenderWinChance(tender, id, getOperatorTenderBonus());
+          const bidValue = Math.round(tender.baseValue * strategy.factor);
+          return `
+            <button class="bid-option bid-option-${id}" ${canBid ? '' : 'disabled'}
+              onclick="placeContractBid('${tender.id}', '${id}')">
+              <span class="bid-title">${strategy.label}</span>
+              <strong>${fmt.money(bidValue)}</strong>
+              <span>${Math.round(chance * 100)} % Gewinnchance</span>
+              <small>${strategy.factor < 1 ? 'Niedrigere Marge, sehr wettbewerbsfähig' : strategy.factor > 1 ? 'Hohe Marge, anspruchsvoller Zuschlag' : 'Abgewogenes Verhältnis von Preis und Chance'}</small>
+            </button>`;
+        }).join('')}
+      </div>
+      <div class="tender-decline">
+        <p class="text-sm text-muted">Angebotsfrist bis ${gameMinutesToDateTime(tender.expiresMinute)}. Lässt du die Frist ungenutzt verstreichen, verärgert das ${tender.clientName} (−${TENDER_IGNORE_REP_LOSS} Kundenansehen). Eine rechtzeitige Absage bleibt folgenlos.</p>
+        <button class="btn btn-danger btn-sm" onclick="rejectContractTender('${tender.id}')">✗ Ausschreibung ablehnen</button>
+      </div>
+    </div>`;
+  openModal('Angebot vorbereiten', html);
+}
+
+export function rejectContractTender(tenderId) {
+  if (declineContractTender(tenderId)) closeModal();
+}
+
+export function placeContractBid(tenderId, strategyId) {
+  if (bidForContract(tenderId, strategyId)) {
+    closeModal();
+    emitProgressEvent('tutorial-action', { action: 'tender-bid' });
+  }
+}
+
+export function openTourPlanner() {
+  const draft = _tourPlannerDraft();
+  const trainingStart = GS.orders.available.find(order => order.isTutorial && order.tutorialSeq === 0)?.origin;
+  const firstVehicle = _tourVehicles().find(item => item.currentCity === trainingStart) || _tourVehicles()[0];
+  const trainingVehicle = trainingStart && firstVehicle?.currentCity === trainingStart ? firstVehicle : null;
+  draft.vehicleId = trainingVehicle?.id || (_tourVehicles().some(item => item.id === draft.vehicleId)
+    ? draft.vehicleId
+    : firstVehicle?.id || null);
+  draft.orderIds = [];
+  draft.returnToBase = false;
+  _renderTourPlanner();
+  emitProgressEvent('tutorial-action', { action: 'tour-planner-opened' });
+}
+
+export function selectTourVehicle(vehicleId) {
+  const draft = _tourPlannerDraft();
+  draft.vehicleId = vehicleId;
+  draft.orderIds = [];
+  _renderTourPlanner();
+}
+
+export function toggleTourOrder(orderId) {
+  const draft = _tourPlannerDraft();
+  const index = draft.orderIds.indexOf(orderId);
+  if (index >= 0) draft.orderIds.splice(index, 1);
+  else draft.orderIds.push(orderId);
+  _renderTourPlanner();
+}
+
+export function moveTourOrder(orderId, direction) {
+  const draft = _tourPlannerDraft();
+  const index = draft.orderIds.indexOf(orderId);
+  const target = index + Number(direction);
+  if (index < 0 || target < 0 || target >= draft.orderIds.length) return;
+  const [moved] = draft.orderIds.splice(index, 1);
+  draft.orderIds.splice(target, 0, moved);
+  _renderTourPlanner();
+}
+
+export function setTourReturn(returnToBase) {
+  _tourPlannerDraft().returnToBase = !!returnToBase;
+  _renderTourPlanner();
+}
+
+export function dispatchPlannedTour() {
+  const draft = _tourPlannerDraft();
+  const vehicle = GS.vehicles.find(item => item.id === draft.vehicleId);
+  const eligibleCount = vehicle ? _tourEligibleOrders(vehicle).length : 0;
+  const orderCount = draft.orderIds.length;
+  const returnToBase = draft.returnToBase;
+  const lastOrder = GS.orders.available.find(order => order.id === draft.orderIds[orderCount - 1]);
+  const endCountry = lastOrder ? cityById[lastOrder.destination]?.country : null;
+  const endsAbroad = !returnToBase && !!endCountry && endCountry !== cityById[GS.company.hqCity]?.country;
+  if (dispatchTour(draft.vehicleId, draft.orderIds, draft.returnToBase)) {
+    closeModal();
+    emitProgressEvent('tutorial-action', {
+      action: 'tour-dispatched', orderCount, eligibleCount, returnToBase, endsAbroad,
+    });
+  }
+}
+
+const _route = order => `${getCityName(order.origin)} → ${getCityName(order.destination)}`;
+
+function _guideHtml(steps, current, text) {
+  return `
+    <div class="tour-tutorial-hint">
+      <div class="tour-tutorial-head">
+        <span class="tour-tutorial-badge">🎓 Tutorial</span>
+        <ol class="tour-tutorial-progress">
+          ${steps.map((label, index) => `
+            <li class="${index < current ? 'done' : index === current ? 'current' : ''}">
+              <span>${index < current ? '✓' : index + 1}</span>${label}
+            </li>`).join('')}
+        </ol>
+      </div>
+      <p>${text}</p>
+    </div>`;
+}
+
+/** Builds the step-by-step guidance shown inside the tour planner during tutorial chapters. */
+function _tourTutorialGuide(vehicle, selected, unselected, eligibleCount, projection) {
+  const none = { html: '', targetOrderId: null, highlightStart: false };
+  const info = ensureTutorialState().status === 'active' ? getActiveTutorialStep() : null;
+  if (!info || !vehicle) return none;
+
+  if (info.chapter.id === 'europe-network' && info.index === 0) {
+    return {
+      ...none,
+      html: _guideHtml(['Ladung ins Ausland wählen', 'Ohne Rückkehr starten'], selected.length ? 1 : 0,
+        'Wähle Ladungen, deren letzter Stopp im Ausland liegt, und lass den Haken bei „Danach zur Zentrale zurückkehren“ weg. Dein LKW bleibt dort und übernimmt Anschlussfracht.'),
+      highlightStart: selected.length > 0,
+    };
+  }
+  if (info.chapter.id !== 'tour-planning') return none;
+
+  const steps = ['Erste Ladung', 'Rückladung', 'Prüfen & starten'];
+  const training = unselected.filter(order => order.isTutorial);
+
+  if (selected.length === 0) {
+    const first = training[0];
+    return {
+      ...none,
+      targetOrderId: first?.id || null,
+      html: _guideHtml(steps, 0, first
+        ? `Klicke links auf den hervorgehobenen Auftrag <strong>🎓 ${_route(first)}</strong>. Dein LKW steht bereits in ${getCityName(first.origin)} – die Tour beginnt ohne Leerfahrt.`
+        : 'Klicke links auf einen Auftrag. Am besten einen, der dort beginnt, wo dein LKW gerade steht („direkt erreichbar“).'),
+    };
+  }
+
+  const last = selected[selected.length - 1];
+  const emptyWithout = _pathDistance(last.destination, vehicle.homeCity);
+  if (selected.length === 1) {
+    const next = training.find(order => order.origin === last.destination)
+      || unselected.find(order => _pathDistance(last.destination, order.origin) <= 200);
+    if (!next) {
+      return {
+        ...none,
+        highlightStart: true,
+        html: _guideHtml(steps, 2, `Gerade passt keine Rückladung zu ${getCityName(last.destination)}. Für den Einstieg reicht diese Tour – klicke auf <strong>„🚚 Tour starten“</strong>.`),
+      };
+    }
+    return {
+      ...none,
+      targetOrderId: next.id,
+      html: _guideHtml(steps, 1, `Ohne weitere Ladung würde dein LKW von ${getCityName(last.destination)} <strong>${fmt.km(emptyWithout)} leer</strong> zurückfahren. Klicke auf <strong>${next.isTutorial ? '🎓 ' : ''}${_route(next)}</strong> – diese Rückladung startet ${next.origin === last.destination ? 'genau dort' : 'ganz in der Nähe'}.`),
+    };
+  }
+
+  const firstLeg = selected[0];
+  return {
+    ...none,
+    highlightStart: true,
+    html: _guideHtml(steps, 2, `Stark! Statt ${fmt.km(_pathDistance(firstLeg.destination, vehicle.homeCity))} Leerfahrt verdient dein LKW jetzt auf dem Rückweg Geld. Prüfe rechts <strong>Leerfahrt (${fmt.km(projection.emptyKm)})</strong>, <strong>Auslastung (${projection.utilization} %)</strong> und <strong>Deckungsbeitrag (${fmt.money(Math.round(projection.projectedProfit))})</strong> – dann klicke auf <strong>„🚚 Tour starten“</strong>.`),
+  };
+}
 
 /** Opens a modal showing per-client reputation and order statistics. */
 export function openClientModal(clientId) {
@@ -250,6 +732,20 @@ export function setOrderSort(field) {
 
 /** Renders the vehicle assignment / reassign / add-vehicle section for an active order card. */
 function renderActiveOrderActions(o) {
+  const plannedVehicle = GS.vehicles.find(vehicle =>
+    vehicle.plannedTour?.orderIds?.includes(o.id)
+  );
+  if (plannedVehicle) {
+    const position = plannedVehicle.plannedTour.orderIds.indexOf(o.id) + 1;
+    return `
+      <div class="order-meta">
+        <span>🧭 Teil einer ${plannedVehicle.plannedTour.orderIds.length}-Aufträge-Tour</span>
+        <span>Station ${position}</span>
+        <span>🚛 ${plannedVehicle.name}</span>
+        <span>🏁 ${plannedVehicle.plannedTour.returnToBase ? `Rückkehr nach ${getCityName(plannedVehicle.homeCity)}` : `Ende in ${getCityName(plannedVehicle.plannedTour.endCity)}`}</span>
+      </div>`;
+  }
+
   const activeVehicle = o.vehicleId ? GS.vehicles.find(v => v.id === o.vehicleId) : null;
   const activeVehicleName = activeVehicle ? activeVehicle.name : 'Unbekannt';
 
@@ -341,6 +837,8 @@ function renderActiveOrderActions(o) {
 
 export function renderOrders() {
   updateOrderBadge();
+  _renderTenderStrip();
+  _renderContractStrip();
   const tab = GS.ui.orderTab;
   let orders = [];
   if (tab === 'available') orders = GS.orders.available.filter(isOrderAvailable);
@@ -378,7 +876,7 @@ export function renderOrders() {
   let unfulfillableCount = 0;
   const cards = orders.map(o => {
     const ct = DATA.CARGO_TYPES.find(c => c.id === o.cargoType) || { icon: '📦', label: o.cargoType };
-    const ch = { phone: '📞 Telefon', fax: '📠 Fax', online: '🌐 Online' }[o.channel] || o.channel;
+    const ch = { phone: '📞 Telefon', fax: '📠 Fax', online: '🌐 Online', contract: '📄 Vertrag' }[o.channel] || o.channel;
 
     // ── Urgent badge (only animate/highlight when not in completed tab) ──
     const urgentBadge = o.isUrgent
@@ -463,6 +961,7 @@ export function renderOrders() {
       const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
       if (!cat || !o.requirements.every(req => getVehicleEffectiveRequirements(v).includes(req))) return acc;
       const hasDriver = !!v.driverId;
+      if (hasDriver && !driverMeetsRequirements(getDriverByVehicle(v), o.requirements)) return acc;
       if (hasDriver) acc.eligibleVehicles.push(v);
       const returningToBase = isVehicleReturningToBase(v);
       const queueInfo = v.status === 'driving' && hasDriver && !returningToBase
@@ -503,6 +1002,7 @@ export function renderOrders() {
     } else if (o.isUrgent) {
       cardClass += ' order-card-urgent';
     }
+    if (o.isContract) cardClass += ' order-card-contract';
 
     return `
     <div class="${cardClass}">
@@ -523,6 +1023,8 @@ export function renderOrders() {
         </div>
         <div style="text-align:right">
           <div class="order-value">${fmt.money(o.value)}</div>
+          ${o.isContract ? '<span class="badge badge-contract">📄 Vertragsladung</span>' : ''}
+          ${o.isTutorial ? '<span class="badge badge-training">🎓 Übungsauftrag</span>' : ''}
           ${goldBadge}
           ${urgentBadge}
           ${deadlineHtml}

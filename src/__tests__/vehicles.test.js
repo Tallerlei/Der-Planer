@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { getVehicleEffectiveRequirements, getVehicleEffectiveCapacity } from '../game/vehicles.js';
+import {
+  getVehicleEffectiveRequirements, getVehicleEffectiveCapacity, startTourForVehicle,
+} from '../game/vehicles.js';
 
 describe('getVehicleEffectiveRequirements', () => {
   it('returns base requirements when no trailer attached', () => {
@@ -73,5 +75,53 @@ describe('getVehicleEffectiveCapacity', () => {
   it('ignores unknown trailerId and returns base capacity only', () => {
     const vehicle = { catalogId: 'semi', trailerId: 'nonexistent_trailer' };
     expect(getVehicleEffectiveCapacity(vehicle)).toBe(24000);
+  });
+});
+
+describe('startTourForVehicle', () => {
+  it('keeps pickup and delivery stops in order and can end away from home', () => {
+    const vehicle = {
+      id: 'v1',
+      catalogId: 'transit',
+      status: 'idle',
+      currentCity: 'frankfurt',
+      homeCity: 'frankfurt',
+      orderQueue: [],
+    };
+    const orders = [
+      { id: 'o1', origin: 'frankfurt', destination: 'hamburg' },
+      { id: 'o2', origin: 'hamburg', destination: 'berlin' },
+    ];
+
+    expect(startTourForVehicle(vehicle, orders, false)).toBe(true);
+    const actions = vehicle.route.stops
+      .filter(stop => stop.action === 'pickup' || stop.action === 'delivery')
+      .map(stop => `${stop.action}:${stop.orderId}`);
+    expect(actions).toEqual([
+      'pickup:o1', 'delivery:o1',
+      'pickup:o2', 'delivery:o2',
+    ]);
+    expect(vehicle.route.stops.some(stop => stop.action === 'return')).toBe(false);
+    expect(vehicle.plannedTour.endCity).toBe('berlin');
+  });
+
+  it('adds a final return stop when requested', () => {
+    const vehicle = {
+      id: 'v1',
+      catalogId: 'transit',
+      status: 'idle',
+      currentCity: 'berlin',
+      homeCity: 'frankfurt',
+      orderQueue: [],
+    };
+
+    startTourForVehicle(vehicle, [
+      { id: 'o1', origin: 'berlin', destination: 'hamburg' },
+    ], true);
+
+    expect(vehicle.route.stops.at(-1)).toMatchObject({
+      cityId: 'frankfurt',
+      action: 'return',
+    });
   });
 });

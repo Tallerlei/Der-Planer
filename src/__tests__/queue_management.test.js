@@ -511,6 +511,8 @@ describe('acceptOrder – Standort und km-Stand stabil bei fahrendem Fahrzeug', 
   });
 
   it('Auftrag wird sofort gestartet wenn Fahrzeug bereit (idle)', () => {
+    GS.orders.available[0].origin = 'berlin';
+    GS.orders.available[0].destination = 'hannover';
     GS.vehicles[0].status = 'idle';
     GS.vehicles[0].route = {
       stops: [],

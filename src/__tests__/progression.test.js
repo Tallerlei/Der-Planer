@@ -15,7 +15,10 @@ import {
   createProgressState, getStreakBonusPct, recordDelivery, grantDriverXp, xpForNextLevel,
   makeGoldOrder, checkCampaign, checkAchievements, CHAPTERS, driverFuelFactor,
 } from '../game/progression.js';
-import { completeOrder, expireOrders, declineOrder } from '../game/engine.js';
+import {
+  completeOrder, expireOrders, declineOrder,
+  declineContractTender, processExpiredTenders, TENDER_IGNORE_REP_LOSS,
+} from '../game/engine.js';
 import { maybeTriggerRoadEvent, hasPendingRoadEvent } from '../game/road_events.js';
 
 function makeOrder(overrides = {}) {
@@ -182,6 +185,16 @@ describe('expired vs. declined offers', () => {
     expect(GS.clientReputation.c1).toBe(42);
   });
 
+  it('lets tutorial training orders expire without any reputation penalty', () => {
+    GS.clientReputation = { c1: 50 };
+    GS.orders.available.push(makeOrder({ isTutorial: true, expiresInDays: 2, receivedMinute: 0 }));
+    GS.time.totalMinutes = 2 * 1440 + 1;
+    expireOrders();
+    expect(GS.clientReputation.c1).toBe(50);
+    expect(GS.stats.ordersFailed).toBe(0);
+    expect(GS.orders.available).toHaveLength(0);
+  });
+
   it('costs no reputation when the offer is declined', () => {
     GS.clientReputation = { c1: 50 };
     GS.ui = { orderVehicleSelection: {} };
@@ -189,5 +202,43 @@ describe('expired vs. declined offers', () => {
     declineOrder('o1');
     expect(GS.clientReputation.c1).toBe(50);
     expect(GS.orders.declined).toHaveLength(1);
+  });
+});
+
+describe('contract tender deadlines', () => {
+  function makeTender(overrides = {}) {
+    return {
+      id: 't1', templateId: 'pharma_express', clientId: 'c11', clientName: 'Testkunde',
+      title: 'Test', status: 'open', expiresMinute: 2 * 1440, weight: 99999, requirements: [], ...overrides,
+    };
+  }
+
+  it('can decline a tender the fleet cannot serve without reputation loss', () => {
+    GS.tenders = [makeTender()];
+    GS.clientReputation = { c11: 50 };
+    expect(declineContractTender('t1')).toBe(true);
+    expect(GS.tenders[0].status).toBe('declined');
+    GS.time.totalMinutes = 3 * 1440;
+    expect(processExpiredTenders()).toHaveLength(0);
+    expect(GS.clientReputation.c11).toBe(50);
+  });
+
+  it('costs client reputation as soon as an ignored tender passes its deadline', () => {
+    GS.tenders = [makeTender()];
+    GS.clientReputation = { c11: 50 };
+    GS.time.totalMinutes = 2 * 1440;
+    expect(processExpiredTenders()).toHaveLength(0);
+    GS.time.totalMinutes = 2 * 1440 + 1;
+    expect(processExpiredTenders()).toHaveLength(1);
+    expect(GS.tenders[0].status).toBe('expired');
+    expect(GS.clientReputation.c11).toBe(50 - TENDER_IGNORE_REP_LOSS);
+    expect(processExpiredTenders()).toHaveLength(0);
+  });
+
+  it('falls back to the template client for tenders saved without clientId', () => {
+    GS.tenders = [makeTender({ clientId: undefined })];
+    GS.time.totalMinutes = 3 * 1440;
+    processExpiredTenders();
+    expect(GS.clientReputation.c11).toBe(50 - TENDER_IGNORE_REP_LOSS);
   });
 });

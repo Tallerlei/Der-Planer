@@ -3,118 +3,157 @@ import { DATA } from '../data.js';
 import { GS, cityById, getCityName } from '../state.js';
 import { openModal, closeModal } from './modal.js';
 import { VEHICLE_STATUS_INFO } from '../constants.js';
+import { projectLonLat } from '../map_projection.js';
 
 const MAP_ZOOM_MAX = 3;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAP VISUAL DATA
-// Coordinate space: game canvas 800 × 520
-// Approx. mapping: x ≈ (lon° + 10) × 20 · y ≈ (65.5 − lat°) × 16.1
+// MAP GEOMETRY
+// Real geography from Natural Earth (public domain), pre-projected into the
+// 800 × 520 map space by scripts/build-map-geo.mjs and loaded lazily.
+// Game logic keeps using city.x/y; the map only uses projected positions.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MAP_COUNTRIES = [
-  // Drawn back-to-front so smaller countries appear on top of large ones.
-  // Large eastern / background polygons first
-  { code: 'UA', col: '#d8d4b0', pts: [[646,206],[700,214],[764,206],[796,236],[796,294],[750,308],[708,314],[662,312],[634,300],[592,294],[548,296],[548,278],[552,276],[592,266],[618,242],[646,206]] },
-  { code: 'BY', col: '#d4d0b4', pts: [[556,188],[616,196],[648,196],[648,210],[618,242],[592,266],[552,276],[548,252],[556,218],[556,188]] },
-  // Russia (small visible strip at top-right)
-  { code: 'RU', col: '#dcdab8', pts: [[636,80],[700,62],[796,80],[796,214],[764,206],[700,214],[648,206],[636,80]] },
-  // Scandinavia — more coastal detail for realistic shapes
-  { code: 'NO', col: '#c8d4d2', pts: [[414,66],[414,88],[412,110],[408,130],[398,148],[386,174],[358,168],[332,162],[310,130],[304,100],[308,80],[330,54],[360,42],[396,48],[414,66]] },
-  { code: 'SE', col: '#ccd6d2', pts: [[414,88],[444,82],[466,78],[494,78],[524,80],[556,86],[566,90],[568,112],[572,130],[572,144],[566,160],[564,168],[550,182],[480,178],[474,164],[456,150],[438,158],[416,148],[414,88]] },
-  { code: 'FI', col: '#c8d6cc', pts: [[566,90],[628,82],[684,108],[668,140],[648,162],[634,180],[608,178],[582,172],[566,168],[564,160],[572,144],[572,130],[568,112],[566,90]] },
-  // Baltic States
-  { code: 'EE', col: '#c8cccc', pts: [[568,140],[606,136],[638,148],[636,160],[608,164],[568,158],[568,140]] },
-  { code: 'LV', col: '#cacece', pts: [[568,158],[608,164],[638,160],[648,178],[614,184],[578,180],[562,170],[568,158]] },
-  { code: 'LT', col: '#cccece', pts: [[562,170],[614,184],[648,178],[648,196],[616,196],[578,196],[556,188],[562,170]] },
-  // Poland
-  { code: 'PL', col: '#ccd6c0', pts: [[464,242],[486,192],[502,188],[606,192],[648,206],[618,242],[582,236],[506,250],[490,252],[464,242]] },
-  // Denmark (Jutland peninsula)
-  { code: 'DK', col: '#ccd4da', pts: [[386,174],[396,164],[408,148],[438,148],[456,150],[470,162],[452,174],[440,182],[418,178],[386,174]] },
-  // Germany — more boundary detail
-  { code: 'DE', col: '#d2d0c4', pts: [[384,174],[444,178],[476,176],[486,190],[494,212],[502,232],[462,290],[430,294],[392,294],[354,290],[354,274],[340,262],[322,236],[326,216],[342,208],[384,174]] },
-  // Netherlands
-  { code: 'NL', col: '#ccdac8', pts: [[282,216],[296,194],[338,194],[342,208],[326,216],[316,236],[290,226],[282,216]] },
-  // Belgium + Luxembourg
-  { code: 'BE', col: '#d0dcc4', pts: [[248,232],[290,226],[316,236],[318,254],[260,258],[248,232]] },
-  { code: 'LU', col: '#ccd8bc', pts: [[316,252],[326,252],[328,264],[316,264],[316,252]] },
-  // UK + Ireland (islands — drawn after ocean patches)
-  { code: 'IE', col: '#c8d4c0', pts: [[98,182],[120,178],[126,204],[110,226],[88,228],[78,208],[98,182]] },
-  { code: 'GB', col: '#ccd2d8', pts: [[202,232],[246,212],[248,196],[216,176],[188,148],[152,128],[130,146],[100,182],[100,210],[118,234],[142,244],[182,242],[202,232]] },
-  // France — shares key border nodes with DE/BE/CH
-  { code: 'FR', col: '#d4dcc8', pts: [[248,232],[318,254],[354,290],[322,310],[346,350],[256,368],[170,354],[108,274],[130,234],[166,250],[248,232]] },
-  // Switzerland + Austria — share Basel corner (354,290) with DE/FR
-  { code: 'CH', col: '#c8d4c8', pts: [[354,290],[394,286],[396,300],[382,318],[322,312],[320,296],[354,290]] },
-  { code: 'AT', col: '#ccd0c8', pts: [[394,286],[462,288],[488,276],[552,276],[548,298],[520,312],[490,310],[460,298],[396,300],[394,286]] },
-  // Czech Republic + Slovakia
-  { code: 'CZ', col: '#ccccc4', pts: [[464,242],[500,228],[506,250],[490,252],[474,264],[456,268],[442,254],[464,242]] },
-  { code: 'SK', col: '#d0ccc4', pts: [[490,252],[554,276],[548,288],[530,288],[506,280],[490,270],[490,252]] },
-  // Hungary
-  { code: 'HU', col: '#d2ccbc', pts: [[490,270],[548,288],[548,300],[582,300],[600,312],[570,324],[530,324],[502,312],[490,308],[474,294],[490,270]] },
-  // Romania + Moldova
-  { code: 'RO', col: '#d0c8b8', pts: [[548,296],[594,294],[636,300],[656,320],[644,350],[618,368],[580,360],[554,346],[546,332],[548,296]] },
-  { code: 'MD', col: '#d4c8bc', pts: [[618,298],[636,298],[636,316],[618,322],[612,308],[618,298]] },
-  // Balkans
-  { code: 'HR', col: '#c8d0c0', pts: [[490,308],[532,324],[546,334],[522,348],[500,344],[478,328],[490,308]] },
-  { code: 'RS', col: '#ccc8b8', pts: [[490,308],[546,332],[530,362],[540,382],[510,386],[488,380],[476,358],[474,334],[478,322],[490,308]] },
-  { code: 'BG', col: '#ccc4b4', pts: [[546,332],[554,346],[580,360],[618,368],[628,390],[596,404],[564,404],[538,382],[530,362],[546,332]] },
-  { code: 'GR', col: '#d4d0b8', pts: [[498,360],[524,352],[550,350],[578,368],[590,414],[582,454],[556,462],[530,460],[510,448],[504,424],[492,402],[498,360]] },
-  // Italy
-  { code: 'IT', col: '#d8d4bc', pts: [[348,290],[396,294],[460,296],[488,308],[488,316],[520,312],[516,336],[482,362],[460,390],[442,424],[420,434],[404,456],[390,464],[372,458],[366,432],[378,404],[374,372],[352,344],[318,314],[322,312],[382,318],[348,290]] },
-  // Iberia
-  { code: 'ES', col: '#dcdcc4', pts: [[30,352],[168,348],[236,344],[262,374],[252,396],[198,430],[148,462],[80,470],[58,454],[68,408],[66,376],[30,352]] },
-  { code: 'PT', col: '#d0dcc8', pts: [[22,378],[66,376],[68,408],[58,454],[20,462],[12,432],[22,378]] },
-  // Turkey (partial)
-  { code: 'TR', col: '#d4cca8', pts: [[574,366],[612,360],[700,358],[770,374],[796,404],[796,460],[638,462],[590,462],[566,452],[572,432],[578,412],[574,366]] },
-  // North Africa (visual framing at southern edge)
-  { code: 'AF', col: '#e0d8a8', pts: [[0,472],[250,472],[280,500],[796,472],[796,520],[0,520],[0,472]] },
+const WATER = '#a5cde6';
+const COAST = '#5f8fb4';
+
+// Muted political-atlas palette; neighbouring countries get different tints.
+const PALETTE = ['#f3e6bf', '#dfead0', '#f0dad3', '#dde3f2', '#eadcef', '#f6e1c4'];
+const COUNTRY_TINT = {
+  DE: 0, FR: 3, NL: 5, BE: 1, LU: 2, CH: 2, LI: 0, AT: 1, IT: 5, SM: 3, VA: 3, MC: 2,
+  PL: 2, CZ: 4, SK: 5, HU: 3, SI: 4, HR: 0, BA: 2, RS: 1, ME: 3, XK: 4, AL: 0, MK: 2,
+  GR: 3, BG: 4, RO: 0, MD: 1, LT: 1, LV: 3, EE: 2, FI: 3, AX: 3, SE: 1, NO: 2, DK: 1,
+  FO: 1, GB: 2, IM: 2, JE: 2, GG: 2, IE: 1, ES: 4, PT: 0, AD: 5, MT: 0,
+};
+const OUTSIDE_LAND = '#e7e3d8';
+
+// Hand-placed sea labels (lon, lat, German name, size class).
+const SEA_LABELS = [
+  [-14, 47.5, 'Atlantischer Ozean', 2], [3.4, 56.3, 'Nordsee', 2], [18.8, 56.2, 'Ostsee', 2],
+  [4.5, 39.2, 'Mittelmeer', 2], [-5, 45.6, 'Golf von Biskaya', 1], [11.2, 40.2, 'Tyrrhenisches Meer', 1],
+  [15.8, 42.9, 'Adria', 1], [18.6, 37.4, 'Ionisches Meer', 1], [25, 39.4, 'Ägäis', 1],
+  [32.5, 43.6, 'Schwarzes Meer', 2], [20.6, 61.6, 'Bottnischer Meerbusen', 1], [-1.6, 50.1, 'Ärmelkanal', 1],
+  [3.5, 64, 'Europäisches Nordmeer', 2],
 ];
 
-// Ocean / sea areas — drawn over the land background, before country polygons
-// Country polygons will then paint over these wherever there is land.
-const OCEAN_POLYS = [
-  // Baltic Sea (between Scandinavia and mainland)
-  [[418,174],[456,150],[562,148],[604,170],[600,190],[502,190],[456,192],[436,180],[418,174]],
-  // Mediterranean, Adriatic, Aegean and Black Sea.
-  [[0,358],[796,358],[796,520],[0,520]],
-];
+const MOUNTAIN_NAMES = { 'Ligurischer Apennin': 'Apennin', 'Atlas': 'Atlasgebirge' };
 
-// Single connected Europe landmass — drawn on top of ocean, underneath country fills.
-// Covers the entire European territory so gaps between country polygons show land, not ocean.
-const EUROPE_LANDMASS = [
-  // Trace outer boundary clockwise.  Atlantic left edge → north over Scandinavia → Finland/Russia
-  // → east edge → south through Turkey/Balkans/Greece → Italy tip → Spain/Portugal
-  [0, 440],    // Portugal SW coast
-  [0, 280],    // W (Bay of Biscay latitude)
-  [0, 0],      // Top-left corner
-  [796, 0],    // Top-right (Arctic Russia)
-  [796, 350],  // E edge (Turkey/Black Sea)
-  [796, 470],  // SE edge
-  [640, 470],  // Turkey S
-  [580, 470],  // Greece / Aegean
-  [520, 470],  // Italy S tip area
-  [400, 472],  // Italy SW / Sicilian channel
-  [280, 470],  // Spain S / Gibraltar
-  [80, 470],   // Spain S (southernmost)
-  [0, 460],    // Portugal SW
-  [0, 440],    // close
-];
+function _ringsWidth(rings) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i += 2) {
+      if (ring[i] < min) min = ring[i];
+      if (ring[i] > max) max = ring[i];
+    }
+  }
+  return max - min;
+}
 
-// Mountain and topographic regions — drawn as semi-transparent brown overlays
-const MOUNTAIN_RANGES = [
-  // Alps
-  [[316,288],[396,278],[464,284],[530,296],[538,312],[492,320],[420,322],[354,318],[314,306]],
-  // Pyrenees
-  [[164,352],[264,358],[280,376],[256,392],[190,392],[162,372]],
-  // Scandinavian Mountains
-  [[302,86],[342,162],[412,174],[414,90],[368,58],[326,62]],
-  // Carpathians
-  [[490,250],[584,238],[650,264],[636,294],[574,312],[530,324],[490,308],[476,292],[490,250]],
-  // Apennines (Italy)
-  [[382,328],[424,326],[458,340],[470,372],[452,408],[428,420],[402,412],[380,386],[374,354]],
-  // Balkanic highlands
-  [[490,340],[548,338],[566,360],[560,390],[524,404],[490,400],[468,376],[474,352]],
-];
+let _geoPaths = null;
+let _geoLoading = null;
+
+function _ringPath(path, ring, close) {
+  path.moveTo(ring[0], ring[1]);
+  for (let i = 2; i < ring.length; i += 2) path.lineTo(ring[i], ring[i + 1]);
+  if (close) path.closePath();
+}
+
+function _buildGeoPaths(geo) {
+  const pathOf = (rings, close = true) => {
+    const path = new Path2D();
+    rings.forEach(ring => _ringPath(path, ring, close));
+    return path;
+  };
+  const riversOf = test => pathOf(geo.rivers.filter(river => test(river.rank)).map(river => river.line), false);
+
+  const graticule = new Path2D();
+  for (let lon = -40; lon <= 50; lon += 5) {
+    for (let lat = 25; lat < 72; lat++) {
+      const a = projectLonLat(lon, lat);
+      const b = projectLonLat(lon, lat + 1);
+      graticule.moveTo(a.x, a.y);
+      graticule.lineTo(b.x, b.y);
+    }
+  }
+  for (let lat = 30; lat <= 70; lat += 5) {
+    for (let lon = -40; lon < 50; lon++) {
+      const a = projectLonLat(lon, lat);
+      const b = projectLonLat(lon + 1, lat);
+      graticule.moveTo(a.x, a.y);
+      graticule.lineTo(b.x, b.y);
+    }
+  }
+
+  return {
+    graticule,
+    countries: geo.countries.map(country => ({
+      ...country,
+      width: _ringsWidth(country.rings),
+      path: pathOf(country.rings),
+      fill: COUNTRY_TINT[country.iso] !== undefined ? PALETTE[COUNTRY_TINT[country.iso]] : OUTSIDE_LAND,
+    })),
+    coast: pathOf(geo.coast),
+    borders: pathOf(geo.borders, false),
+    lakes: pathOf(geo.lakes),
+    riversMajor: riversOf(rank => rank <= 5),
+    riversMedium: riversOf(rank => rank > 5 && rank <= 7),
+    riversMinor: riversOf(rank => rank > 7),
+    mountains: geo.mountains.map(range => {
+      const ring = range.rings.reduce((a, b) => (a.length >= b.length ? a : b));
+      let sx = 0;
+      let sy = 0;
+      for (let i = 0; i < ring.length; i += 2) { sx += ring[i]; sy += ring[i + 1]; }
+      return {
+        name: MOUNTAIN_NAMES[range.name] || range.name,
+        path: pathOf(range.rings),
+        label: [sx / (ring.length / 2), sy / (ring.length / 2)],
+      };
+    }),
+    seaLabels: SEA_LABELS.map(([lon, lat, name, size]) => ({ ...projectLonLat(lon, lat), name, size })),
+  };
+}
+
+function _ensureGeo() {
+  if (_geoPaths || _geoLoading) return;
+  _geoLoading = import('../map_geo_data.js')
+    .then(module => {
+      _geoPaths = _buildGeoPaths(module.MAP_GEO);
+      if (GS.ui.currentScreen === 'map') renderMapScreen();
+    })
+    .catch(() => { _geoLoading = null; });
+}
+
+const _cityPosCache = new Map();
+
+/** Real-world map position of a city (projected latitude/longitude). */
+export function cityMapPos(city) {
+  if (!_cityPosCache.has(city.id)) {
+    _cityPosCache.set(city.id, Number.isFinite(city.lat) ? projectLonLat(city.lon, city.lat) : { x: city.x, y: city.y });
+  }
+  return _cityPosCache.get(city.id);
+}
+
+function _cityPosById(cityId) {
+  const city = cityById[cityId];
+  return city ? cityMapPos(city) : null;
+}
+
+/** Map position of a vehicle, interpolated along its current route leg. */
+export function vehicleMapPos(vehicle) {
+  const stops = vehicle.route?.stops || [];
+  const index = vehicle.route?.currentStopIndex || 0;
+  if (stops.length > 1 && index < stops.length - 1) {
+    const from = _cityPosById(stops[index].cityId);
+    const to = _cityPosById(stops[index + 1].cityId);
+    if (from && to) {
+      const pct = (vehicle.route.progressPct || 0) / 100;
+      return { x: from.x + (to.x - from.x) * pct, y: from.y + (to.y - from.y) * pct };
+    }
+  }
+  const cityId = stops.length > 0 && index >= stops.length - 1 ? stops[stops.length - 1].cityId : vehicle.currentCity;
+  return _cityPosById(cityId) || vehicle.position || null;
+}
 
 // Pan drag state
 let _panDragging = false;
@@ -183,7 +222,8 @@ export function renderQuickNav() {
 
   let html = '';
 
-  html += `<div class="qnav-item" onclick="mapJumpTo(${hqCity.x},${hqCity.y})" title="Zur Firmenzentrale zoomen">
+  const hqPos = cityMapPos(hqCity);
+  html += `<div class="qnav-item" onclick="mapJumpTo(${hqPos.x},${hqPos.y})" title="Zur Firmenzentrale zoomen">
     <span class="qnav-icon">🏢</span>
     <span class="qnav-label">Zentrale (${hqCity.name})</span>
   </div>`;
@@ -202,7 +242,8 @@ export function renderQuickNav() {
       seen.add(key);
       const city = cityById[cityId];
       if (!city) continue;
-      html += `<div class="qnav-item" onclick="mapJumpTo(${city.x},${city.y})" title="${label}: ${city.name}">
+      const pos = cityMapPos(city);
+      html += `<div class="qnav-item" onclick="mapJumpTo(${pos.x},${pos.y})" title="${label}: ${city.name}">
         <span class="qnav-icon">${icon}</span>
         <span class="qnav-label">${city.name}</span>
       </div>`;
@@ -228,8 +269,9 @@ export function renderQuickNav() {
 
 export function mapJumpToVehicle(vehicleId) {
   const v = GS.vehicles.find(x => x.id === vehicleId);
-  if (!v || !v.position) return;
-  mapJumpTo(v.position.x, v.position.y);
+  const pos = v ? vehicleMapPos(v) : null;
+  if (!pos) return;
+  mapJumpTo(pos.x, pos.y);
 }
 
 export function deselectVehicleOnMap() {
@@ -397,9 +439,10 @@ export function handleMapScreenClick(e) {
   const threshold = 14 / zoom;
 
   const hits = GS.vehicles.filter(v => {
-    if (!v.position) return false;
-    const dx = v.position.x - clickDataX;
-    const dy = v.position.y - clickDataY;
+    const pos = vehicleMapPos(v);
+    if (!pos) return false;
+    const dx = pos.x - clickDataX;
+    const dy = pos.y - clickDataY;
     return Math.sqrt(dx * dx + dy * dy) < threshold;
   });
 
@@ -437,13 +480,45 @@ export function handleMapScreenWheel(e) {
   else if (e.deltaY > 0 && GS.ui.mapZoom > 1) setMapZoom(GS.ui.mapZoom - 1);
 }
 
+function _haloText(ctx, text, x, y, fill, halo = 'rgba(255,255,255,0.92)', haloWidth = 3) {
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = halo;
+  ctx.lineWidth = haloWidth;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+}
+
+/** Greedy label placement: returns false if the text box overlaps an already placed label. */
+function _reserveLabel(placed, ctx, text, x, y, align = 'center', pad = 2) {
+  const width = ctx.measureText(text).width;
+  const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] || 10);
+  const left = align === 'center' ? x - width / 2 : align === 'right' ? x - width : x;
+  const box = [left - pad, y - size * 0.6 - pad, left + width + pad, y + size * 0.6 + pad];
+  if (placed.some(other => box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1])) return false;
+  placed.push(box);
+  return true;
+}
+
+function _cityLabelFont(isHub, isHighlit, zf) {
+  const size = Math.max(9, Math.round((isHub ? 11 : 10) * zf));
+  return `${isHighlit || isHub ? 700 : 500} ${size}px Inter, 'Segoe UI', sans-serif`;
+}
+
+function _setLetterSpacing(ctx, value) {
+  if ('letterSpacing' in ctx) ctx.letterSpacing = value;
+}
+
 export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
-  canvas.width  = canvas.clientWidth  || 800;
-  canvas.height = Math.round(canvas.width * 0.65);
+  _ensureGeo();
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || 800;
+  const H = Math.round(W * 0.65);
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
 
   const ctx = canvas.getContext('2d');
-  const W = canvas.width;
-  const H = canvas.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const zoom    = (opts && opts.zoom)   ? opts.zoom   : 1;
   const center  = (opts && opts.center) ? opts.center : { x: 400, y: 260 };
@@ -451,77 +526,165 @@ export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
   const viewH   = 520 / zoom;
   const offsetX = Math.max(0, Math.min(800 - viewW, center.x - viewW / 2));
   const offsetY = Math.max(0, Math.min(520 - viewH, center.y - viewH / 2));
+  const scale   = W / viewW;
+  const zf      = Math.min(zoom, 1.5);
 
-  function toX(dx) { return (dx - offsetX) / viewW * W; }
-  function toY(dy) { return (dy - offsetY) / viewH * H; }
+  function toX(dx) { return (dx - offsetX) * scale; }
+  function toY(dy) { return (dy - offsetY) * scale; }
+  const visible = (x, y, margin = 20) => x > -margin && x < W + margin && y > -margin && y < H + margin;
+  const px = value => value / scale;
 
-  // ── Ocean background (entire canvas = sea) ───────────────────────────────
-  ctx.fillStyle = '#9ec8e8';
-  ctx.fillRect(0, 0, W, H);
+  // ── Geography in map space ───────────────────────────────────────────────
+  ctx.save();
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, -offsetX * scale * dpr, -offsetY * scale * dpr);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
 
-  // ── Europe landmass base — ensures no ocean gaps between country polygons ─
-  ctx.fillStyle = '#dfddd0';
-  ctx.beginPath();
-  ctx.moveTo(toX(EUROPE_LANDMASS[0][0]), toY(EUROPE_LANDMASS[0][1]));
-  for (let i = 1; i < EUROPE_LANDMASS.length; i++) {
-    ctx.lineTo(toX(EUROPE_LANDMASS[i][0]), toY(EUROPE_LANDMASS[i][1]));
-  }
-  ctx.closePath();
-  ctx.fill();
+  const sea = ctx.createLinearGradient(0, 0, 0, 520);
+  sea.addColorStop(0, '#93c1e0');
+  sea.addColorStop(1, '#a9d2ea');
+  ctx.fillStyle = sea;
+  ctx.fillRect(-20, -20, 840, 560);
 
-  // ── Baltic Sea painted back on top of the landmass ───────────────────────
-  ctx.fillStyle = '#9ec8e8';
-  for (const pts of OCEAN_POLYS) {
-    ctx.beginPath();
-    ctx.moveTo(toX(pts[0][0]), toY(pts[0][1]));
-    for (let i = 1; i < pts.length; i++) {
-      ctx.lineTo(toX(pts[i][0]), toY(pts[i][1]));
+  const geo = _geoPaths;
+  if (geo) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+    ctx.lineWidth = px(0.7);
+    ctx.stroke(geo.graticule);
+
+    // Shallow-water glow along the coast
+    ctx.strokeStyle = 'rgba(205,231,246,0.55)';
+    ctx.lineWidth = px(10);
+    ctx.stroke(geo.coast);
+    ctx.strokeStyle = 'rgba(220,239,250,0.8)';
+    ctx.lineWidth = px(4);
+    ctx.stroke(geo.coast);
+
+    for (const country of geo.countries) {
+      ctx.fillStyle = country.fill;
+      ctx.fill(country.path, 'evenodd');
     }
-    ctx.closePath();
-    ctx.fill();
+
+    ctx.fillStyle = 'rgba(141,111,72,0.11)';
+    for (const range of geo.mountains) ctx.fill(range.path);
+
+    ctx.fillStyle = WATER;
+    ctx.fill(geo.lakes);
+    ctx.strokeStyle = COAST;
+    ctx.lineWidth = px(0.6);
+    ctx.stroke(geo.lakes);
+
+    ctx.strokeStyle = '#6da5d3';
+    ctx.lineWidth = px(1.5 * zf);
+    ctx.stroke(geo.riversMajor);
+    ctx.lineWidth = px(1.0 * zf);
+    ctx.stroke(geo.riversMedium);
+    if (zoom >= 2) {
+      ctx.lineWidth = px(0.8);
+      ctx.stroke(geo.riversMinor);
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = px(3);
+    ctx.stroke(geo.borders);
+    ctx.strokeStyle = 'rgba(128,92,140,0.85)';
+    ctx.lineWidth = px(1);
+    ctx.setLineDash([px(4), px(2)]);
+    ctx.stroke(geo.borders);
+    ctx.setLineDash([]);
+
+    ctx.strokeStyle = COAST;
+    ctx.lineWidth = px(0.8);
+    ctx.stroke(geo.coast);
+  }
+  ctx.restore();
+
+  // ── Geographic labels (screen space) ─────────────────────────────────────
+  // City labels have priority: reserve their space before placing geography labels.
+  const placedLabels = [];
+  const cityLabelPos = new Map();
+  const showCityLabel = (city, isHighlit) => isHighlit || city.hub || zoom >= 2;
+  const cityRadius = city => (city.hub ? Math.max(3.5, 4.5 * zf) : Math.max(2.5, 3 * zf));
+  const isRouteCity = city => !!(highlightCityIds && highlightCityIds.includes(city.id));
+  for (const city of DATA.CITIES) {
+    const p = cityMapPos(city);
+    const cx = toX(p.x);
+    const cy = toY(p.y);
+    const r = cityRadius(city);
+    if (visible(cx, cy, 10)) placedLabels.push([cx - r - 1, cy - r - 1, cx + r + 1, cy + r + 1]);
+  }
+  // Route cities first, then hubs, then the rest; each tries right, left, above and below its dot.
+  const labelOrder = [...DATA.CITIES].sort((a, b) =>
+    (isRouteCity(b) - isRouteCity(a)) || ((b.hub ? 1 : 0) - (a.hub ? 1 : 0)));
+  ctx.textBaseline = 'middle';
+  for (const city of labelOrder) {
+    const isHighlit = isRouteCity(city);
+    if (!showCityLabel(city, isHighlit)) continue;
+    const p = cityMapPos(city);
+    const cx = toX(p.x);
+    const cy = toY(p.y);
+    if (!visible(cx, cy, 10)) continue;
+    const r = cityRadius(city);
+    ctx.font = _cityLabelFont(city.hub, isHighlit, zf);
+    const size = Math.max(9, Math.round((city.hub ? 11 : 10) * zf));
+    const candidates = [
+      [cx + r + 3, cy, 'left'],
+      [cx - r - 3, cy, 'right'],
+      [cx, cy - r - size * 0.75, 'center'],
+      [cx, cy + r + size * 0.75, 'center'],
+    ];
+    const spot = candidates.find(([x, y, align]) => _reserveLabel(placedLabels, ctx, city.name, x, y, align, 1));
+    if (spot) cityLabelPos.set(city.id, spot);
   }
 
-  // ── Country fills ─────────────────────────────────────────────────────────
-  for (const country of MAP_COUNTRIES) {
-    if (!country.pts || country.pts.length < 3) continue;
-    ctx.beginPath();
-    ctx.moveTo(toX(country.pts[0][0]), toY(country.pts[0][1]));
-    for (let i = 1; i < country.pts.length; i++) {
-      ctx.lineTo(toX(country.pts[i][0]), toY(country.pts[i][1]));
-    }
-    ctx.closePath();
-    ctx.fillStyle = country.col;
-    ctx.fill();
-  }
+  if (geo) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-  // ── Country borders ───────────────────────────────────────────────────────
-  ctx.setLineDash([]);
-  ctx.lineWidth = Math.max(0.5, 0.9 / zoom);
-  for (const country of MAP_COUNTRIES) {
-    if (!country.pts || country.pts.length < 3) continue;
-    ctx.beginPath();
-    ctx.moveTo(toX(country.pts[0][0]), toY(country.pts[0][1]));
-    for (let i = 1; i < country.pts.length; i++) {
-      ctx.lineTo(toX(country.pts[i][0]), toY(country.pts[i][1]));
+    _setLetterSpacing(ctx, '2px');
+    for (const label of geo.seaLabels) {
+      const x = toX(label.x);
+      const y = toY(label.y);
+      if (!visible(x, y, 60) || (label.size < 2 && zoom < 2 && W < 900)) continue;
+      ctx.font = `italic ${label.size === 2 ? 600 : 500} ${Math.round((label.size === 2 ? 12 : 10) * zf)}px Georgia, 'Times New Roman', serif`;
+      if (!_reserveLabel(placedLabels, ctx, label.name, x, y)) continue;
+      _haloText(ctx, label.name, x, y, 'rgba(46,96,140,0.85)', 'rgba(200,228,245,0.7)', 2.5);
     }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(90,75,60,0.45)';
-    ctx.stroke();
-  }
 
-  // ── Mountain ranges (topographic shading) ────────────────────────────────
-  for (const mPts of MOUNTAIN_RANGES) {
-    ctx.beginPath();
-    ctx.moveTo(toX(mPts[0][0]), toY(mPts[0][1]));
-    for (let i = 1; i < mPts.length; i++) {
-      ctx.lineTo(toX(mPts[i][0]), toY(mPts[i][1]));
+    _setLetterSpacing(ctx, '3px');
+    for (const country of geo.countries) {
+      if (!country.label || country.rank > (zoom >= 2 ? 6 : 4)) continue;
+      const x = toX(country.label[0]);
+      const y = toY(country.label[1]);
+      if (!visible(x, y, 40)) continue;
+      const size = Math.round(Math.max(8, (country.rank <= 2 ? 13 : country.rank <= 3 ? 11 : 9) * zf));
+      ctx.font = `700 ${size}px Inter, 'Segoe UI', sans-serif`;
+      const name = country.name.toUpperCase();
+      if (ctx.measureText(name).width > country.width * scale * 1.6) continue;
+      if (!_reserveLabel(placedLabels, ctx, name, x, y)) continue;
+      _haloText(ctx, name, x, y, 'rgba(96,82,72,0.55)', 'rgba(255,255,255,0.5)', 2);
     }
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(148,118,74,0.16)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(130,100,60,0.22)';
-    ctx.lineWidth = Math.max(0.5, 0.6 / zoom);
-    ctx.stroke();
+
+    _setLetterSpacing(ctx, '1px');
+    if (zoom >= 2) {
+      for (const range of geo.mountains) {
+        const x = toX(range.label[0]);
+        const y = toY(range.label[1]);
+        if (!visible(x, y, 40)) continue;
+        ctx.font = `italic 600 ${Math.round(10 * zf)}px Georgia, 'Times New Roman', serif`;
+        if (!_reserveLabel(placedLabels, ctx, range.name, x, y)) continue;
+        _haloText(ctx, range.name, x, y, 'rgba(110,80,45,0.8)', 'rgba(255,255,255,0.6)', 2);
+      }
+    }
+    _setLetterSpacing(ctx, '0px');
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+  } else {
+    ctx.font = '600 14px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(30,60,90,0.7)';
+    ctx.fillText('Karte wird geladen …', W / 2, H / 2);
+    ctx.textAlign = 'left';
   }
 
   // ── Roads ─────────────────────────────────────────────────────────────────
@@ -534,96 +697,82 @@ export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
     autoCount[b] = (autoCount[b] || 0) + 1;
   }
 
-  // National roads (only at zoom >= 2)
-  if (zoom >= 2) {
-    ctx.setLineDash([5, 4]);
-    ctx.strokeStyle = 'rgba(160,90,20,0.65)';
-    ctx.lineWidth = Math.max(1, 1.2 * zoom);
-    for (const [a, b] of national) {
-      const ca = cityById[a], cb = cityById[b];
-      if (!ca || !cb) continue;
-      ctx.beginPath();
-      ctx.moveTo(toX(ca.x), toY(ca.y));
-      ctx.lineTo(toX(cb.x), toY(cb.y));
-      ctx.stroke();
+  const strokeRoads = (connections, width, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (const [a, b] of connections) {
+      const pa = _cityPosById(a);
+      const pb = _cityPosById(b);
+      if (!pa || !pb) continue;
+      ctx.moveTo(toX(pa.x), toY(pa.y));
+      ctx.lineTo(toX(pb.x), toY(pb.y));
     }
-    ctx.setLineDash([]);
-  }
+    ctx.stroke();
+  };
 
-  // Autobahn — blue core
-  ctx.setLineDash([]);
-  ctx.strokeStyle = 'rgba(20,65,170,0.82)';
-  ctx.lineWidth = Math.max(1.5, 2.8 * Math.min(zoom, 1.5));
-  for (const [a, b] of autobahn) {
-    const ca = cityById[a], cb = cityById[b];
-    if (!ca || !cb) continue;
-    ctx.beginPath();
-    ctx.moveTo(toX(ca.x), toY(ca.y));
-    ctx.lineTo(toX(cb.x), toY(cb.y));
-    ctx.stroke();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (zoom >= 2) {
+    strokeRoads(national, 3.2, 'rgba(150,130,90,0.55)');
+    strokeRoads(national, 1.8, '#fff6cf');
   }
-  // Autobahn — white centre dash
-  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-  ctx.lineWidth = Math.max(0.4, 0.7 * Math.min(zoom, 1.5));
-  ctx.setLineDash([8, 6]);
-  for (const [a, b] of autobahn) {
-    const ca = cityById[a], cb = cityById[b];
-    if (!ca || !cb) continue;
-    ctx.beginPath();
-    ctx.moveTo(toX(ca.x), toY(ca.y));
-    ctx.lineTo(toX(cb.x), toY(cb.y));
-    ctx.stroke();
-  }
-  ctx.setLineDash([]);
+  const motorway = Math.max(2, 2.6 * zf);
+  strokeRoads(autobahn, motorway + 1.8, 'rgba(168,84,20,0.75)');
+  strokeRoads(autobahn, motorway, '#f6b25e');
 
   // ── Selected vehicle route highlight ──────────────────────────────────────
   if (highlightCityIds && highlightCityIds.length > 1) {
-    ctx.strokeStyle = '#cc2244';
-    ctx.lineWidth   = 2.5;
-    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 5;
     ctx.beginPath();
-    for (let i = 0; i < highlightCityIds.length; i++) {
-      const c = cityById[highlightCityIds[i]];
-      if (!c) continue;
-      if (i === 0) ctx.moveTo(toX(c.x), toY(c.y));
-      else ctx.lineTo(toX(c.x), toY(c.y));
-    }
+    highlightCityIds.forEach((cityId, i) => {
+      const p = _cityPosById(cityId);
+      if (!p) return;
+      if (i === 0) ctx.moveTo(toX(p.x), toY(p.y));
+      else ctx.lineTo(toX(p.x), toY(p.y));
+    });
+    ctx.stroke();
+    ctx.strokeStyle = '#cc2244';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([6, 4]);
     ctx.stroke();
     ctx.setLineDash([]);
   }
 
   // ── Vehicle route lines ───────────────────────────────────────────────────
   if (vehicles) {
-    ctx.strokeStyle = 'rgba(20,140,60,0.55)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(20,120,60,0.75)';
+    ctx.lineWidth = 2;
     ctx.setLineDash([4, 3]);
     for (const v of vehicles) {
       if (v.status !== 'driving' || !v.route.stops.length) continue;
       ctx.beginPath();
       let started = false;
       for (const stop of v.route.stops) {
-        const c = cityById[stop.cityId];
-        if (!c) continue;
-        if (!started) { ctx.moveTo(toX(c.x), toY(c.y)); started = true; }
-        else ctx.lineTo(toX(c.x), toY(c.y));
+        const p = _cityPosById(stop.cityId);
+        if (!p) continue;
+        if (!started) { ctx.moveTo(toX(p.x), toY(p.y)); started = true; }
+        else ctx.lineTo(toX(p.x), toY(p.y));
       }
       ctx.stroke();
     }
     ctx.setLineDash([]);
   }
 
-  // ── Autobahn junction diamonds ────────────────────────────────────────────
+  // ── Autobahn junctions ────────────────────────────────────────────────────
   for (const city of DATA.CITIES) {
     if ((autoCount[city.id] || 0) < 3) continue;
-    const cx = toX(city.x), cy = toY(city.y);
-    if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) continue;
-    const r = Math.max(2.5, 3.5 * Math.min(zoom, 1.5));
+    const p = cityMapPos(city);
+    const cx = toX(p.x), cy = toY(p.y);
+    if (!visible(cx, cy, 10)) continue;
+    const r = Math.max(3, 4 * zf);
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(Math.PI / 4);
-    ctx.fillStyle   = 'rgba(20,65,170,0.9)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth   = 1;
+    ctx.fillStyle   = '#e07b22';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth   = 1.2;
     ctx.beginPath();
     ctx.rect(-r / 2, -r / 2, r, r);
     ctx.fill();
@@ -640,10 +789,10 @@ export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
         { cityId: order.destination, icon: '🏁', bg: 'rgba(20,140,60,0.88)' },
       ];
       for (const { cityId, icon, bg } of targets) {
-        const city = cityById[cityId];
-        if (!city) continue;
-        const cx = toX(city.x), cy = toY(city.y);
-        if (cx < -20 || cx > W + 20 || cy < -20 || cy > H + 20) continue;
+        const p = _cityPosById(cityId);
+        if (!p) continue;
+        const cx = toX(p.x), cy = toY(p.y);
+        if (!visible(cx, cy)) continue;
         ctx.beginPath();
         ctx.arc(cx, cy - iconR - 2, iconR, 0, Math.PI * 2);
         ctx.fillStyle = bg;
@@ -658,72 +807,82 @@ export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
     }
   }
 
-  // ── City dots + labels ────────────────────────────────────────────────────
+  // ── Cities ────────────────────────────────────────────────────────────────
   for (const city of DATA.CITIES) {
-    const cx = toX(city.x);
-    const cy = toY(city.y);
-    if (cx < -10 || cx > W + 10 || cy < -10 || cy > H + 10) continue;
+    const p = cityMapPos(city);
+    const cx = toX(p.x);
+    const cy = toY(p.y);
+    if (!visible(cx, cy, 10)) continue;
     const isHighlit = highlightCityIds && highlightCityIds.includes(city.id);
     const isHub = city.hub;
-    const r = isHub ? Math.max(3, 4 * Math.min(zoom, 1.5)) : Math.max(2, 2.5 * Math.min(zoom, 1.5));
+    const r = isHub ? Math.max(3.5, 4.5 * zf) : Math.max(2.5, 3 * zf);
 
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = isHighlit ? '#cc2244' : isHub ? '#1a3ea8' : 'rgba(50,50,50,0.65)';
+    ctx.fillStyle = isHighlit ? '#cc2244' : '#ffffff';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = isHighlit ? '#ffffff' : '#2a2f36';
+    ctx.lineWidth = isHub ? 1.6 : 1.2;
     ctx.stroke();
+    if (isHub && !isHighlit) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2);
+      ctx.fillStyle = '#2a2f36';
+      ctx.fill();
+    }
 
-    const showLabel = isHighlit || isHub || (zoom >= 2);
-    if (showLabel) {
-      const fs = Math.max(8, Math.round(10 * Math.min(zoom, 1.5)));
-      ctx.font = `${isHighlit ? 700 : isHub ? 600 : 400} ${fs}px sans-serif`;
-      ctx.shadowColor = 'rgba(255,255,255,0.92)';
-      ctx.shadowBlur  = 3;
-      ctx.fillStyle   = isHighlit ? '#aa1133' : isHub ? '#192d6e' : '#333';
-      ctx.fillText(city.name, cx + r + 3, cy + 4);
-      ctx.shadowBlur  = 0;
+    const spot = cityLabelPos.get(city.id);
+    if (spot) {
+      ctx.font = _cityLabelFont(isHub, isHighlit, zf);
+      ctx.textAlign = spot[2];
+      ctx.textBaseline = 'middle';
+      _haloText(ctx, city.name, spot[0], spot[1], isHighlit ? '#a5102f' : '#1d2630');
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
     }
   }
 
   // ── Company HQ icon ───────────────────────────────────────────────────────
   if (zoom >= 2) {
-    const hqCity = cityById[GS.company.hqCity || 'frankfurt'];
-    if (hqCity) {
-      const hx = toX(hqCity.x), hy = toY(hqCity.y);
-      ctx.font = `${Math.max(12, 14 * Math.min(zoom, 1.5))}px sans-serif`;
+    const hq = _cityPosById(GS.company.hqCity || 'frankfurt');
+    if (hq) {
+      const hx = toX(hq.x), hy = toY(hq.y);
+      ctx.font = `${Math.max(12, 14 * zf)}px sans-serif`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('🏢', hx, hy - Math.max(8, 12 * Math.min(zoom, 1.5)));
+      ctx.fillText('🏢', hx, hy - Math.max(8, 12 * zf));
       ctx.textAlign    = 'left';
       ctx.textBaseline = 'alphabetic';
     }
   }
 
-  // ── Vehicle circles + icons ───────────────────────────────────────────────
+  // ── Vehicles ──────────────────────────────────────────────────────────────
   if (vehicles) {
     for (const v of vehicles) {
-      if (!v.position) continue;
-      const vx = toX(v.position.x);
-      const vy = toY(v.position.y);
-      if (vx < -20 || vx > W + 20 || vy < -20 || vy > H + 20) continue;
+      const pos = vehicleMapPos(v);
+      if (!pos) continue;
+      const vx = toX(pos.x);
+      const vy = toY(pos.y);
+      if (!visible(vx, vy)) continue;
 
       const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
       const isSelected = opts && opts.selectedId && opts.selectedId === v.id;
-      const vr = Math.max(5, 6 * Math.min(zoom, 1.5));
+      const vr = Math.max(6, 7 * zf);
 
       ctx.beginPath();
       ctx.arc(vx, vy, vr + (isSelected ? 3 : 0), 0, Math.PI * 2);
       ctx.fillStyle = isSelected
         ? 'rgba(200,120,0,0.95)'
         : v.status === 'driving' ? '#1a8040' : v.status === 'broken' ? '#c02020' : '#707070';
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 4;
       ctx.fill();
+      ctx.shadowBlur = 0;
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.lineWidth = isSelected ? 2.5 : 1.5;
       ctx.stroke();
 
-      const iconSize = Math.max(10, Math.round(11 * Math.min(zoom, 1.5)));
+      const iconSize = Math.max(10, Math.round(11 * zf));
       ctx.font = `${iconSize}px sans-serif`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
@@ -736,21 +895,21 @@ export function drawMapOnCanvas(canvas, highlightCityIds, vehicles, opts) {
   // ── Route stop numbered dots ──────────────────────────────────────────────
   if (highlightCityIds) {
     highlightCityIds.forEach((cityId, i) => {
-      const c = cityById[cityId];
-      if (!c) return;
-      const nr = Math.max(6, 7 * Math.min(zoom, 1.5));
+      const p = _cityPosById(cityId);
+      if (!p) return;
+      const nr = Math.max(6, 7 * zf);
       ctx.beginPath();
-      ctx.arc(toX(c.x), toY(c.y), nr, 0, Math.PI * 2);
+      ctx.arc(toX(p.x), toY(p.y), nr, 0, Math.PI * 2);
       ctx.fillStyle = '#cc2244';
       ctx.fill();
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.max(8, 10 * Math.min(zoom, 1.5))}px sans-serif`;
+      ctx.font = `bold ${Math.max(8, 10 * zf)}px sans-serif`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(i + 1, toX(c.x), toY(c.y));
+      ctx.fillText(i + 1, toX(p.x), toY(p.y));
       ctx.textAlign    = 'left';
       ctx.textBaseline = 'alphabetic';
     });

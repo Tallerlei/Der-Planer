@@ -2,6 +2,7 @@ import { $ } from '../utils.js';
 import { GS } from '../state.js';
 import { TIME_COSTS } from '../constants.js';
 import { advanceGameTime } from '../game/engine.js';
+import { emitProgressEvent } from '../game/progression.js';
 
 export function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -14,6 +15,7 @@ export function showScreen(name) {
 
   GS.ui.currentScreen = name;
   _triggerScreenRender(name);
+  if (GS.started) emitProgressEvent('tutorial-action', { action: `screen:${name}` });
 }
 
 export function navigateToScreen(name) {

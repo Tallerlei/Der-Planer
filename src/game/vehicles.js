@@ -3,6 +3,7 @@ import { GS } from '../state.js';
 import { uid } from '../utils.js';
 import { cityById } from '../state.js';
 import { buildRouteStops, routeDistance } from '../routing.js';
+import { getStaffRoleStrength } from './staff.js';
 
 export function createVehicle(catalogId, homeCityId, trailerId = null) {
   const cat = DATA.VEHICLES.find(v => v.id === catalogId);
@@ -74,21 +75,23 @@ export function updatePositionForVehicle(v) {
   const stops = v.route.stops;
   if (!stops || stops.length === 0) {
     const c = cityById[v.currentCity];
-    if (c) { v.position.x = c.x; v.position.y = c.y; }
+    if (c) v.position = { x: c.x, y: c.y };
     return;
   }
   const idx = v.route.currentStopIndex;
   if (idx >= stops.length - 1) {
     const c = cityById[stops[stops.length - 1].cityId];
-    if (c) { v.position.x = c.x; v.position.y = c.y; }
+    if (c) v.position = { x: c.x, y: c.y };
     return;
   }
   const from = cityById[stops[idx].cityId];
   const to   = cityById[stops[idx + 1].cityId];
   if (!from || !to) return;
   const pct = v.route.progressPct / 100;
-  v.position.x = from.x + (to.x - from.x) * pct;
-  v.position.y = from.y + (to.y - from.y) * pct;
+  v.position = {
+    x: from.x + (to.x - from.x) * pct,
+    y: from.y + (to.y - from.y) * pct,
+  };
 }
 
 /**
@@ -112,8 +115,7 @@ export function startOrderForVehicle(vehicle, order) {
     { cityId: order.destination,   action: 'delivery', orderId: order.id },
     { cityId: vehicle.homeCity,    action: 'return' },
   ];
-  const expandedStops = buildRouteStops(keyWaypoints)
-    .filter((s, i, arr) => i === 0 || s.cityId !== arr[i - 1].cityId);
+  const expandedStops = buildRouteStops(keyWaypoints);
 
   vehicle.route = {
     stops: expandedStops,
@@ -124,4 +126,52 @@ export function startOrderForVehicle(vehicle, order) {
   };
 
   updatePositionForVehicle(vehicle);
+}
+
+export function startTourForVehicle(vehicle, orders, returnToBase = false) {
+  if (!vehicle || !Array.isArray(orders) || orders.length === 0) return false;
+
+  const keyWaypoints = [{ cityId: vehicle.currentCity, action: 'depart' }];
+  for (const order of orders) {
+    keyWaypoints.push(
+      { cityId: order.origin, action: 'pickup', orderId: order.id },
+      { cityId: order.destination, action: 'delivery', orderId: order.id },
+    );
+  }
+  if (returnToBase) keyWaypoints.push({ cityId: vehicle.homeCity, action: 'return' });
+
+  const expandedStops = buildRouteStops(keyWaypoints);
+  const tourId = uid();
+  vehicle.status = 'driving';
+  vehicle.plannedTour = {
+    id: tourId,
+    orderIds: orders.map(order => order.id),
+    returnToBase,
+    endCity: keyWaypoints[keyWaypoints.length - 1].cityId,
+  };
+  vehicle.route = {
+    stops: expandedStops,
+    currentStopIndex: 0,
+    progressPct: 0,
+    totalDistance: routeDistance(expandedStops),
+    coveredDistance: 0,
+    tourId,
+  };
+  updatePositionForVehicle(vehicle);
+  return true;
+}
+
+export function getVehicleConditionFactor(vehicle) {
+  const health = Math.max(0, Math.min(100, vehicle.health ?? 100));
+  return 0.65 + health / 100 * 0.35;
+}
+
+export function getVehicleFuelConditionFactor(vehicle) {
+  const health = Math.max(0, Math.min(100, vehicle.health ?? 100));
+  return 1 + (100 - health) / 100 * 0.35;
+}
+
+export function getVehicleWearPerKm(vehicle) {
+  const mechanic = getStaffRoleStrength('mechanic');
+  return 0.002 * (1 - Math.min(0.35, mechanic * 0.07));
 }

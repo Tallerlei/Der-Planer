@@ -2,7 +2,7 @@
 
 **Das alte Spiel in neuem Gewand** – eine browserbasierte Logistik-Managementsimulation im klassischen Stil.
 
-> 🔖 **Version: 1.23.1**
+> 🔖 **Version: 1.29.0**
 
 ---
 
@@ -23,6 +23,14 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - Überarbeitete Typografie, schicke Verläufe und bessere visuelle Hierarchie.
 - **Belohnungs-Effekte**: Konfetti bei Erfolgen, Kapitelabschlüssen und Goldaufträgen, schwebende **+€-Anzeigen** am Kontostand nach jeder Lieferung und animierte Erfolgs-Banner. Animationen respektieren die Systemeinstellung *Bewegung reduzieren*.
 - **Statusleisten-Chips**: 🔥 aktuelle Pünktlichkeits-Serie mit Bonus, 🏅 freigeschaltete Erfolge und 📖 aktuelles Story-Kapitel (jeweils anklickbar).
+- **Geführtes Ausbildungsprogramm** (im Stil klassischer *Theme*-Spiele): 8 Kapitel – Erster Auftrag, Unterwegs, Touren planen, Die Firma wächst, Werkstatt & Verschleiß, Ausschreibungen & Verträge, Spezialfracht und Europa als Netzwerk.
+  - Jedes Kapitel besteht aus konkreten Schritten, die das Spiel automatisch an echten Spieleraktionen erkennt (z. B. Auftrag angenommen, Tour gestartet, Wartung beauftragt).
+  - Ein gut lesbares, deckendes **Berater-Widget** unten links zeigt Checkliste und Tipp zum aktuellen Schritt; der als Nächstes zu nutzende Knopf wird **pulsierend hervorgehoben**.
+  - Im Kapitel *Touren planen* legt das Spiel zwei passende **🎓 Übungsaufträge** direkt am Standort des LKW in den Frachtmarkt (Hinfahrt + Rückladung zurück in Richtung Zentrale). Eine Schritt-für-Schritt-Anleitung im Tourenplaner hebt den jeweils anzuklickenden Auftrag hervor und erklärt den Effekt mit echten Zahlen (vermiedene Leerkilometer, Auslastung, Deckungsbeitrag). Übungsaufträge verfallen ohne Ansehensverlust.
+  - Ist ein Schritt gerade nicht ausführbar (Fahrzeug unterwegs, kein passender Auftrag, zu wenig Geld, keine passende Ausschreibung), erklärt der Berater den Grund und meldet sich, sobald es weitergeht.
+  - Kapitel öffnen sich nach Spielfortschritt; „Werkstatt“ erscheint reaktiv, sobald ein Fahrzeug verschleißt. Nach jedem Kapitelabschluss folgt sofort das nächste verfügbare Kapitel.
+  - Schritte lassen sich überspringen, das Tutorial pausieren und im **🎓 Ausbildungsheft** im Büro fortsetzen oder wiederholen.
+- **Operative Spedition statt Klick-Warteschlange**: Fahrer haben begrenzte Schichtlenkzeit, Fahrzeuge verlieren real spürbar an Tempo und Effizienz, und eine Tour kann wegen Personal, Zustand oder Frist eine schlechte Wahl sein. Personalentscheidungen und Vertragsrisiken wirken damit direkt in den Kernablauf.
 
 ### 🧊 3D-Grafik (three.js)
 - **Prozedurale 3D-Fahrzeugmodelle** im Low-Poly-Stil für alle 8 Fahrzeugtypen – inklusive passender Aufbauten (Koffer, Plane, Kühlaggregat, Tank, ADR-Warntafeln, Tieflader mit Bagger) und Anhängervarianten.
@@ -67,6 +75,7 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
   - **Frühwarnsystem**: Fällt ein Wert unter die Warnstufe (< 25) oder Gefahrenstufe (< 10), erscheint ein farbiger Badge (gelb/rot) direkt auf der Bürokachel – ohne das Dashboard öffnen zu müssen.
 
 ### 🚛 Fuhrparkmanagement
+- **Spürbarer Fahrzeugverschleiß**: Kilometer verringern den Zustand deutlich, senken die reale Reisegeschwindigkeit und erhöhen den Kraftstoffverbrauch. Monatliche Gutschriften reparieren Fahrzeuge nicht mehr automatisch; Wartung und Mechaniker-Kompetenz werden zu echten Kapazitätsentscheidungen.
 - **8 Fahrzeugtypen**: vom kleinen Transporter (2 t) bis zum Schwerlastzug (60 t).
 - Kaufe, warte und verkaufe Fahrzeuge (MAN, Volvo, Scania, DAF, Mercedes Actros u. a.).
 - Weise Fahrern Fahrzeuge zu und entferne sie wieder, wenn Fahrzeug und Fahrer sich am Firmensitz befinden.
@@ -77,7 +86,23 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 - **Anhänger-System**: Fahrzeuge mit Anhänger-Slot können beim Kauf mit einem passenden Anhänger ausgestattet werden. Sattelzug, Kühllaster und Tankzug unterstützen große Auflieger (Planenauflieger, Pritschenauflieger, Kühlauflieger, Tankauflieger); der Kleintransporter kann mit kleinen Anhängern (Kastenanhänger, Pritschenanhänger) ausgerüstet werden. Anhänger erhöhen die Nutzlast und ermöglichen zusätzliche Frachtanforderungen (z. B. Kühlung, ADR).
 - **Anhänger-Verwaltung im Fuhrpark**: Für Fahrzeuge am Firmensitz kann direkt ein kompatibler Anhänger gekauft und angekoppelt werden. Anhänger lassen sich abkoppeln und im Fuhrpark einlagern – von dort können sie an ein anderes kompatibles Fahrzeug angekoppelt oder verkauft werden.
 
+### 👥 Personal als Betriebssystem
+- **Fahrer-Lenkzeit**: Die Schichtkapazität hängt von Qualifikation ab und wird live im Personal- und Fuhrparkbildschirm angezeigt. Eine Tour kann die Kapazität überschreiten, muss dann aber eine planbare Ruhepause enthalten; Zufriedenheit beeinflusst Tempo und damit Fristen.
+- **Echte Schicht- und Ruheplanung**: Die 9–11-Stunden-Lenkzeit ist kein harter Unsichtbarkeitsfilter mehr. Erschöpft sich die Schicht während einer Tour, pausiert der Fahrer tatsächlich für 11 Stunden und fährt danach weiter. Die Simulation, „Nächstes Ereignis“ und alle geplanten ETAs berücksichtigen dieselbe Pause.
+- **Transparenter Tourenplaner**: Für jeden ausgewählten Auftrag zeigt der Planer vorhergesagte Abholung, Lieferung, Lieferfrist und verbleibenden Zeitpuffer. Ein ausklappbarer Detailbereich enthält Gewicht, Konditionen, Bonus, Strafe und Anforderungen. Pflichtpausen, Wiederverfügbarkeit und mögliche Terminrisiken werden separat ausgewiesen.
+- **Fahrerzertifikate mit Wirkung**: Gefahrgut braucht nicht nur ein ADR-fähiges Fahrzeug oder einen Tankanhänger, sondern zusätzlich einen Fahrer mit ADR-Zertifikat.
+- **Mitarbeiterzufriedenheit mit Folgen**: Unzufriedenheit erzeugt Warnungen und kann am Monatsende zu Kündigungen führen. Ein bezahlter Mitarbeiterbonus erhöht die Zufriedenheit um 20 Punkte und verhindert drohende Fluktuation.
+- **Wirksame Spezialrollen**: Telefonistin erhöht Auftragsvolumen und Zuschlagschancen, Manager reduziert Verwaltungszeit, Buchhalterin senkt Gehälter/Betriebskosten, Rechtsanwältin reduziert Vertragsstrafen und Mechaniker senkt Verschleiß sowie Wartungskosten.
+
 ### 📦 Auftragsystem
+- **Tourenplanung statt Einzelauftrag-Zwang**: Mehrere Aufträge lassen sich im neuen Routenplaner zu einer Mehrstopp-Tour kombinieren. Fahrzeug, Reihenfolge, Abhol- und Lieferstopps sowie optionale Rückfahrt zur Zentrale werden vor dem Start festgelegt.
+- **Entscheidung auf Basis echter Routendaten**: Der Tourenplaner berechnet Belade- und Leerfahrkilometer, Auslastung, Fahrtdauer, erwarteten Umsatz, Treibstoffkosten und den Deckungsbeitrag vor Fixkosten. Rückladungen werden anhand der Leerfahrt markiert.
+- **Offene Endpunkte und Rückfrachten**: Touren müssen nicht mehr zwingend zur Zentrale zurückkehren. Fahrzeuge bleiben am letzten Ziel einsatzbereit und können von dort neue regionale Fracht übernehmen, wodurch Standortplanung und Rückladungen erstmals strategisch relevant werden.
+- **Wöchentliche Kundenverträge**: Die **Frischeland-Linie** von Müller Lebensmittel garantiert eine wiederkehrende Ladung Frankfurt → Hamburg. Vertragsfracht besitzt feste Konditionen, eine sichtbar ausgewiesene Zuverlässigkeit und kann nach drei verpassten Ladungen vollständig verloren gehen. Beim Laden älterer Spielstände wird der Erstvertrag automatisch ergänzt.
+- **Vertragsportfolio und Ausschreibungen**: Neben der Frischeland-Linie können allgemeine Fracht, Medizingüter, Papier, Gefahrgut und Industriekomponenten als wiederkehrende Verträge angeboten werden. Verträge unterscheiden sich in Takt, Frist, Nutzlast, Sonderanforderungen, Stornierbarkeit und Marge.
+- **Konkurrenzangebote**: Jede Ausschreibung wird gegen einen namentlich genannten Wettbewerber entschieden. Drei Angebotsstrategien tauschen Marge gegen Gewinnchance; Unternehmensansehen, Telefonzentrale und Schwierigkeitsgrad verändern den Zuschlag. Nutzlast, Ausrüstung und Mindestansehen werden vorab geprüft.
+- **Angebotsfrist**: Ausschreibungen laufen zwei Tage. Passt eine Ausschreibung nicht zur eigenen Flotte, kann sie jederzeit folgenlos abgelehnt werden; lässt man die Frist ungenutzt verstreichen, verliert man Kundenansehen beim ausschreibenden Kunden.
+- **Langfristige Vertragsqualität**: Pünktliche Vertragsserien erhöhen nach vier Lieferungen den künftigen Preis und zahlen einen Treuebonus. Wiederholte Verspätungen oder verfallene Vertragsladungen senken die Zuverlässigkeit und können zum Verlust der Beziehung führen.
 - **25 fiktive Kunden** aus verschiedenen Branchen (Lebensmittel, Chemie, Bau, Medizin, Automobil …).
 - **10 Frachttypen**: Allgemeingut, Kühlware, Gefahrgut, Schwerlast, Kraftstoff u. v. m.
 - Aufträge haben eine Verfallszeit (2 Spieltage) und dynamische Preise je nach Frachttyp und Schwierigkeitsgrad.
@@ -107,7 +132,8 @@ Das Spiel läuft vollständig im Browser, ohne Installation oder Build-Schritt, 
 
 ### 🗺️ Europakarte
 - **41 europäische Städte** auf einer Canvas-basierten Karte (Hamburg, Berlin, München, Amsterdam, Paris, Wien, Warschau, Rom, Barcelona u. v. m.).
-- **Atlas-Kartendesign**: Die Karte zeigt vereinfachte **Ländergrenzen** für über 30 europäische Staaten mit farbkodierten Länderflächen sowie **topografische Bergschatten** für die Alpen, Pyrenäen, Karpaten, Apenninen und das Skandinavische Gebirge.
+- **Echte Europakarte**: Küstenlinien, Ländergrenzen, Seen, Flüsse und Gebirge stammen aus den gemeinfreien Geodaten von [Natural Earth](https://www.naturalearthdata.com/) und werden in der flächentreuen Lambert-Projektion (LAEA, wie die offizielle EU-Kartografie) dargestellt. Alle Städte liegen an ihren realen Positionen.
+- **Atlas-Stil**: Meer mit Flachwasser-Schimmer an den Küsten, Gradnetz, pastellfarbene Staaten, Gebirgsschattierung, Autobahnen im klassischen Straßenkarten-Orange sowie deutsche Beschriftungen für Länder, Meere und Gebirge. Beschriftungen weichen einander automatisch aus; die Karte wird auf hochauflösenden Displays gestochen scharf gezeichnet.
 - **Straßennetz-Routing**: Fahrzeuge folgen dem realen Straßennetz (Dijkstra-Algorithmus) statt direkter Luftlinien – mit automatisch eingefügten Transitstopps über Autobahnkreuze.
 - Verfolge deine Flotte in Echtzeit auf der Europakarte; Fahrzeuge starten und enden stets am richtigen Standort.
 - **Straßentypen-Visualisierung**: Autobahnen als breite, blaue Linien mit weißer Mittellinie; Bundesstraßen als gelbe Linien (nur in Zoom-Stufe 2 sichtbar).
@@ -201,11 +227,15 @@ npm test
 ```
 Der-Planer/
 ├── index.html          # Haupt-HTML-Datei und Spiel-UI (Single Page Application)
+├── scripts/
+│   └── build-map-geo.mjs # Erzeugt src/map_geo_data.js aus Natural-Earth-GeoJSON
 ├── css/
 │   └── style.css       # Dunkles Theme, Layout, Komponenten
 ├── src/
 │   ├── main.js         # Einstiegspunkt – DOM-Init, window-Globals
 │   ├── data.js         # Statische Spieldaten (Fahrzeuge, Städte, Kunden, Ereignisse …)
+│   ├── map_projection.js # Kartenprojektion (Lambert, flächentreu) für die Europakarte
+│   ├── map_geo_data.js # Generierte Geodaten (Länder, Küsten, Flüsse, Seen, Gebirge)
 │   ├── utils.js        # Reine Hilfsfunktionen (rand, fmt, pick, uid)
 │   ├── constants.js    # Spielkonstanten (APP_VERSION, TIME_COSTS, …)
 │   ├── state.js        # Spielzustand (GS) und Stadtverzeichnis
@@ -214,6 +244,8 @@ Der-Planer/
 │   │   ├── engine.js   # Spielschleife, advanceGameTime, Koordination
 │   │   ├── vehicles.js # Fahrzeugfabrik und Bewegungslogik
 │   │   ├── orders.js   # Reine Auftragslogik (canFulfillOrder, getReputationTier)
+│   │   ├── contracts.js # Wiederkehrende Wochenverträge und Zuverlässigkeit
+│   │   ├── tutorial.js # Kapitel, Schritte und Bereitschaftsprüfung des Ausbildungsprogramms
 │   │   ├── finance.js  # Transaktionen, Buchführung
 │   │   ├── staff.js    # Personalverwaltung
 │   │   ├── events.js   # Marktereignisse
@@ -228,12 +260,13 @@ Der-Planer/
 │   │   ├── screens.js      # Bildschirmnavigation
 │   │   ├── fleet.js        # Fuhrpark-Screen
 │   │   ├── orders_ui.js    # Auftrags-Screen
+│   │   ├── tutorial.js     # Ausbildungsheft und Tutorial-Kapitel
 │   │   ├── personnel.js    # Personal-Screen
 │   │   ├── finance_ui.js   # Finanz-Screen
 │   │   ├── office.js       # Büro-Screen
 │   │   ├── dialogs.js      # Ereignis-, Presse-, Kapitel- und Erfolgsdialoge
 │   │   ├── fx.js           # Konfetti, +€-Anzeigen, Erfolgs-Banner
-│   │   └── map.js          # Karte (Canvas-Rendering)
+│   │   └── map.js          # Karte (Canvas-Rendering mit Natural-Earth-Geodaten)
 │   ├── three/
 │   │   ├── assets.js            # Leichtgewichtige Fassade (lädt three.js bei Bedarf)
 │   │   ├── vehicle_models.js    # Prozedurale 3D-Fahrzeugmodelle
@@ -245,7 +278,9 @@ Der-Planer/
 │       ├── routing.test.js     # Tests für Wegfindungsalgorithmus
 │       ├── constants.test.js   # Tests für Spielkonstanten
 │       ├── orders.test.js      # Tests für Auftragslogik
+│       ├── tour_planning.test.js # Tests für Mehrstopp-Touren und Verträge
 │       ├── progression.test.js # Tests für Kampagne, Erfolge, Serien, Fahrer-XP
+│       ├── tutorial.test.js    # Tests für Kapitelablauf und Bereitschaftsprüfung des Tutorials
 │       └── road_events.test.js # Tests für Unterwegs-Ereignisse & Pressekonferenzen
 ├── vite.config.js      # Vite-Konfiguration
 └── package.json        # npm-Skripte und Abhängigkeiten

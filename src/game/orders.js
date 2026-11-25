@@ -2,6 +2,7 @@ import { DATA } from '../data.js';
 import { GS } from '../state.js';
 import { REP_TIER_MAX_WEIGHT, REQ_LABELS } from '../constants.js';
 import { getVehicleEffectiveRequirements, getVehicleEffectiveCapacity } from './vehicles.js';
+import { driverMeetsRequirements } from './staff.js';
 
 /** Returns true when an order has not yet expired and should be shown to the player. */
 export function isOrderAvailable(order) {
@@ -43,13 +44,18 @@ export function canFulfillOrder(order) {
   for (const v of assignableVehicles) {
     const effectiveReqs = getVehicleEffectiveRequirements(v);
     const meetsReqs = order.requirements.every(req => effectiveReqs.includes(req));
-    if (meetsReqs) return { feasible: true, reason: '' };
+    const driver = GS.staff.find(staff => staff.id === v.driverId);
+    if (meetsReqs && driverMeetsRequirements(driver, order.requirements)) {
+      return { feasible: true, reason: '' };
+    }
   }
   const reqLabel = order.requirements.map(r => REQ_LABELS[r] || r).join(', ');
   return {
     feasible: false,
     reason: order.requirements.length
-      ? `Kein Fahrzeug mit ${reqLabel}`
+      ? order.requirements.includes('adr')
+        ? `ADR-Fahrzeug oder Fahrer mit ADR-Zertifikat fehlt`
+        : `Kein Fahrzeug mit ${reqLabel}`
       : 'Kein geeignetes Fahrzeug verfügbar',
   };
 }

@@ -61,6 +61,7 @@ export function openEventsModal() {
 export function openSettingsModal() {
   const html = `
     <div class="flex flex-col gap-md">
+      <button class="btn btn-primary" onclick="openTutorialLibrary()">🎓 Ausbildungsheft öffnen</button>
       <button class="btn btn-secondary" onclick="autoSave();showToast('Gespeichert!','success')">💾 Manuell speichern</button>
       <button class="btn btn-danger"    onclick="if(confirm('Wirklich neu starten?')){deleteSave();location.reload()}">🗑️ Spielstand löschen & neu starten</button>
     </div>`;

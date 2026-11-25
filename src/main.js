@@ -14,8 +14,13 @@ import { showToast } from './ui/notifications.js';
 import { closeModal, openEventsModal, openSettingsModal, openStatsModal, openLogModal, openReputationDashboard } from './ui/modal.js';
 import { showScreen, navigateToScreen, registerScreenRenderer } from './ui/screens.js';
 import { renderFleet, renderCatalog, assignDriver, removeDriver, sendToMaintenance, repairVehicle, sellVehicle, buyVehicle, buyTrailerForVehicle, detachTrailerFromVehicle, attachTrailerToVehicle, sellTrailer } from './ui/fleet.js';
-import { renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal, setOrderSort, showMoreCompletedOrders } from './ui/orders_ui.js';
-import { renderPersonnel, fireStaff, hireStaff } from './ui/personnel.js';
+import {
+  renderOrders, switchOrderTab, saveOrderVehicleSelection, openClientModal,
+  setOrderSort, showMoreCompletedOrders, openTourPlanner, selectTourVehicle,
+  toggleTourOrder, moveTourOrder, setTourReturn, dispatchPlannedTour,
+  openTenderModal, placeContractBid, rejectContractTender,
+} from './ui/orders_ui.js';
+import { renderPersonnel, fireStaff, hireStaff, giveStaffBonus } from './ui/personnel.js';
 import { renderFinance, takeLoan } from './ui/finance_ui.js';
 import { renderOffice, officeAction } from './ui/office.js';
 import {
@@ -27,22 +32,30 @@ import {
 } from './ui/map.js';
 import { updateOrderBadge } from './ui/statusbar.js';
 import { registerDialogs, openAchievementsModal, openCampaignModal } from './ui/dialogs.js';
-import { registerProgressHook } from './game/progression.js';
+import {
+  dismissTutorialDialog, openTutorialChapter, openTutorialLibrary, pauseTutorialGuide,
+  registerTourTutorial, renderTutorialCoach, resumeTutorialGuide, skipTutorialStepFromUi,
+  startTutorialChapterFromUi, startTutorialGuide, toggleTutorialCoach,
+} from './ui/tutorial.js';
+import { emitProgressEvent, registerProgressHook } from './game/progression.js';
 import { startMenuScene, stopMenuScene, ensureVehicleThumbs, onThumbsReady } from './three/assets.js';
 
 
 // ── Register renderers with the engine ────────────────────────
-registerRenderer('fleet',    renderFleet);
-registerRenderer('orders',   renderOrders);
-registerRenderer('map',      renderMapScreen);
-registerRenderer('finance',  renderFinance);
-registerRenderer('office',   renderOffice);
-registerRenderer('personnel', renderPersonnel);
+// Re-renders replace DOM nodes, so the tutorial highlight is re-applied afterwards.
+const withCoach = render => () => { render(); renderTutorialCoach(); };
+registerRenderer('fleet',     withCoach(renderFleet));
+registerRenderer('orders',    withCoach(renderOrders));
+registerRenderer('map',       withCoach(renderMapScreen));
+registerRenderer('finance',   withCoach(renderFinance));
+registerRenderer('office',    withCoach(renderOffice));
+registerRenderer('personnel', withCoach(renderPersonnel));
 registerRenderer('orders-badge', updateOrderBadge);
 registerRenderer('screen-show-office', () => showScreen('office'));
 
 // ── Gameplay dialogs (road events, press, campaign, achievements) ──
 registerDialogs();
+registerTourTutorial();
 registerProgressHook('game-started', () => {
   stopMenuScene();
   ensureVehicleThumbs();
@@ -59,12 +72,12 @@ onThumbsReady(() => {
 });
 
 // ── Register screen renderers ─────────────────────────────────
-registerScreenRenderer('office',    renderOffice);
-registerScreenRenderer('fleet',     renderFleet);
-registerScreenRenderer('orders',    renderOrders);
-registerScreenRenderer('personnel', renderPersonnel);
-registerScreenRenderer('finance',   renderFinance);
-registerScreenRenderer('map',       renderMapScreen);
+registerScreenRenderer('office',    withCoach(renderOffice));
+registerScreenRenderer('fleet',     withCoach(renderFleet));
+registerScreenRenderer('orders',    withCoach(renderOrders));
+registerScreenRenderer('personnel', withCoach(renderPersonnel));
+registerScreenRenderer('finance',   withCoach(renderFinance));
+registerScreenRenderer('map',       withCoach(renderMapScreen));
 
 // ── Expose functions to window for HTML onclick attributes ────
 Object.assign(window, {
@@ -87,6 +100,24 @@ Object.assign(window, {
   openClientModal,
   setOrderSort,
   showMoreCompletedOrders,
+  openTourPlanner,
+  selectTourVehicle,
+  toggleTourOrder,
+  moveTourOrder,
+  setTourReturn,
+  dispatchPlannedTour,
+  openTenderModal,
+  placeContractBid,
+  rejectContractTender,
+  openTutorialLibrary,
+  openTutorialChapter,
+  startTutorialGuide,
+  pauseTutorialGuide,
+  resumeTutorialGuide,
+  dismissTutorialDialog,
+  startTutorialChapterFromUi,
+  skipTutorialStepFromUi,
+  toggleTutorialCoach,
 
   assignDriver,
   removeDriver,
@@ -102,6 +133,7 @@ Object.assign(window, {
   fireStaff,
   hireStaff,
   refreshCandidates,
+  giveStaffBonus,
 
   takeLoan,
 
@@ -133,12 +165,19 @@ Object.assign(window, {
 document.addEventListener('DOMContentLoaded', () => {
   // Speed buttons
   document.querySelectorAll('.speed-btn[data-speed]').forEach(b => {
-    b.addEventListener('click', () => setSpeed(parseInt(b.dataset.speed)));
+    b.addEventListener('click', () => {
+      const speed = parseInt(b.dataset.speed);
+      setSpeed(speed);
+      if (speed > 1) emitProgressEvent('tutorial-action', { action: 'time-skip' });
+    });
   });
 
   // Skip-to-next-event button
   const skipBtn = document.getElementById('btn-skip-event');
-  if (skipBtn) skipBtn.addEventListener('click', jumpToNextEvent);
+  if (skipBtn) skipBtn.addEventListener('click', () => {
+    jumpToNextEvent();
+    emitProgressEvent('tutorial-action', { action: 'time-skip' });
+  });
 
   // Map screen canvas
   const msc = document.getElementById('map-screen-canvas');

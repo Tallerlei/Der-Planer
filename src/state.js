@@ -35,6 +35,8 @@ export const GS = {
     completed: [],
     declined:  [],
   },
+  contracts: [],
+  tenders: [],
 
   market: {
     fuelPrice: 1.65,
@@ -66,6 +68,12 @@ export const GS = {
     orderVehicleSelection: {},
     orderSort: { field: 'value', dir: 'desc' },
     completedLimit: 10,
+    lastTenderCheckMin: 0,
+    routeDraft: {
+      vehicleId: null,
+      orderIds: [],
+      returnToBase: false,
+    },
   },
 
   clientReputation: {},

@@ -3,8 +3,16 @@ import { DATA } from '../data.js';
 import { GS, cityById } from '../state.js';
 import { TIME_COSTS, VEHICLE_STATUS_INFO, NEXT_ACTION_LABELS, MAINTENANCE_DURATION_MINUTES } from '../constants.js';
 import { addTransaction } from '../game/finance.js';
-import { createVehicle, updatePositionForVehicle, getVehicleEffectiveCapacity } from '../game/vehicles.js';
+import {
+  createVehicle, updatePositionForVehicle, getVehicleEffectiveCapacity,
+  getVehicleConditionFactor,
+} from '../game/vehicles.js';
+import {
+  getDriverRemainingMinutes,
+} from '../game/staff.js';
+import { getDriverShiftState } from '../game/tours.js';
 import { advanceGameTime, getVehicleActiveOrderId } from '../game/engine.js';
+import { emitProgressEvent } from '../game/progression.js';
 import { getDistance, findShortestPath, routeDistance } from '../routing.js';
 import { showToast } from './notifications.js';
 import { vehicleThumbHtml } from '../three/assets.js';
@@ -182,6 +190,7 @@ function _buildVehicleCardHtml(v) {
         <div class="vehicle-stat">
           <span class="stat-label">Fahrer</span>
           <span class="stat-value">${driver ? driver.name : '<em>Kein Fahrer</em>'}</span>
+          ${driver ? `<span class="text-xs ${getDriverRemainingMinutes(driver) < 120 ? 'text-danger' : 'text-muted'}">${getDriverShiftState(driver).resting ? `🌙 Ruhe bis ${_fmtMinutes(getDriverShiftState(driver).restUntilMinute - GS.time.totalMinutes)}` : `Lenkzeit: ${_fmtMinutes(getDriverRemainingMinutes(driver))} frei`}</span>` : ''}
         </div>
         <div class="vehicle-stat">
           <span class="stat-label">Standort</span>
@@ -200,6 +209,7 @@ function _buildVehicleCardHtml(v) {
         <div class="vehicle-stat">
           <span class="stat-label">km-Stand</span>
           <span class="stat-value">${fmt.km(Math.round(v.odometer))}</span>
+          <span class="text-xs text-muted">Zustandseffekt: ${Math.round(getVehicleConditionFactor(v) * 100)} % Tempo</span>
         </div>
         ${v.trailerId ? (() => {
           const trailer = findById(DATA.TRAILERS, v.trailerId);
@@ -478,6 +488,7 @@ export function sendToMaintenance(vehicleId) {
   addTransaction(`Wartung: ${v.name}`, -cost);
   advanceGameTime(TIME_COSTS.maintenance, 'Wartungsauftrag');
   renderFleet();
+  emitProgressEvent('tutorial-action', { action: 'maintenance-started' });
 }
 
 export function repairVehicle(vehicleId) {
@@ -496,6 +507,7 @@ export function repairVehicle(vehicleId) {
   showToast(hasRouteLeft ? `${v.name} repariert – setzt die Fahrt fort!` : `${v.name} repariert!`, 'success');
   advanceGameTime(TIME_COSTS.repair, 'Fahrzeugreparatur');
   renderFleet();
+  emitProgressEvent('tutorial-action', { action: 'maintenance-started' });
 }
 
 export function sellVehicle(vehicleId) {

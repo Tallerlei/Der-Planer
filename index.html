@@ -117,7 +117,12 @@
       <div id="screen-orders" class="screen">
         <div class="page-header">
           <h2>📋 <span>Aufträge</span></h2>
+          <button class="btn btn-primary btn-sm tour-planner-entry" onclick="openTourPlanner()" title="Mehrere Aufträge zu einer Route kombinieren">
+            🗺️ Tour planen
+          </button>
         </div>
+        <div id="tender-strip" class="tender-strip"></div>
+        <div id="contract-strip" class="contract-strip"></div>
         <div class="order-tabs">
           <div class="order-tab active" id="otab-available" data-tab="available">
             📞 Verfügbar
@@ -201,8 +206,8 @@
               <div class="card-header">Legende</div>
               <div class="legend-item"><div class="legend-line legend-autobahn"></div> Autobahn</div>
               <div class="legend-item"><div class="legend-line legend-national"></div> Bundesstraße</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#1a3ea8"></div> Großstadt / Hub</div>
-              <div class="legend-item"><div class="legend-dot" style="background:rgba(50,50,50,0.65)"></div> Stadt</div>
+              <div class="legend-item"><div class="legend-dot" style="background:radial-gradient(circle,#2a2f36 0 30%,#fff 32%);border:2px solid #2a2f36"></div> Großstadt / Hub</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#fff;border:1.5px solid #2a2f36"></div> Stadt</div>
               <div class="legend-item"><div class="legend-diamond"></div> Autobahnkreuz</div>
               <div class="legend-item"><div class="legend-dot" style="background:#1a8040"></div> Fahrzeug (unterwegs)</div>
               <div class="legend-item"><div class="legend-dot" style="background:#c02020"></div> Fahrzeug (Problem)</div>
@@ -313,7 +318,10 @@
           <li>🚛 Fuhrpark mit 8 Fahrzeugtypen (Kleintransporter bis Schwerlastzug)</li>
           <li>🗺️ Live-Karte mit über 40 europäischen Städten und Straßennetz-Routing</li>
           <li>📋 Dynamisches Auftragssystem (Telefon, Fax, Online)</li>
+          <li>🎓 Geführtes Ausbildungsprogramm mit 8 Kapiteln, Berater-Hinweisen und Schritt-für-Schritt-Aufgaben</li>
           <li>👥 Personalmanagement: Fahrer, Mechaniker, Buchhalter u.v.m.</li>
+          <li>⏱️ Lenkzeiten, Zufriedenheit, Spezialisierungsboni und Kündigungsrisiko</li>
+          <li>📨 Vertragsausschreibungen gegen konkurrierende Speditionen</li>
           <li>💰 Vollständiges Finanzsystem mit Krediten und Buchführung</li>
           <li>📰 Marktdynamik: Kraftstoffpreise, Wirtschaftslage, Wetterereignisse</li>
           <li>📖 Story-Kampagne mit 6 Kapiteln und 25 Erfolge</li>
@@ -335,6 +343,7 @@
 </div><!-- /app -->
 
 <!-- Toast container -->
+<div id="tutorial-coach" class="tutorial-coach" aria-live="polite"></div>
 <div id="toast-container"></div>
 
 <!-- Global modal -->

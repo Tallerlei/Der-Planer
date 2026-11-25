@@ -6,6 +6,7 @@ import { navigateToScreen } from './screens.js';
 import { openAchievementsModal, openCampaignModal } from './dialogs.js';
 import { ACHIEVEMENTS, getChapterStatus, ensureProgressState, currentStreakBonusPct, isStoryMode } from '../game/progression.js';
 import { ensureDepotScene } from '../three/assets.js';
+import { ensureTutorialState, getActiveTutorialStep, getTutorialOverview } from '../game/tutorial.js';
 
 function _depotState() {
   return {
@@ -40,6 +41,16 @@ function _renderGoals() {
   const status = getChapterStatus();
   const unlocked = Object.keys(p.achievements).length;
   const streakPct = Math.round(currentStreakBonusPct() * 1000) / 10;
+  const tutorialChapters = getTutorialOverview();
+  const tutorialStatus = ensureTutorialState().status;
+  const tutorialStep = tutorialStatus === 'active' ? getActiveTutorialStep() : null;
+  const completedTutorials = tutorialChapters.filter(chapter => chapter.completed).length;
+  const tutorialTitle = tutorialStep
+    ? `Ausbildung: ${tutorialStep.chapter.title}`
+    : tutorialStatus === 'paused' ? 'Ausbildung pausiert' : 'Ausbildungsheft';
+  const tutorialText = tutorialStep
+    ? `${tutorialStep.waitReason ? '⏳' : '▶'} ${tutorialStep.step.text}`
+    : tutorialStatus === 'paused' ? 'Hier kannst du das geführte Tutorial jederzeit fortsetzen.' : 'Alle Kapitel ansehen und wiederholen.';
 
   let goalsHtml = '';
   if (status) {
@@ -67,6 +78,14 @@ function _renderGoals() {
   }
 
   const html = `
+    <button class="tutorial-office-card" onclick="openTutorialLibrary()">
+      <span class="tutorial-office-icon">🎓</span>
+      <span class="tutorial-office-copy">
+        <strong>${tutorialTitle}</strong>
+        <span>${tutorialText}</span>
+      </span>
+      <span class="tutorial-office-action">${completedTutorials}/${tutorialChapters.length} Kapitel →</span>
+    </button>
     ${goalsHtml}
     <div class="goals-mini">
       <div class="mini-stat ${p.streak >= 3 ? 'hot' : ''}" title="Pünktlichkeits-Serie">🔥 <strong>${p.streak}</strong><span>Serie (+${streakPct} %)</span></div>
@@ -82,6 +101,7 @@ export function renderOffice() {
   if (!el) return;
 
   const pendingOrders  = GS.orders.available.length;
+  const openTenders    = (GS.tenders || []).filter(tender => tender.status === 'open').length;
   const activeVehicles = GS.vehicles.filter(v => v.status === 'driving').length;
   const brokenVehicles = GS.vehicles.filter(v => v.status === 'broken').length;
   const events         = GS.market.activeEvents.length;
@@ -96,7 +116,7 @@ export function renderOffice() {
   const repBadgeClass = dangerCount > 0 ? ' room-badge-danger' : (warningOnly > 0 ? ' room-badge-warning' : '');
 
   const rooms = [
-    { icon: '📞', name: 'Aufträge',           desc: `${pendingOrders} neue Aufträge`,        screen: 'orders',    badge: pendingOrders || null, badgeClass: '' },
+    { icon: '📞', name: 'Aufträge',           desc: `${pendingOrders} Aufträge${openTenders ? ` · ${openTenders} Ausschreibung` : ''}`, screen: 'orders', badge: pendingOrders || openTenders || null, badgeClass: '' },
     { icon: '🚛', name: 'Fuhrpark',            desc: `${GS.vehicles.length} Fahrzeuge`,      screen: 'fleet',     badge: brokenVehicles || null, badgeClass: '' },
     { icon: '👥', name: 'Personal',            desc: `${GS.staff.length} Mitarbeiter`,        screen: 'personnel', badge: null, badgeClass: '' },
     { icon: '💰', name: 'Buchhaltung',         desc: fmt.money(GS.finance.balance),           screen: 'finance',   badge: null, badgeClass: '' },

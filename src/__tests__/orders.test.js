@@ -169,6 +169,7 @@ describe('canFulfillOrder with trailers', () => {
   });
 
   it('returns feasible when trailer provides adr requirement', () => {
+    GS.staff = [{ id: 'd1', certifications: ['ADR'] }];
     GS.vehicles = [{
       id: 'v1',
       catalogId: 'semi',
@@ -178,5 +179,20 @@ describe('canFulfillOrder with trailers', () => {
     }];
     const order = { requirements: ['adr'] };
     expect(canFulfillOrder(order).feasible).toBe(true);
+  });
+});
+
+it('requires an ADR-certified driver for dangerous goods', () => {
+  GS.staff = [{ id: 'd1', certifications: [] }];
+  GS.vehicles = [{
+    id: 'v1',
+    catalogId: 'tanker',
+    status: 'idle',
+    driverId: 'd1',
+  }];
+
+  expect(canFulfillOrder({ requirements: ['adr'] })).toEqual({
+    feasible: false,
+    reason: 'ADR-Fahrzeug oder Fahrer mit ADR-Zertifikat fehlt',
   });
 });

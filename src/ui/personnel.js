@@ -3,7 +3,11 @@ import { DATA } from '../data.js';
 import { GS } from '../state.js';
 import { TIME_COSTS } from '../constants.js';
 import { addTransaction } from '../game/finance.js';
-import { createStaff, generateHireCandidates } from '../game/staff.js';
+import {
+  createStaff, generateHireCandidates, getDriverDailyLimit, getDriverRemainingMinutes,
+  getStaffRoleStrength,
+} from '../game/staff.js';
+import { getDriverShiftState } from '../game/tours.js';
 import { advanceGameTime } from '../game/engine.js';
 import { showToast } from './notifications.js';
 import { getDriverTitle, xpForNextLevel } from '../game/progression.js';
@@ -26,12 +30,39 @@ function _driverXpHtml(s) {
     </div>`;
 }
 
+function _roleImpactHtml() {
+  const effects = [
+    ['operator', '📞 Telefonzentrale', 'mehr Spotaufträge und bessere Ausschreibungswerte'],
+    ['manager', '👔 Management', 'weniger Zeitkosten bei Verwaltungsaktionen'],
+    ['accountant', '📊 Buchhaltung', 'niedrigere monatliche Betriebskosten'],
+    ['lawyer', '⚖️ Vertragsrecht', 'geringere Strafen bei verspäteten Lieferungen'],
+    ['mechanic', '🔧 Werkstatt', 'weniger Verschleiß und günstigere Instandhaltung'],
+  ];
+  return effects.map(([role, label, description]) => {
+    const strength = getStaffRoleStrength(role);
+    const pct = strength * 20;
+    return `
+      <div class="staff-role-impact ${strength === 0 ? 'staff-role-impact-empty' : ''}">
+        <div><strong>${label}</strong><span>${description}</span></div>
+        <div class="role-impact-value">${strength ? `${pct} %` : 'nicht besetzt'}</div>
+      </div>`;
+  }).join('');
+}
+
+function _formatDriveTime(minutes) {
+  const rounded = Math.max(0, Math.round(minutes || 0));
+  const hours = Math.floor(rounded / 60);
+  const remainder = rounded % 60;
+  return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
+}
+
 export function renderPersonnel() {
   const listEl = $('staff-list');
   const hireEl = $('hire-list');
   if (!listEl) return;
 
-  listEl.innerHTML = GS.staff.length === 0
+  const roleOverview = `<div class="staff-role-overview">${_roleImpactHtml()}</div>`;
+  listEl.innerHTML = roleOverview + (GS.staff.length === 0
     ? `<div class="empty-state"><div class="empty-icon">👥</div><h3>Keine Mitarbeiter</h3></div>`
     : GS.staff.map(s => {
         const role   = DATA.STAFF_ROLES[s.role];
@@ -60,6 +91,16 @@ export function renderPersonnel() {
               <div class="skill-dots">${dots}</div>
             </div>
             ${s.role === 'driver' ? _driverXpHtml(s) : ''}
+            ${s.role === 'driver' ? `
+              <div class="staff-stat">
+                <span class="ss-label">Aktuelle Schicht</span>
+                <span class="ss-value">${_formatDriveTime(s.drivingMinutesToday)} / ${_formatDriveTime(getDriverDailyLimit(s))}</span>
+                <span class="staff-shift-remaining ${getDriverRemainingMinutes(s) < 120 ? 'text-danger' : ''}">
+                  ${getDriverShiftState(s).resting
+                    ? `ruht noch ${_formatDriveTime(getDriverShiftState(s).restUntilMinute - GS.time.totalMinutes)}`
+                    : `noch ${_formatDriveTime(getDriverRemainingMinutes(s))}`}
+                </span>
+              </div>` : ''}
             ${vehicle ? `<div class="staff-stat"><span class="ss-label">Fahrzeug</span><span class="ss-value">${vehicle.name}</span></div>` : ''}
             ${s.certifications.length ? `
             <div class="staff-stat">
@@ -69,10 +110,12 @@ export function renderPersonnel() {
           </div>
 
           <div class="flex gap-sm">
+            <button class="btn btn-warning btn-sm" title="Einmalbonus zahlen und Zufriedenheit erhöhen"
+              onclick="giveStaffBonus('${s.id}')">+ Zufriedenheit</button>
             <button class="btn btn-danger btn-sm" title="Entlassen: +${TIME_COSTS.fireStaff} Min" onclick="fireStaff('${s.id}')">Entlassen</button>
           </div>
         </div>`;
-      }).join('');
+      }).join(''));
 
   if (!hireEl) return;
   if (GS.hireCandidates.length === 0) generateHireCandidates();
@@ -123,5 +166,20 @@ export function hireStaff(candidateId) {
   GS.hireCandidates = GS.hireCandidates.filter(x => x.id !== candidateId);
   showToast(`${c.name} eingestellt!`, 'success');
   advanceGameTime(TIME_COSTS.hireStaff, 'Einstellung');
+  renderPersonnel();
+}
+
+export function giveStaffBonus(staffId) {
+  const staff = GS.staff.find(item => item.id === staffId);
+  if (!staff) return;
+  const cost = Math.round(staff.salary * 0.25);
+  if (GS.finance.balance < cost) {
+    showToast('Das Bonusbudget reicht nicht aus.', 'danger');
+    return;
+  }
+  addTransaction(`Mitarbeiterbonus: ${staff.name}`, -cost);
+  staff.satisfaction = Math.min(100, (staff.satisfaction ?? 70) + 20);
+  staff.resignationWarning = false;
+  showToast(`${staff.name} freut sich über ${fmt.money(cost)} Bonus.`, 'success');
   renderPersonnel();
 }

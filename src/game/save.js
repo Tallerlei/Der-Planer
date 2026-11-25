@@ -1,5 +1,6 @@
 import { GS } from '../state.js';
 import { updatePositionForVehicle } from './vehicles.js';
+import { ensureContracts, ensureTenders } from './contracts.js';
 
 const SAVE_KEY = 'derplaner_save';
 
@@ -17,6 +18,10 @@ export function loadGame() {
     if (!Array.isArray(GS.trailers))           GS.trailers          = [];
     if (!Array.isArray(GS.reputationHistory))  GS.reputationHistory = [];
     if (!Array.isArray(GS.finance.loans))      GS.finance.loans      = [];
+    ensureContracts();
+    ensureTenders();
+    if (!GS.ui.routeDraft) GS.ui.routeDraft = { vehicleId: null, orderIds: [], returnToBase: false };
+    if (!Number.isFinite(GS.ui.lastTenderCheckMin)) GS.ui.lastTenderCheckMin = GS.time.totalMinutes;
     if (!GS.ui.orderSort)    GS.ui.orderSort    = { field: 'value', dir: 'desc' };
     if (!GS.ui.completedLimit) GS.ui.completedLimit = 10;
     delete GS.ui.routeVehicleId;

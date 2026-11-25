@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.23.1';
+export const APP_VERSION = '1.29.0';
 
 export const TIME_COSTS = {
   navigate: 5,
@@ -16,6 +16,7 @@ export const TIME_COSTS = {
   buyTrailer: 15,
   detachTrailer: 10,
   attachTrailer: 10,
+  dispatchTour: 30,
 };
 
 /** Global base price range per km for standard freight orders (€/km). */
@@ -68,6 +69,9 @@ export const GOLD_ORDER_EXPIRY_DAYS  = 0.5;
 export const DRIVER_XP_PER_LEVEL = 120;
 export const DRIVER_MAX_SKILL    = 5;
 export const DRIVER_TITLES = { 1: 'Neuling', 2: 'Fahrer', 3: 'Routinier', 4: 'Kapitän der Landstraße', 5: 'Legende' };
+export const DRIVER_BASE_MINUTES_PER_DAY = 9 * 60;
+export const DRIVER_EXTRA_MINUTES_PER_SKILL = 30;
+export const DRIVER_REST_RESET_MINUTES = 11 * 60;
 
 /** Interactive road events: chance per driving vehicle per game hour and global cooldown. */
 export const ROAD_EVENT_CHANCE_PER_VEHICLE_HOUR = 0.05;

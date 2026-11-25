@@ -9,12 +9,29 @@ import {
   FLEET_COMPATIBLE_ORDER_RATIO,
   BASE_MIN_KM_PRICE, BASE_MAX_KM_PRICE, CARGO_TYPE_KM_FACTORS,
   GOLD_ORDER_CHANCE,
+  DRIVER_REST_RESET_MINUTES,
 } from '../constants.js';
 import { getDistance, buildRouteStops, routeDistance } from '../routing.js';
 import { addTransaction, processLoanPayments } from './finance.js';
-import { createStaff, generateHireCandidates } from './staff.js';
-import { createVehicle, updatePositionForVehicle, startOrderForVehicle, isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements } from './vehicles.js';
+import {
+  createStaff, generateHireCandidates, getActionTimeMultiplier, getDriverByVehicle,
+  getDriverPerformanceFactor, getDriverRemainingMinutes, getMonthlyCostMultiplier,
+  getPenaltyMultiplier, migrateStaffState, resetDriverDailyMinutes, getRoleEffect,
+  getOperatorTenderBonus, driverMeetsRequirements,
+} from './staff.js';
+import { projectTour, projectDrivingSegments } from './tours.js';
+import {
+  createVehicle, updatePositionForVehicle, startOrderForVehicle, startTourForVehicle,
+  isVehicleReturningToBase, getVehicleEffectiveCapacity, getVehicleEffectiveRequirements,
+  getVehicleConditionFactor, getVehicleFuelConditionFactor, getVehicleWearPerKm,
+} from './vehicles.js';
 import { getReputationTier, canFulfillOrder, getFleetCapabilities } from './orders.js';
+import {
+  advanceContractRelease, buildContractOrder, createStarterContract, ensureContracts,
+  getContractById, isContractActive, recordContractFailure, recordContractDelivery,
+  expireTenders, generateContractTender, submitTenderBid, ensureTenders,
+  declineTender, getTenderClientId,
+} from './contracts.js';
 import { checkMarketEvents } from './events.js';
 import { autoSave, loadGame } from './save.js';
 import { showToast, showTimeAdvance, addLogEntry } from '../ui/notifications.js';
@@ -295,15 +312,15 @@ export function jumpToNextEvent() {
     }
     if (targetIdx < 0) continue;
 
-    let minutes = 0;
+    let pauses = 0;
 
     // Account for an active refuel pause (vehicle is currently stopped)
     if ((v.refuelPauseMinutes || 0) > 0) {
-      minutes += v.refuelPauseMinutes;
+      pauses += v.refuelPauseMinutes;
     }
     // Account for a stop caused by a road event (traffic jam, workshop …)
     if ((v.stopMinutes || 0) > 0) {
-      minutes += v.stopMinutes;
+      pauses += v.stopMinutes;
     }
 
     // Remaining distance on the current partial leg
@@ -319,13 +336,16 @@ export function jumpToNextEvent() {
     }
     const legKmDone    = (v.route.progressPct / 100) * legDist;
     const legRemaining = legDist - legKmDone;
-    minutes += legRemaining / kmPerMinute;
+    let drivingMinutes = legRemaining / kmPerMinute;
 
     // Sum full legs between the next stop and the target stop
     for (let i = idx + 1; i < targetIdx; i++) {
-      minutes += getDistance(stops[i].cityId, stops[i + 1].cityId) / kmPerMinute;
+      drivingMinutes += getDistance(stops[i].cityId, stops[i + 1].cityId) / kmPerMinute;
     }
 
+    const driver = getDriverByVehicle(v);
+    const driverProjection = projectDrivingSegments(driver, GS.time.totalMinutes + pauses, drivingMinutes);
+    const minutes = driverProjection.endMinute - GS.time.totalMinutes;
     if (minutes < minMinutes) minMinutes = minutes;
   }
 
@@ -359,7 +379,7 @@ export function advanceGameTime(minutes, label) {
   let actualMinutes = minutes;
   if (label) {
     const mod = (DATA.DIFFICULTY[GS.company.difficulty] || {}).timeCostMod || 1.0;
-    actualMinutes = Math.max(1, Math.round(minutes * mod));
+    actualMinutes = Math.max(1, Math.round(minutes * mod * getActionTimeMultiplier()));
   }
 
   const prevTotal = GS.time.totalMinutes;
@@ -389,6 +409,15 @@ export function advanceGameTime(minutes, label) {
   }
 
   tickVehicles(actualMinutes);
+  releaseDueContractOrders();
+  processExpiredTenders();
+  if (GS.time.totalMinutes - (GS.ui.lastTenderCheckMin || 0) >= 3 * 1440) {
+    GS.ui.lastTenderCheckMin = GS.time.totalMinutes;
+    if (ensureTenders().filter(tender => tender.status === 'open').length < 2) {
+      const tender = generateContractTender();
+      if (tender) showToast(`📨 Neue Vertragsausschreibung: ${tender.title}`, 'info');
+    }
+  }
 
   if (GS.time.totalMinutes - GS.ui.lastOrderCheckMin >= rand(120, 240)) {
     GS.ui.lastOrderCheckMin = GS.time.totalMinutes;
@@ -424,11 +453,24 @@ export function advanceGameTime(minutes, label) {
 // ── Monthly processing ────────────────────────────────────────
 export function processMonthEnd() {
   let totalSalary = 0;
+  const departingStaff = [];
   for (const s of GS.staff) {
     totalSalary += s.salary;
-    s.satisfaction = Math.max(40, s.satisfaction - rand(0, 3));
+    s.loyaltyMonths = (s.loyaltyMonths || 0) + 1;
+    s.satisfaction = Math.max(0, (s.satisfaction ?? 70) - rand(1, 4));
+    if (s.satisfaction <= 25) {
+      s.resignationWarning = true;
+      showToast(`${s.name} ist unzufrieden und erwägt eine Kündigung.`, 'warning');
+    }
+    const vehicle = s.vehicleId ? GS.vehicles.find(item => item.id === s.vehicleId) : null;
+    if (s.satisfaction <= 15 && (!vehicle || vehicle.status !== 'driving') && Math.random() < 0.35) {
+      departingStaff.push(s);
+    }
   }
-  if (totalSalary > 0) addTransaction('Gehälter Monat ' + GS.time.month, -totalSalary);
+  if (totalSalary > 0) {
+    totalSalary = Math.round(totalSalary * getMonthlyCostMultiplier());
+    addTransaction('Gehälter Monat ' + GS.time.month, -totalSalary);
+  }
 
   let totalMaint = 0;
   for (const v of GS.vehicles) {
@@ -438,9 +480,17 @@ export function processMonthEnd() {
     const discount = mechanic ? 0.15 * (mechanic.skill / 5) : 0;
     const cost = cat.maintenanceCostPerMonth * (1 - discount);
     totalMaint += cost;
-    v.health = Math.min(100, v.health + 5);
   }
   if (totalMaint > 0) addTransaction('Fahrzeugwartung', -Math.round(totalMaint));
+
+  for (const staff of departingStaff) {
+    const vehicle = staff.vehicleId ? GS.vehicles.find(item => item.id === staff.vehicleId) : null;
+    if (vehicle) {
+      vehicle.driverId = null;
+    }
+    GS.staff = GS.staff.filter(item => item.id !== staff.id);
+    showToast(`${staff.name} hat wegen der Arbeitsbedingungen gekündigt.`, 'danger');
+  }
 
   processLoanPayments();
 
@@ -461,13 +511,35 @@ export function tickVehicles(minutesPassed) {
     if (!stops || stops.length < 2) { v.status = 'idle'; continue; }
 
     const cat = DATA.VEHICLES.find(c => c.id === v.catalogId);
-    const speedKmH = cat.speed * GS.market.speedMod;
+    const driver = getDriverByVehicle(v);
+    const speedKmH = cat.speed
+      * GS.market.speedMod
+      * getVehicleConditionFactor(v)
+      * getDriverPerformanceFactor(driver);
     const kmPerMinute = speedKmH / 60;
 
     let remainingMinutes = minutesPassed;
-    const fuelFactor = driverFuelFactor(getDriverSkill(v));
+    const fuelFactor = driverFuelFactor(getDriverSkill(v)) * getVehicleFuelConditionFactor(v);
 
     while (remainingMinutes > 0 && v.status === 'driving') {
+      const currentSimulationMinute = GS.time.totalMinutes - remainingMinutes;
+      if (driver && Number.isFinite(driver.restUntilMinute) && driver.restUntilMinute > currentSimulationMinute) {
+        const rest = Math.min(driver.restUntilMinute - currentSimulationMinute, remainingMinutes);
+        remainingMinutes -= rest;
+        if (GS.time.totalMinutes - remainingMinutes >= driver.restUntilMinute) {
+          resetDriverDailyMinutes(driver);
+        }
+        continue;
+      }
+      if (driver && Number.isFinite(driver.restUntilMinute) && driver.restUntilMinute <= currentSimulationMinute) {
+        resetDriverDailyMinutes(driver);
+      }
+      if (driver && getDriverRemainingMinutes(driver) <= 0) {
+        driver.restUntilMinute = currentSimulationMinute + DRIVER_REST_RESET_MINUTES;
+        showToast(`${driver.name} beginnt eine ${Math.round(DRIVER_REST_RESET_MINUTES / 60)}-Stunden-Ruhezeit.`, 'warning');
+        continue;
+      }
+
       if ((v.stopMinutes || 0) > 0) {
         const pause = Math.min(v.stopMinutes, remainingMinutes);
         remainingMinutes -= pause;
@@ -498,22 +570,28 @@ export function tickVehicles(minutesPassed) {
       const idx  = v.route.currentStopIndex;
       const from = stops[idx];
       const to   = stops[idx + 1];
-      if (!to) { arriveAtFinalStop(v); break; }
+      if (!to) { arriveAtFinalStop(v, GS.time.totalMinutes - remainingMinutes); break; }
 
       const legDist = getDistance(from.cityId, to.cityId);
       const legKmDone = (v.route.progressPct / 100) * legDist;
       const legRemaining = legDist - legKmDone;
+      const drivingCapacityMinutes = driver
+        ? getDriverRemainingMinutes(driver)
+        : remainingMinutes;
       const kmThisTick = kmPerMinute * remainingMinutes;
-      const kmActual = Math.min(kmThisTick, legRemaining);
+      const kmWithinShift = kmPerMinute * drivingCapacityMinutes;
+      const kmActual = Math.min(kmThisTick, kmWithinShift, legRemaining);
+      const driveMinutesUsed = kmActual / kmPerMinute;
 
       const fuelUsed = (kmActual / 100) * cat.fuelConsumption * fuelFactor;
       v.fuel = Math.max(0, v.fuel - fuelUsed);
       v.odometer += kmActual;
       GS.stats.kmDriven += kmActual;
-      v.health = Math.max(0, v.health - kmActual * 0.0001);
+      v.health = Math.max(0, v.health - kmActual * getVehicleWearPerKm(v));
+      if (driver) driver.drivingMinutesToday = (driver.drivingMinutesToday || 0) + driveMinutesUsed;
 
-      if (kmThisTick >= legRemaining) {
-        remainingMinutes -= (legRemaining / kmPerMinute);
+      if (kmActual >= legRemaining) {
+        remainingMinutes -= driveMinutesUsed;
         v.route.progressPct = 0;
         v.currentCity = to.cityId;
         v.route.coveredDistance += legDist;
@@ -526,16 +604,25 @@ export function tickVehicles(minutesPassed) {
         if (v.route.stops !== stops) break;
 
         if (v.route.currentStopIndex >= stops.length - 1) {
-          arriveAtFinalStop(v);
+          arriveAtFinalStop(v, GS.time.totalMinutes - remainingMinutes);
           break;
         }
       } else {
         v.route.progressPct = ((legKmDone + kmActual) / legDist) * 100;
-        remainingMinutes = 0;
+        remainingMinutes -= driveMinutesUsed;
       }
     }
 
     updatePositionForVehicle(v);
+  }
+
+  for (const driver of GS.staff.filter(staff =>
+    staff.role === 'driver' &&
+    Number.isFinite(staff.restUntilMinute) &&
+    staff.restUntilMinute <= GS.time.totalMinutes &&
+    !GS.vehicles.some(vehicle => vehicle.driverId === staff.id && vehicle.status === 'driving')
+  )) {
+    resetDriverDailyMinutes(driver);
   }
 }
 
@@ -582,7 +669,7 @@ export function processStopAction(v, stop) {
   }
 }
 
-export function arriveAtFinalStop(v) {
+export function arriveAtFinalStop(v, arrivalMinute = GS.time.totalMinutes) {
   v.status = 'idle';
   v.route.stops = [];
   v.route.currentStopIndex = 0;
@@ -602,6 +689,11 @@ export function arriveAtFinalStop(v) {
     const nextOrder = GS.orders.active.find(o => o.id === nextOrderId);
     if (nextOrder) startOrderForVehicle(v, nextOrder);
   }
+  const driver = getDriverByVehicle(v);
+  if (driver && getDriverRemainingMinutes(driver) <= 0 && v.status === 'idle') {
+    driver.restUntilMinute = arrivalMinute + DRIVER_REST_RESET_MINUTES;
+  }
+  delete v.plannedTour;
 
   _render('fleet');
 }
@@ -620,7 +712,10 @@ export function completeOrder(order, vehicle) {
     finalValue += order.bonus;
   } else {
     const hoursLate = Math.floor((now - deadlineMinute) / 60);
-    penaltyAmount = Math.min(order.value * 0.5, order.penalty * hoursLate);
+    penaltyAmount = Math.min(
+      order.value * 0.5,
+      Math.round(order.penalty * hoursLate * getPenaltyMultiplier())
+    );
     finalValue = Math.max(0, order.value - penaltyAmount);
     showToast(`⚠️ Lieferung verspätet: +${fmt.money(finalValue)} (Strafe: ${fmt.money(penaltyAmount)})`, 'warning');
   }
@@ -648,9 +743,25 @@ export function completeOrder(order, vehicle) {
     changeClientReputation(order.clientId, clientRepCompletionGain(getClientReputation(order.clientId)));
     if (order.isGold) changeClientReputation(order.clientId, 3);
   } else {
+    GS.stats.ordersFailed = (GS.stats.ordersFailed || 0) + 1;
     GS.clientStats[order.clientId].failed++;
     changeClientReputation(order.clientId, -2);
     _enqueueOrderFailure(order, 'late', penaltyAmount);
+  }
+
+  if (order.isContract) {
+    const contract = getContractById(order.contractId);
+    if (contract) {
+      const reliabilityBonus = recordContractDelivery(contract, onTime);
+      if (reliabilityBonus > 0) {
+        addTransaction(`Vertragstreue: ${contract.title}`, reliabilityBonus);
+        showToast(`${contract.title}: Leistungsbonus +${fmt.money(reliabilityBonus)}`, 'success');
+        changeClientReputation(contract.clientId, 3);
+      }
+      if (!isContractActive(contract)) {
+        showToast(`📉 Vertrag ${contract.title} wurde nach wiederholten Ausfällen gekündigt.`, 'danger');
+      }
+    }
   }
 
   addTransaction(
@@ -683,7 +794,10 @@ export function generateOrders() {
   const maxAvailable = Math.max(MIN_ORDER_POOL, Math.ceil(usableVehicles * ORDER_POOL_MULTIPLIER));
   if (GS.orders.available.length >= maxAvailable) return;
   const canGenerate = maxAvailable - GS.orders.available.length;
-  const count = Math.min(canGenerate, Math.round(rand(3, 8) * volMod));
+  const count = Math.min(
+    canGenerate,
+    Math.round(rand(3, 8) * volMod * (1 + getRoleEffect('operator') * 0.35))
+  );
   if (count <= 0) return;
 
   const repTier = getReputationTier(GS.company.reputation || 50);
@@ -957,6 +1071,9 @@ export function expireOrders() {
       order.expiredAt = currentTimeSnapshot();
       order.status = 'expired';
       GS.orders.declined.unshift(order);
+      if (order.isTutorial) return false;
+      GS.stats.ordersFailed = (GS.stats.ordersFailed || 0) + 1;
+      if (order.isContract) recordContractFailure(getContractById(order.contractId));
       ensureClientStats(order.clientId);
       GS.clientStats[order.clientId].failed++;
       const repBefore = getClientReputation(order.clientId);
@@ -972,6 +1089,185 @@ export function expireOrders() {
 }
 
 // ── Order lifecycle ──────────────────────────────────────────
+export function releaseDueContractOrders() {
+  const now = GS.time.totalMinutes;
+  let released = 0;
+
+  for (const contract of ensureContracts()) {
+    const wasActive = contract.active !== false;
+    while (isContractActive(contract) && contract.nextReleaseMinute <= now) {
+      const releaseMinute = contract.nextReleaseMinute;
+      if (now - releaseMinute > contract.deadlineMinutes) {
+        recordContractFailure(contract);
+        GS.stats.ordersFailed = (GS.stats.ordersFailed || 0) + 1;
+        ensureClientStats(contract.clientId);
+        GS.clientStats[contract.clientId].failed++;
+        changeClientReputation(contract.clientId, -2);
+      } else {
+        const order = buildContractOrder(contract, releaseMinute, _minutesToTS(releaseMinute));
+        if (order) {
+          GS.orders.available.push(order);
+          ensureClientStats(contract.clientId);
+          GS.clientStats[contract.clientId].offered++;
+          released++;
+        }
+      }
+      advanceContractRelease(contract);
+    }
+    if (wasActive && !isContractActive(contract)) {
+      showToast(`📉 Vertrag ${contract.title} wurde nach ${contract.maxMisses || 3} Ausfällen gekündigt.`, 'danger');
+    }
+  }
+
+  if (released > 0) {
+    showToast(`${released} Vertragsladung${released > 1 ? 'en' : ''} eingegangen.`, 'info');
+    _render('orders-badge');
+    if (typeof document !== 'undefined' && document.getElementById('order-list-available')) _render('orders');
+  }
+  return released;
+}
+
+export function dispatchTour(vehicleId, orderIds, returnToBase = false) {
+  const vehicle = GS.vehicles.find(item => item.id === vehicleId);
+  if (!vehicle || vehicle.status !== 'idle' || !vehicle.driverId) {
+    showToast('Für die Tour wird ein bereites Fahrzeug mit Fahrer benötigt.', 'warning');
+    return false;
+  }
+
+  const uniqueIds = [...new Set(orderIds || [])];
+  const orders = uniqueIds.map(id => GS.orders.available.find(order => order.id === id));
+  if (orders.some(order => !order)) {
+    showToast('Mindestens ein Auftrag ist nicht mehr verfügbar.', 'warning');
+    return false;
+  }
+  if (orders.length === 0) {
+    showToast('Mindestens einen Auftrag auswählen.', 'warning');
+    return false;
+  }
+
+  const capacity = getVehicleEffectiveCapacity(vehicle);
+  const requirements = getVehicleEffectiveRequirements(vehicle);
+  const invalid = orders.find(order =>
+    order.weight > capacity ||
+    order.requirements.some(requirement => !requirements.includes(requirement)) ||
+    !driverMeetsRequirements(getDriverByVehicle(vehicle), order.requirements)
+  );
+  if (invalid) {
+    showToast(`${vehicle.name} kann ${invalid.cargoDesc} nicht in einer Tour transportieren.`, 'danger');
+    return false;
+  }
+
+  const projection = projectTour(vehicle, orders, !!returnToBase);
+  if (projection?.hasDeadlineRisk) {
+    showToast('⚠️ Tour startet trotz knapper oder verfehlter Lieferfristen. ETA im Planer prüfen.', 'warning');
+  }
+
+  for (const order of orders) {
+    const index = GS.orders.available.findIndex(item => item.id === order.id);
+    GS.orders.available.splice(index, 1);
+    order.status = 'accepted';
+    order.vehicleId = vehicle.id;
+    order.acceptedMinute = GS.time.totalMinutes;
+    order.acceptedAt = currentTimeSnapshot();
+    order.plannedTour = true;
+    GS.orders.active.push(order);
+    ensureClientStats(order.clientId);
+    GS.clientStats[order.clientId].accepted++;
+  }
+
+  startTourForVehicle(vehicle, orders, !!returnToBase);
+  vehicle.plannedTour.projection = {
+    startMinute: projection.startMinute,
+    endMinute: projection.endMinute,
+    availableMinute: projection.availableMinute,
+    rests: projection.rests,
+    stops: projection.stops.map(stop => ({
+      orderId: stop.order.id,
+      pickupMinute: stop.pickupMinute,
+      deliveryMinute: stop.deliveryMinute,
+      deadlineMinute: stop.deadlineMinute,
+      marginMinutes: stop.marginMinutes,
+    })),
+  };
+  showToast(
+    `${orders.length}-Aufträge-Tour für ${vehicle.name} gestartet – ${returnToBase ? 'Rückkehr zur Zentrale' : `Ende in ${getCityName(orders[orders.length - 1].destination)}`}.`,
+    'success'
+  );
+  advanceGameTime(TIME_COSTS.dispatchTour, 'Tour-Disposition');
+  _render('orders-badge');
+  _render('orders');
+  _render('fleet');
+  _render('map');
+  return true;
+}
+
+export const TENDER_IGNORE_REP_LOSS = 3;
+
+/** Ignored tenders annoy the client: each missed deadline costs client reputation. */
+export function processExpiredTenders() {
+  const expired = expireTenders();
+  for (const tender of expired) {
+    const clientId = getTenderClientId(tender);
+    if (clientId) changeClientReputation(clientId, -TENDER_IGNORE_REP_LOSS);
+    tender.ignoredRepLoss = clientId ? TENDER_IGNORE_REP_LOSS : 0;
+    showToast(`⌛ Frist verpasst: ${tender.clientName} wartete vergeblich auf ein Angebot für „${tender.title}“ (−${TENDER_IGNORE_REP_LOSS} Kundenansehen).`, 'warning');
+  }
+  if (expired.length > 0) {
+    _render('orders-badge');
+    _render('orders');
+  }
+  return expired;
+}
+
+export function declineContractTender(tenderId) {
+  const tender = declineTender(tenderId);
+  if (!tender) {
+    showToast('Diese Ausschreibung ist bereits beendet.', 'warning');
+    return false;
+  }
+  showToast(`Ausschreibung „${tender.title}“ abgelehnt. ${tender.clientName} wurde rechtzeitig informiert.`, 'info');
+  _render('orders-badge');
+  _render('orders');
+  return true;
+}
+
+export function bidForContract(tenderId, strategyId) {
+  const tender = ensureTenders().find(item => item.id === tenderId);
+  if (!tender || tender.status !== 'open') {
+    showToast('Diese Ausschreibung ist bereits beendet.', 'warning');
+    return false;
+  }
+  const capabilities = getFleetCapabilities();
+  if ((GS.company.reputation || 50) < tender.minRep) {
+    showToast(`Dafür werden mindestens ${tender.minRep} Ansehen benötigt.`, 'warning');
+    return false;
+  }
+  if (tender.requirements.some(requirement => !capabilities.metReqs.has(requirement))) {
+    showToast('Der Fuhrpark erfüllt die Sonderanforderungen dieser Ausschreibung noch nicht.', 'danger');
+    return false;
+  }
+  if (tender.weight > capabilities.maxCapacity) {
+    showToast(`Die Nutzlast reicht nicht: ${fmt.weight(tender.weight)} werden benötigt.`, 'danger');
+    return false;
+  }
+
+  const result = submitTenderBid(tenderId, strategyId, Math.random, getOperatorTenderBonus());
+  if (!result.ok) {
+    showToast(result.reason, 'warning');
+    return false;
+  }
+  if (result.won) {
+    showToast(`🏆 Zuschlag! ${result.contract.clientName} beauftragt ${result.contract.title}.`, 'success');
+    changeClientReputation(result.contract.clientId, 2);
+    releaseDueContractOrders();
+  } else {
+    showToast(`${tender.competitor} erhält den Zuschlag. Mehr Ansehen oder ein günstigeres Gebot verbessert die Chancen.`, 'warning');
+  }
+  advanceGameTime(TIME_COSTS.assignOrder, 'Vertragsausschreibung');
+  _render('orders');
+  return true;
+}
+
 export function acceptOrder(orderId, vehicleId) {
   const idx = GS.orders.available.findIndex(o => o.id === orderId);
   if (idx < 0) return;
@@ -983,12 +1279,22 @@ export function acceptOrder(orderId, vehicleId) {
     showToast('Fahrzeug ist nicht verfügbar.', 'warning'); return;
   }
   if (!vehicle.driverId) { showToast('Dem Fahrzeug ist kein Fahrer zugewiesen.', 'warning'); return; }
+  if (vehicle.status === 'idle') {
+    const projection = projectTour(vehicle, [order], true);
+    if (projection?.hasDeadlineRisk) {
+      showToast('Achtung: Die voraussichtliche Tour würde die Lieferfrist verfehlen oder knapp halten.', 'warning');
+    }
+  }
 
   const effectiveReqs = getVehicleEffectiveRequirements(vehicle);
   for (const req of order.requirements) {
     if (!effectiveReqs.includes(req)) {
       const reqLabel = REQ_LABELS[req] || req;
       showToast(`Fahrzeug erfüllt nicht: ${reqLabel}`, 'danger'); return;
+    }
+    if (!driverMeetsRequirements(getDriverByVehicle(vehicle), order.requirements)) {
+      showToast('Der zugewiesene Fahrer besitzt nicht das benötigte ADR-Zertifikat.', 'danger');
+      return;
     }
   }
 
@@ -1013,6 +1319,7 @@ export function acceptOrder(orderId, vehicleId) {
   }
 
   advanceGameTime(TIME_COSTS.assignOrder, 'Auftragsübernahme');
+  emitProgressEvent('tutorial-action', { action: 'order-accepted' });
   delete GS.ui.orderVehicleSelection[orderId];
   _render('orders-badge');
   if (document.getElementById('order-list-available')) _render('orders');
@@ -1037,8 +1344,11 @@ export function declineOrder(orderId) {
  *  (route has been built for it – it is NOT merely sitting in orderQueue). */
 export function getVehicleActiveOrderId(vehicle) {
   if (!vehicle || vehicle.status !== 'driving' || !vehicle.route?.stops) return null;
-  for (const stop of vehicle.route.stops) {
+  const currentIndex = vehicle.route.currentStopIndex || 0;
+  for (let index = currentIndex; index < vehicle.route.stops.length; index++) {
+    const stop = vehicle.route.stops[index];
     if ((stop.action === 'pickup' || stop.action === 'delivery') && stop.orderId) {
+      if (vehicle.plannedTour && !GS.orders.active.some(order => order.id === stop.orderId)) continue;
       return stop.orderId;
     }
   }
@@ -1060,9 +1370,12 @@ function _validateVehicleForOrder(vehicle, order) {
   if (!vehicle) return 'Fahrzeug nicht gefunden.';
   if (vehicle.status !== 'idle' && vehicle.status !== 'driving') return 'Fahrzeug ist nicht verfügbar.';
   if (!vehicle.driverId) return 'Dem Fahrzeug ist kein Fahrer zugewiesen.';
-  const cat = DATA.VEHICLES.find(c => c.id === vehicle.catalogId);
+  const effectiveRequirements = getVehicleEffectiveRequirements(vehicle);
   for (const req of order.requirements) {
-    if (!cat.requirements.includes(req)) return `Fahrzeug erfüllt nicht: ${REQ_LABELS[req] || req}`;
+    if (!effectiveRequirements.includes(req)) return `Fahrzeug erfüllt nicht: ${REQ_LABELS[req] || req}`;
+  }
+  if (!driverMeetsRequirements(getDriverByVehicle(vehicle), order.requirements)) {
+    return 'Der Fahrer besitzt nicht das benötigte ADR-Zertifikat.';
   }
   return null;
 }
@@ -1088,6 +1401,10 @@ export function reassignOrder(orderId, newVehicleId) {
   if (!currentVehicle) {
     const executingVehicle = GS.vehicles.find(v => getVehicleActiveOrderId(v) === orderId);
     if (executingVehicle) {
+      if (executingVehicle.plannedTour) {
+        showToast('Aufträge einer geplanten Tour können nicht einzeln umgeleitet werden.', 'warning');
+        return;
+      }
       if (isCargoLoaded(executingVehicle, orderId)) {
         showToast('Ladung wurde bereits abgeholt – Auftrag kann nicht mehr umgeleitet werden.', 'warning');
         return;
@@ -1155,6 +1472,10 @@ export function reassignOrder(orderId, newVehicleId) {
 export function addVehicleToOrder(orderId, vehicleId) {
   const order = GS.orders.active.find(o => o.id === orderId);
   if (!order) { showToast('Auftrag nicht gefunden.', 'warning'); return; }
+  if (order.plannedTour) {
+    showToast('Geplante Touren werden als zusammenhängender Ablauf ausgeführt.', 'warning');
+    return;
+  }
   if ((order.remainingWeight || 0) <= 0) { showToast('Auftrag ist bereits vollständig geliefert.', 'info'); return; }
 
   const vehicle = GS.vehicles.find(v => v.id === vehicleId);
@@ -1256,7 +1577,10 @@ export function startNewGame() {
   GS.stats = { totalRevenue: 0, totalExpenses: 0, ordersCompleted: 0, ordersFailed: 0, kmDriven: 0 };
   GS.clientReputation = {};
   GS.clientStats      = {};
+  GS.contracts        = [createStarterContract(GS.time.totalMinutes)];
+  GS.tenders          = [];
   GS.progress         = createProgressState();
+  migrateStaffState();
 
   const starterVan = createVehicle('transit', 'frankfurt');
   GS.vehicles.push(starterVan);
@@ -1271,6 +1595,8 @@ export function startNewGame() {
 
   generateHireCandidates();
   generateOrders();
+  releaseDueContractOrders();
+  generateContractTender();
 
   GS.started = true;
 
@@ -1298,7 +1624,14 @@ export function loadAndContinue() {
   if (!Array.isArray(GS.finance.loans)) GS.finance.loans = [];
   if (!GS.clientReputation) GS.clientReputation = {};
   if (!GS.clientStats)      GS.clientStats      = {};
+  if (ensureContracts().length === 0) {
+    GS.contracts.push(createStarterContract(GS.time.totalMinutes));
+  }
+  ensureTenders();
   ensureProgressState();
+  migrateStaffState();
+  expireTenders();
+  if (!Number.isFinite(GS.ui.lastTenderCheckMin)) GS.ui.lastTenderCheckMin = GS.time.totalMinutes;
   GS.vehicles.forEach(v => { if (v.stopMinutes === undefined) v.stopMinutes = 0; });
   GS.started = true;
   document.getElementById('status-bar').classList.add('visible');
@@ -1310,6 +1643,7 @@ export function loadAndContinue() {
   showToast('Spielstand geladen.', 'success');
   emitProgressEvent('game-started');
   showChapterIntroIfNeeded();
+  releaseDueContractOrders();
 }
 
 // ── Staff candidate refresh ───────────────────────────────────
